@@ -1,0 +1,52 @@
+# ⚛️ Frontend React - ML API v2
+FROM node:18-alpine
+
+# Metadatos
+LABEL maintainer="ML API Team"
+LABEL version="2.0.0"
+LABEL description="Frontend React con Vite para ML API"
+
+# Variables de entorno
+ENV NODE_ENV=development \
+    PNPM_HOME="/pnpm" \
+    PATH="$PNPM_HOME:$PATH"
+
+# Instalar pnpm globalmente
+RUN corepack enable
+
+# Crear usuario no-root
+RUN addgroup -g 1001 -S reactuser && \
+    adduser -S reactuser -u 1001
+
+# Instalar dependencias del sistema
+RUN apk add --no-cache \
+    curl \
+    git
+
+# Crear directorio de trabajo
+WORKDIR /app
+
+# Cambiar propietario del directorio
+RUN chown -R reactuser:reactuser /app
+
+# Cambiar a usuario no-root
+USER reactuser
+
+# Copiar package.json y package-lock.json
+COPY --chown=reactuser:reactuser package*.json ./
+
+# Instalar dependencias
+RUN npm ci --only=production=false
+
+# Copiar código de la aplicación
+COPY --chown=reactuser:reactuser . .
+
+# Configurar salud del contenedor
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:3000 || exit 1
+
+# Exponer puerto
+EXPOSE 3000
+
+# Comando por defecto
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"] 
