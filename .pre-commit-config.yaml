@@ -20,3 +20,13 @@ repos:
   #   hooks:
   #     - id: black
   #       name: 🖤 Black - Formateo Python
+
+  # Análisis de deuda técnica (deshabilitado por problemas de encoding en Windows)
+  # - repo: local
+  #   hooks:
+  #     - id: tech-debt-analyzer
+  #       name: 🔍 Análisis de deuda técnica
+  #       entry: python infrastructure/scripts/tech_debt_analyzer.py
+  #       language: system
+  #       pass_filenames: false
+  #       always_run: true
