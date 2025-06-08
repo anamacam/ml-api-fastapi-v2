@@ -28,7 +28,7 @@ import re
 
 @dataclass
 class DebtMetric:
-    """Métrica individual de deuda técnica"""
+    """Métrica individual de deuda técnica."""
     name: str
     value: float
     max_value: float
@@ -40,7 +40,7 @@ class DebtMetric:
 
 @dataclass
 class DebtReport:
-    """Reporte completo de deuda técnica"""
+    """Reporte completo de deuda técnica."""
     timestamp: str
     total_score: float
     max_score: float
@@ -50,9 +50,15 @@ class DebtReport:
 
 
 class TechnicalDebtAnalyzer:
-    """Analizador principal de deuda técnica"""
+    """Analizador principal de deuda técnica."""
 
     def __init__(self, project_root: str = "."):
+        """
+        Inicializar el analizador de deuda técnica.
+
+        Args:
+            project_root: Ruta raíz del proyecto a analizar.
+        """
         self.project_root = Path(project_root)
         self.backend_path = self.project_root / "backend"
         self.frontend_path = self.project_root / "frontend"
@@ -587,7 +593,7 @@ class TechnicalDebtAnalyzer:
 
 
 def main():
-    """Función principal"""
+    """Función principal del analizador de deuda técnica."""
     parser = argparse.ArgumentParser(description="Analizador de Deuda Técnica")
     parser.add_argument("--format", choices=["console", "json"], default="console",
                        help="Formato de salida del reporte")

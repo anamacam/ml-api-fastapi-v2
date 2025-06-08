@@ -7,25 +7,27 @@
 ![Docker](https://img.shields.io/badge/Docker-Compose-blue.svg)
 ![TDD](https://img.shields.io/badge/TDD-Enabled-green.svg)
 
-**Aplicación completa de Machine Learning con FastAPI, React y arquitectura de microservicios**
+## Descripción
+
+Aplicación completa de Machine Learning con FastAPI, React y arquitectura de microservicios
 
 ## 🌐 Puertos y Servicios
 
-| Servicio       | Puerto | URL                   | Descripción                |
-| -------------- | ------ | --------------------- | -------------------------- |
-| Frontend Web   | 3000   | http://localhost:3000 | 🎨 App principal React/Vue |
-| Frontend Admin | 3001   | http://localhost:3001 | ⚙️ Panel administración    |
-| Backend API    | 8000   | http://localhost:8000 | ⚡ FastAPI REST API        |
-| WebSocket      | 8001   | ws://localhost:8001   | 📡 Tiempo real             |
-| Metrics        | 8002   | http://localhost:8002 | 📊 Prometheus metrics      |
-| Grafana        | 3000   | http://localhost:3000 | 📈 Dashboards              |
-| PostgreSQL     | 5432   | localhost:5432        | 🗄️ Base de datos           |
-| Redis          | 6379   | localhost:6379        | 🚀 Cache                   |
-| Nginx          | 80     | http://localhost      | 🌐 Proxy reverso           |
+| Servicio       | Puerto | URL                     | Descripción                |
+| -------------- | ------ | ----------------------- | -------------------------- |
+| Frontend Web   | 3000   | <http://localhost:3000> | 🎨 App principal React/Vue |
+| Frontend Admin | 3001   | <http://localhost:3001> | ⚙️ Panel administración    |
+| Backend API    | 8000   | <http://localhost:8000> | ⚡ FastAPI REST API        |
+| WebSocket      | 8001   | ws://localhost:8001     | 📡 Tiempo real             |
+| Metrics        | 8002   | <http://localhost:8002> | 📊 Prometheus metrics      |
+| Grafana        | 3000   | <http://localhost:3000> | 📈 Dashboards              |
+| PostgreSQL     | 5432   | localhost:5432          | 🗄️ Base de datos           |
+| Redis          | 6379   | localhost:6379          | 🚀 Cache                   |
+| Nginx          | 80     | <http://localhost>      | 🌐 Proxy reverso           |
 
 ## 📁 Estructura del Proyecto
 
-```
+```text
 ml-api-fastapi-v2/
 ├── 🎨 frontend/                     # FRONTEND COMPLETO
 │   ├── web-app/                     # Aplicación web principal
@@ -171,7 +173,7 @@ Este proyecto está configurado con **TDD completo** para garantizar calidad des
 
 ### 🧪 **Estructura de Tests:**
 
-```
+```text
 backend/tests/
 ├── test_api/
 │   ├── test_health.py         # Tests endpoints salud
@@ -249,10 +251,10 @@ docker-compose up -d
 
 ### 4️⃣ **Verificar Servicios:**
 
-- **🎨 Frontend**: http://localhost:3000
-- **⚡ API Docs**: http://localhost:8000/docs
-- **✅ Health Check**: http://localhost:8000/api/v1/health
-- **📊 Metrics**: http://localhost:8002/metrics
+- **🎨 Frontend**: <http://localhost:3000>
+- **⚡ API Docs**: <http://localhost:8000/docs>
+- **✅ Health Check**: <http://localhost:8000/api/v1/health>
+- **📊 Metrics**: <http://localhost:8002/metrics>
 
 ## 🛠️ Tecnologías
 

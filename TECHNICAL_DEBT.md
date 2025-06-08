@@ -226,4 +226,7 @@ El proyecto muestra **excelente salud técnica** con:
 
 ---
 
-_Último análisis: 2025-06-07 | Próxima revisión: 2025-06-14_
+## Revisiones
+
+- **Último análisis**: 2025-06-07
+- **Próxima revisión**: 2025-06-14
