@@ -81,8 +81,12 @@ class TechnicalDebtAnalyzer:
         self._analyze_todo_fixme_comments()
         self._analyze_file_metrics()
 
-        # Análisis de tests
+        # Análisis de documentación
+        self._analyze_docstrings_quality()
+
+        # Análisis de tests y TDD
         self._analyze_test_coverage()
+        self._analyze_tdd_practices()
 
         # Análisis de dependencias
         self._analyze_dependencies()
@@ -333,6 +337,97 @@ class TechnicalDebtAnalyzer:
 
         self.debt_report.metrics.append(metric)
 
+    def _analyze_docstrings_quality(self):
+        """Analizar calidad y completitud de docstrings."""
+        print("  📝 Analizando calidad de docstrings...")
+
+        python_objects = []
+        missing_docstrings = []
+        incomplete_docstrings = []
+
+        # Buscar en todo el proyecto, no solo backend
+        for py_file in self.project_root.rglob("*.py"):
+            if "venv" in str(py_file) or "__pycache__" in str(py_file):
+                continue
+
+            try:
+                with open(py_file, 'r', encoding='utf-8') as f:
+                    code = f.read()
+
+                tree = ast.parse(code)
+                relative_path = str(py_file.relative_to(self.project_root))
+
+                for node in ast.walk(tree):
+                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                        python_objects.append(node.name)
+
+                        # Verificar si tiene docstring
+                        docstring = ast.get_docstring(node)
+
+                        if not docstring:
+                            missing_docstrings.append(f"{relative_path}:{node.lineno} - {type(node).__name__} '{node.name}'")
+                        else:
+                            # Verificar calidad básica del docstring
+                            if len(docstring.strip()) < 10:
+                                incomplete_docstrings.append(f"{relative_path}:{node.lineno} - {type(node).__name__} '{node.name}' (muy corto)")
+                            elif not docstring.strip().endswith('.'):
+                                incomplete_docstrings.append(f"{relative_path}:{node.lineno} - {type(node).__name__} '{node.name}' (sin punto final)")
+                            elif isinstance(node, ast.FunctionDef) and node.args.args and 'Args:' not in docstring and 'Parameters:' not in docstring:
+                                if len(node.args.args) > 1:  # Más de solo 'self'
+                                    incomplete_docstrings.append(f"{relative_path}:{node.lineno} - función '{node.name}' (sin documentar parámetros)")
+
+            except Exception as e:
+                print(f"    ⚠️  Error analizando docstrings en {py_file}: {e}")
+                continue
+
+        total_objects = len(python_objects)
+        missing_count = len(missing_docstrings)
+        incomplete_count = len(incomplete_docstrings)
+
+        if total_objects > 0:
+            completion_rate = ((total_objects - missing_count) / total_objects) * 100
+        else:
+            completion_rate = 100.0
+
+        # Determinar severidad basada en completion rate
+        severity = "low"
+        if completion_rate < 40:
+            severity = "critical"
+        elif completion_rate < 60:
+            severity = "high"
+        elif completion_rate < 80:
+            severity = "medium"
+
+        affected_files = list(set([
+            issue.split(':')[0] for issue in missing_docstrings + incomplete_docstrings
+        ]))
+
+        recommendations = []
+        if missing_count > 0:
+            recommendations.extend([
+                "Agregar docstrings a funciones y clases públicas",
+                "Seguir estándar PEP 257 para docstrings",
+                "Usar formato Google Style o NumPy Style"
+            ])
+        if incomplete_count > 0:
+            recommendations.extend([
+                "Mejorar calidad de docstrings existentes",
+                "Documentar parámetros, retornos y excepciones",
+                "Terminar docstrings con punto final"
+            ])
+
+        metric = DebtMetric(
+            name="calidad_docstrings",
+            value=completion_rate,
+            max_value=100.0,
+            description=f"Completitud: {completion_rate:.1f}% ({total_objects - missing_count}/{total_objects} objetos con docstring). Incompletos: {incomplete_count}",
+            severity=severity,
+            files_affected=affected_files,
+            recommendations=recommendations
+        )
+
+        self.debt_report.metrics.append(metric)
+
     def _analyze_test_coverage(self):
         """Analizar cobertura de tests"""
         print("  🧪 Analizando cobertura de tests...")
@@ -363,6 +458,127 @@ class TechnicalDebtAnalyzer:
                 "Implementar tests de integración",
                 "Agregar tests para casos edge"
             ] if test_ratio < 0.8 else []
+        )
+
+        self.debt_report.metrics.append(metric)
+
+    def _analyze_tdd_practices(self):
+        """Analizar prácticas de Test-Driven Development (TDD)."""
+        print("  🎯 Analizando prácticas TDD...")
+
+        tdd_indicators = {
+            'test_structure': 0,
+            'test_naming': 0,
+            'test_organization': 0,
+            'test_first_approach': 0,
+            'test_quality': 0
+        }
+
+        issues = []
+        test_files = []
+
+        # Buscar archivos de test
+        for test_file in self.project_root.rglob("test_*.py"):
+            if "venv" in str(test_file) or "__pycache__" in str(test_file):
+                continue
+            test_files.append(test_file)
+
+        # También buscar en carpetas tests/
+        for test_file in self.project_root.rglob("tests/**/*.py"):
+            if "venv" in str(test_file) or "__pycache__" in str(test_file):
+                continue
+            if test_file not in test_files:
+                test_files.append(test_file)
+
+        if not test_files:
+            issues.append("No se encontraron archivos de test")
+            tdd_score = 0
+            achieved_indicators = 0
+            total_indicators = 0
+        else:
+            total_indicators = 0
+
+            for test_file in test_files:
+                try:
+                    with open(test_file, 'r', encoding='utf-8') as f:
+                        content = f.read()
+
+                    relative_path = str(test_file.relative_to(self.project_root))
+
+                    # 1. Estructura de tests (pytest, unittest, etc.)
+                    if any(pattern in content for pattern in ['def test_', 'class Test', '@pytest', 'unittest']):
+                        tdd_indicators['test_structure'] += 1
+                    else:
+                        issues.append(f"{relative_path}: Sin estructura de test reconocible")
+
+                    # 2. Naming conventions para tests
+                    import re
+                    test_functions = re.findall(r'def (test_\w+)', content)
+                    if test_functions:
+                        descriptive_names = [name for name in test_functions if len(name) > 10]
+                        if len(descriptive_names) >= len(test_functions) * 0.7:
+                            tdd_indicators['test_naming'] += 1
+                        else:
+                            issues.append(f"{relative_path}: Nombres de test poco descriptivos")
+
+                    # 3. Organización (fixtures, setup, teardown)
+                    if any(pattern in content for pattern in ['@pytest.fixture', 'setUp', 'tearDown', 'conftest']):
+                        tdd_indicators['test_organization'] += 1
+
+                    # 4. Enfoque TDD (arrange-act-assert, given-when-then)
+                    if any(pattern in content.lower() for pattern in ['# arrange', '# act', '# assert',
+                                                                     '# given', '# when', '# then',
+                                                                     'arrange', 'act', 'assert']):
+                        tdd_indicators['test_first_approach'] += 1
+
+                    # 5. Calidad de tests (mocks, parametrize, etc.)
+                    if any(pattern in content for pattern in ['@mock', '@patch', '@parametrize', 'Mock()', 'MagicMock']):
+                        tdd_indicators['test_quality'] += 1
+
+                    total_indicators += 5  # 5 indicadores por archivo
+
+                except Exception as e:
+                    issues.append(f"Error analizando {test_file}: {e}")
+
+            # Calcular score TDD
+            achieved_indicators = sum(tdd_indicators.values())
+            tdd_score = (achieved_indicators / max(total_indicators, 1)) * 100 if total_indicators > 0 else 0
+
+        # Determinar severidad
+        severity = "low"
+        if tdd_score < 30:
+            severity = "critical"
+        elif tdd_score < 50:
+            severity = "high"
+        elif tdd_score < 70:
+            severity = "medium"
+
+        # Recomendaciones basadas en indicadores faltantes
+        recommendations = []
+        if tdd_indicators['test_structure'] < len(test_files) * 0.8:
+            recommendations.append("Usar frameworks de testing estándar (pytest, unittest)")
+        if tdd_indicators['test_naming'] < len(test_files) * 0.7:
+            recommendations.append("Usar nombres descriptivos para tests (test_should_do_something_when_condition)")
+        if tdd_indicators['test_organization'] < len(test_files) * 0.5:
+            recommendations.append("Implementar fixtures y setup/teardown para tests")
+        if tdd_indicators['test_first_approach'] < len(test_files) * 0.3:
+            recommendations.append("Seguir patrón Arrange-Act-Assert en tests")
+        if tdd_indicators['test_quality'] < len(test_files) * 0.4:
+            recommendations.append("Usar mocks y parametrización para tests robustos")
+
+        if not recommendations:
+            recommendations = ["Mantener buenas prácticas TDD", "Considerar agregar más tests de integración"]
+
+        affected_files = [str(f.relative_to(self.project_root)) for f in test_files[:5]]
+
+        metric = DebtMetric(
+            name="practicas_tdd",
+            value=tdd_score,
+            max_value=100.0,
+            description=f"Score TDD: {tdd_score:.1f}% ({len(test_files)} archivos test). Indicadores: {achieved_indicators}/{total_indicators}",
+            severity=severity,
+            files_affected=affected_files,
+            recommendations=recommendations
         )
 
         self.debt_report.metrics.append(metric)
@@ -485,20 +701,27 @@ class TechnicalDebtAnalyzer:
 
         # Pesos por importancia
         weights = {
-            'complejidad_ciclomatica': 0.25,
-            'cobertura_tests': 0.25,
-            'convenciones_naming': 0.15,
-            'comentarios_deuda': 0.15,
-            'metricas_archivos': 0.10,
-            'dependencias': 0.05,
-            'duplicacion_codigo': 0.05
+            'complejidad_ciclomatica': 0.18,
+            'cobertura_tests': 0.18,
+            'practicas_tdd': 0.18,
+            'calidad_docstrings': 0.18,
+            'convenciones_naming': 0.12,
+            'comentarios_deuda': 0.08,
+            'metricas_archivos': 0.05,
+            'dependencias': 0.02,
+            'duplicacion_codigo': 0.01
         }
 
         for metric in self.debt_report.metrics:
             weight = weights.get(metric.name, 0.1)
 
-            # Invertir score para que menor deuda = mayor score
-            normalized_score = max(0, (metric.max_value - metric.value) / metric.max_value) * 100
+            # Para docstrings y TDD, el valor ya es un porcentaje (más alto = mejor)
+            if metric.name in ['calidad_docstrings', 'practicas_tdd']:
+                normalized_score = metric.value  # Ya está en porcentaje
+            else:
+                # Invertir score para que menor deuda = mayor score
+                normalized_score = max(0, (metric.max_value - metric.value) / metric.max_value) * 100
+
             weighted_score = normalized_score * weight
 
             total_score += weighted_score
