@@ -40,7 +40,7 @@ fi
 # 2. Activar ambiente virtual de Python si existe
 if [[ -d "backend/venv" ]]; then
     log_info "Activando ambiente virtual..."
-    
+
     # Detectar sistema operativo para activar correctamente
     if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]]; then
         # Windows
@@ -49,7 +49,7 @@ if [[ -d "backend/venv" ]]; then
         # Linux/Mac
         source backend/venv/bin/activate
     fi
-    
+
     log_success "Ambiente virtual activado"
 else
     log_warning "Ambiente virtual no encontrado en backend/venv"
@@ -72,7 +72,7 @@ pre-commit install --hook-type pre-push
 # 6. Hacer permisos ejecutables a los scripts
 log_info "Configurando permisos de scripts..."
 chmod +x infrastructure/scripts/check_docstrings.py
-chmod +x infrastructure/scripts/check_env_vars.py  
+chmod +x infrastructure/scripts/check_env_vars.py
 chmod +x infrastructure/scripts/check_package_versions.py
 
 # 7. Instalar dependencias adicionales para linting
@@ -108,7 +108,7 @@ if [[ ! -f "backend/.flake8" ]]; then
 max-line-length = 88
 extend-ignore = E203, W503, E501
 max-complexity = 10
-exclude = 
+exclude =
     .git,
     __pycache__,
     .venv,
@@ -167,8 +167,8 @@ echo "• Para actualizar hooks: pre-commit autoupdate"
 echo ""
 echo "🔧 Hooks configurados:"
 echo "• ✅ Formateo de código (Black, Prettier)"
-echo "• ✅ Linting (Flake8, ESLint)"  
+echo "• ✅ Linting (Flake8, ESLint)"
 echo "• ✅ Type checking (MyPy)"
 echo "• ✅ Seguridad (Bandit)"
 echo "• ✅ Tests rápidos (Pytest)"
-echo "• ✅ Verificaciones personalizadas" 
+echo "• ✅ Verificaciones personalizadas"

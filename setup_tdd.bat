@@ -19,11 +19,11 @@ echo ✅ TDD configurado exitosamente!
 echo.
 echo 💡 Próximos pasos:
 echo    1. cd backend ^&^& pytest
-echo    2. cd frontend\web-app ^&^& npm test  
+echo    2. cd frontend\web-app ^&^& npm test
 echo    3. Lee TDD_GUIDE.md para empezar
 echo    4. Sigue el ciclo: Red → Green → Refactor
 echo.
 echo 🔴 RED: Escribir test que falle
 echo 🟢 GREEN: Código mínimo para pasar
 echo 🔵 REFACTOR: Mejorar manteniendo tests
-pause 
+pause

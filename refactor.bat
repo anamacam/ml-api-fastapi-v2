@@ -19,4 +19,4 @@ echo ✅ Refactoring completado
 echo 💡 Usa: refactor.bat --plan para generar plan detallado
 echo 💡 Usa: refactor.bat --apply para aplicar cambios (¡crea backup!)
 echo ⚠️  Siempre revisa los cambios con: git diff
-pause 
+pause

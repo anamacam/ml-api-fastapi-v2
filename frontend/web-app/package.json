@@ -1,50 +1,40 @@
 {
   "name": "ml-api-frontend",
+  "private": true,
   "version": "2.0.0",
-  "description": "Frontend React para ML API - Aplicación principal",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc && vite build",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "lint": "eslint . --ext js,jsx,ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "lint:fix": "eslint . --ext js,jsx,ts,tsx --fix",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^7.1.1",
-    "axios": "^1.7.9",
-    "zustand": "^5.0.2",
-    "react-query": "^3.39.3",
-    "react-hook-form": "^7.54.2",
-    "react-dropzone": "^14.3.5",
-    "@hookform/resolvers": "^3.10.0",
-    "zod": "^3.24.1",
-    "lucide-react": "^0.468.0",
-    "recharts": "^2.15.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.20.1",
+    "axios": "^1.6.2",
     "react-hot-toast": "^2.4.1",
-    "clsx": "^2.1.1",
-    "tailwind-merge": "^2.6.0"
+    "lucide-react": "^0.294.0",
+    "@headlessui/react": "^1.7.17",
+    "clsx": "^2.0.0",
+    "tailwind-merge": "^2.0.0"
   },
   "devDependencies": {
-    "@types/react": "^18.3.17",
-    "@types/react-dom": "^18.3.5",
-    "@typescript-eslint/eslint-plugin": "^8.20.0",
-    "@typescript-eslint/parser": "^8.20.0",
-    "@vitejs/plugin-react": "^4.3.4",
-    "autoprefixer": "^10.4.20",
-    "eslint": "^9.18.0",
-    "eslint-plugin-react": "^7.37.2",
-    "eslint-plugin-react-hooks": "^5.1.0",
-    "postcss": "^8.5.2",
-    "tailwindcss": "^3.4.17",
-    "typescript": "^5.7.2",
-    "vite": "^6.0.7"
-  },
-  "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=8.0.0"
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "@types/node": "^20.9.0",
+    "@typescript-eslint/eslint-plugin": "^6.10.0",
+    "@typescript-eslint/parser": "^6.10.0",
+    "@vitejs/plugin-react": "^4.1.1",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.0",
+    "eslint": "^8.53.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.4",
+    "tailwindcss": "^3.3.5",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.31"
   }
-} 
+}

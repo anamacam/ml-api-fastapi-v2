@@ -18,4 +18,4 @@ echo.
 echo ✅ Análisis completado
 echo 💡 Usa: analyze_tech_debt.bat --format json para generar reporte JSON
 echo 💡 Usa: refactor.bat --plan para generar plan de refactoring
-pause 
+pause

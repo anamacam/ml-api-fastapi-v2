@@ -213,7 +213,7 @@ if command -v docker &> /dev/null; then
     log_info "Iniciando servicios de base de datos..."
     docker-compose up -d postgres redis
     log_success "Servicios de base de datos iniciados"
-    
+
     # Esperar a que la base de datos esté lista
     log_info "Esperando a que PostgreSQL esté listo..."
     sleep 10
@@ -233,8 +233,8 @@ echo "   docker-compose up -d"
 echo ""
 echo "🌐 URLs de acceso:"
 echo "• Frontend Web: http://localhost:3000"
-echo "• Frontend Admin: http://localhost:3001" 
+echo "• Frontend Admin: http://localhost:3001"
 echo "• Backend API: http://localhost:8000"
 echo "• API Docs: http://localhost:8000/docs"
 echo "• Grafana: http://localhost:3000 (admin/admin)"
-echo "• Prometheus: http://localhost:8002" 
+echo "• Prometheus: http://localhost:8002"
