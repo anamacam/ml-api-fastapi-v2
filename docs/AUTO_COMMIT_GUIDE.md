@@ -18,7 +18,7 @@ Sistema automático de protección contra pérdida de datos que hace commits fre
 # Activar protección estándar (3 minutos)
 .\scripts\quick_save.ps1 -On
 
-# Modo emergencia máxima (1 minuto)  
+# Modo emergencia máxima (1 minuto)
 .\scripts\quick_save.ps1 -Emergency
 
 # Ver estado actual
@@ -57,7 +57,7 @@ Control granular del sistema de auto-commits.
 
 ### ✅ **Qué Hace Automáticamente:**
 - ✅ **Detecta cambios** en el proyecto cada X minutos
-- ✅ **Git add .** automático de todos los archivos modificados  
+- ✅ **Git add .** automático de todos los archivos modificados
 - ✅ **Commit automático** con mensaje timestamped
 - ✅ **Push automático** a GitHub para respaldo remoto
 - ✅ **Logging completo** de toda la actividad
@@ -66,7 +66,7 @@ Control granular del sistema de auto-commits.
 ### 🔄 **Mensajes de Commit Automáticos:**
 ```
 auto: save work in progress at 14:25:28
-auto: save work in progress at 14:28:31  
+auto: save work in progress at 14:28:31
 auto: save work in progress at 14:31:45
 ```
 
@@ -91,7 +91,7 @@ Get-Content auto_commit.log | Select-Object -Last 10
 
 #### **PC Inestable - Problemas de Hardware:**
 ```powershell
-.\scripts\quick_save.ps1 -Emergency  
+.\scripts\quick_save.ps1 -Emergency
 # Commits cada 1 minuto sin validaciones
 ```
 
@@ -118,7 +118,7 @@ Get-Content auto_commit.log | Select-Object -Last 10
 ```bash
 [INFO]  - Operaciones normales
 [WARN]  - Advertencias (push falló, etc.)
-[ERROR] - Errores críticos  
+[ERROR] - Errores críticos
 [DEBUG] - Información detallada
 ```
 
@@ -133,7 +133,7 @@ Get-Content auto_commit.log
 # Filtrar solo errores
 Get-Content auto_commit.log | Select-String "ERROR"
 
-# Últimas 20 entradas  
+# Últimas 20 entradas
 Get-Content auto_commit.log | Select-Object -Last 20
 ```
 
@@ -150,7 +150,7 @@ Get-Content auto_commit.log | Select-Object -Last 20
 
 ### ⏹️ **Detener Auto-Commits:**
 ```powershell
-# Método rápido  
+# Método rápido
 .\scripts\quick_save.ps1 -Off
 
 # Método directo
@@ -208,7 +208,7 @@ git push origin master
 
 ### ⚠️ **Advertencias:**
 - Los commits automáticos **NO** tienen validaciones completas
-- Para commits finales, usar `.\scripts\commit.ps1`  
+- Para commits finales, usar `.\scripts\commit.ps1`
 - El sistema puede generar **muchos commits** (normal)
 - **Squash commits** antes de pull requests
 
@@ -231,7 +231,7 @@ git push origin master
 
 El sistema te protege contra:
 - ✅ **Pérdida por fallo de hardware** (95% protección)
-- ✅ **Pérdida por corte de luz** (90% protección)  
+- ✅ **Pérdida por corte de luz** (90% protección)
 - ✅ **Pérdida por reinicio inesperado** (95% protección)
 - ✅ **Pérdida por crash de aplicación** (85% protección)
 
@@ -250,11 +250,11 @@ Si tu PC está fallando **AHORA MISMO**:
 # 2. COMMIT MANUAL INMEDIATO
 git add . && git commit --no-verify -m "emergency: save before PC crash"
 
-# 3. PUSH INMEDIATO  
+# 3. PUSH INMEDIATO
 git push origin master
 
 # 4. VERIFICAR SUBIDA
 git log --oneline -1
 ```
 
-**¡Tu trabajo está protegido! 🛡️** 
+**¡Tu trabajo está protegido! 🛡️**
