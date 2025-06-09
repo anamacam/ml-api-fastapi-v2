@@ -28,7 +28,7 @@ Esta guía establece las convenciones estándar para nombrar archivos, directori
 ✅ **Ejemplos CORRECTOS:**
 ```
 backend/app/models/user.py               # ✅ Modelo usuario
-backend/app/services/prediction_service.py # ✅ Servicio predicción  
+backend/app/services/prediction_service.py # ✅ Servicio predicción
 backend/tests/unit/test_user_model.py    # ✅ Test unitario
 infrastructure/scripts/git_best_practices.py # ✅ Script análisis
 ```
@@ -109,10 +109,10 @@ def validate_prediction_input(data: dict) -> bool:
 # Clases
 class PredictionService:
     """Servicio para manejar predicciones ML."""
-    
+
     def __init__(self):
         self._model_cache = {}
-    
+
     def _load_model(self, model_id: str):
         """Carga modelo en cache privadamente."""
         pass
@@ -162,11 +162,11 @@ const UserProfile: React.FC<{ user: IUser }> = ({ user }) => {
 // Clases
 class ApiService {
   private baseUrl: string;
-  
+
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
   }
-  
+
   async get(endpoint: string): Promise<any> {
     // implementación
   }
@@ -205,8 +205,8 @@ CREATE TABLE ml_predictions (
     prediction_result JSONB NOT NULL,
     confidence_score DECIMAL(5,4),
     created_at TIMESTAMP DEFAULT NOW(),
-    
-    CONSTRAINT fk_predictions_user_id 
+
+    CONSTRAINT fk_predictions_user_id
         FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
@@ -308,7 +308,7 @@ frontend/web-app/src/
 ### **Antes de Crear API Endpoint:**
 
 - [ ] ✅ Usa recursos en plural
-- [ ] ✅ Usa kebab-case para palabras múltiples  
+- [ ] ✅ Usa kebab-case para palabras múltiples
 - [ ] ✅ No incluye verbos en URL
 - [ ] ✅ Sigue estructura RESTful
 - [ ] ✅ Usa versionado (`/v1/`)
@@ -337,4 +337,4 @@ git commit  # Ejecuta validaciones automáticamente
 
 ---
 
-**Nota**: Estas convenciones están integradas en nuestro sistema de calidad y se validan automáticamente en cada commit mediante pre-commit hooks. ¡Mantengamos el código limpio y consistente! 🚀 
+**Nota**: Estas convenciones están integradas en nuestro sistema de calidad y se validan automáticamente en cada commit mediante pre-commit hooks. ¡Mantengamos el código limpio y consistente! 🚀
