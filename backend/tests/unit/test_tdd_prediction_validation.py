@@ -37,7 +37,7 @@ def test_validate_prediction_input_rejects_invalid_features():
         "income": [],           # List instead of number
         "category": 123         # Number instead of string
     }
-    
+
     result = validate_prediction_input(invalid_features)
     assert result["valid"] is False
     assert "invalid_types" in result["error"]
@@ -58,7 +58,7 @@ def test_validate_prediction_input_accepts_valid_features():
         "category": "premium",
         "score": 0.85
     }
-    
+
     result = validate_prediction_input(valid_features)
     assert result["valid"] is True
     assert "error" not in result
@@ -77,7 +77,7 @@ def test_validate_prediction_input_handles_missing_required_fields():
         "age": 25
         # Faltan: income, category, score
     }
-    
+
     result = validate_prediction_input(incomplete_features)
     assert result["valid"] is False
     assert "missing_fields" in result["error"]
@@ -99,7 +99,7 @@ def test_validate_prediction_input_validates_numeric_ranges():
         "category": "premium",
         "score": 1.5         # Score > 1.0
     }
-    
+
     result = validate_prediction_input(out_of_range_features)
     assert result["valid"] is False
-    assert "out_of_range" in result["error"] 
+    assert "out_of_range" in result["error"]
