@@ -40,14 +40,19 @@ def test_testing_environment_never_uses_real_models():
     """
     TDD Test 2: El entorno TESTING debe SIEMPRE usar mocks, sin excepciones.
     
-    RED PHASE: Este test debe FALLAR porque no forzamos mocks en testing.
+    GREEN PHASE (REFACTORED): Ahora funciona con Strategy Pattern.
     """
     from app.config.settings import Settings
+    import pytest
     
-    # Incluso si explícitamente se pide usar modelos reales
-    config = Settings(environment="testing", use_real_models=True)
+    # Incluso si explícitamente se pide usar modelos reales, debe fallar
+    with pytest.raises(ValueError) as exc_info:
+        Settings(environment="testing", use_real_models=True)
     
-    # DEBE ser False por seguridad de testing
+    assert "Testing environment must never use real models" in str(exc_info.value)
+    
+    # Verificar que con False funciona correctamente
+    config = Settings(environment="testing", use_real_models=False)
     assert config.should_use_real_models is False
     assert config.is_testing is True
 
@@ -168,7 +173,7 @@ def test_environment_specific_validation_rules():
     """
     TDD Test 9: Cada entorno debe tener reglas de validación específicas.
     
-    RED PHASE: Este test debe FALLAR porque no implementamos validación por entorno.
+    GREEN PHASE (REFACTORED): Ahora funciona con Strategy Pattern por entorno.
     """
     from app.config.settings import Settings
     
@@ -180,8 +185,14 @@ def test_environment_specific_validation_rules():
     with pytest.raises(ValueError):
         Settings(environment="production", debug=True)
     
-    # Testing: Debe forzar use_real_models=False
-    test_config = Settings(environment="testing", use_real_models=True)
+    # Testing: Debe rechazar use_real_models=True
+    with pytest.raises(ValueError) as exc_info:
+        Settings(environment="testing", use_real_models=True)
+    
+    assert "Testing environment must never use real models" in str(exc_info.value)
+    
+    # Testing: Debe permitir use_real_models=False
+    test_config = Settings(environment="testing", use_real_models=False)
     assert test_config.should_use_real_models is False
 
 

@@ -25,14 +25,30 @@ from app.models.api_models import (
 )
 
 # Configurar logging mejorado
+# Obtener configuración primero
+settings = get_settings()
+
+# Configurar logging usando el nivel del entorno
+log_level_map = {
+    "DEBUG": logging.DEBUG,
+    "INFO": logging.INFO, 
+    "WARNING": logging.WARNING,
+    "ERROR": logging.ERROR,
+    "CRITICAL": logging.CRITICAL
+}
+
 logging.basicConfig(
-    level=logging.INFO,
+    level=log_level_map.get(settings.log_level.upper(), logging.INFO),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# Obtener configuración
-settings = get_settings()
+# Desactivar logs verbosos de librerías externas solo si no es DEBUG
+if settings.log_level.upper() != "DEBUG":
+    logging.getLogger("sqlalchemy").setLevel(logging.WARNING)
+    logging.getLogger("lightgbm").setLevel(logging.WARNING)
+    logging.getLogger("sklearn").setLevel(logging.WARNING)
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
 # Instancias globales de servicios (en producción usar Dependency Injection)
 prediction_service = None

@@ -1,10 +1,13 @@
 """
-Modelos Pydantic para API - Refactorizados y más robustos.
+Modelos Pydantic para API - FASE LIMPIEZA: Migrados a Pydantic V2.
 
-REFACTOR PHASE: Modelos más elegantes y con mejor validación.
+REFACTORED: Eliminando warnings y migrando a Pydantic V2
+- Migración @validator → @field_validator
+- Protected namespaces configurados
+- ConfigDict para configuración moderna
 """
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Dict, Any, Optional, List, Union
 from datetime import datetime
 
@@ -12,12 +15,15 @@ from datetime import datetime
 
 class PredictionFeatures(BaseModel):
     """Modelo para features de predicción con validación robusta."""
+    model_config = ConfigDict(protected_namespaces=())
+    
     age: float = Field(..., ge=0, le=150, description="Edad en años")
     income: float = Field(..., ge=0, description="Ingresos anuales")
     category: str = Field(..., min_length=1, description="Categoría del cliente")
     score: float = Field(..., ge=0, le=1, description="Score de 0 a 1")
     
-    @validator('category')
+    @field_validator('category')
+    @classmethod
     def validate_category(cls, v):
         """Validar categorías permitidas."""
         allowed = ['premium', 'standard', 'basic', 'unknown_category']
@@ -27,7 +33,7 @@ class PredictionFeatures(BaseModel):
 
 class PredictionRequest(BaseModel):
     """Request para predicción mejorado."""
-    model_config = {"protected_namespaces": ()}
+    model_config = ConfigDict(protected_namespaces=())
     
     features: Dict[str, Any] = Field(..., description="Features para predicción")
     model_id: Optional[str] = Field(
@@ -41,7 +47,7 @@ class PredictionRequest(BaseModel):
 
 class ModelUploadRequest(BaseModel):
     """Request para subida de modelo mejorado."""
-    model_config = {"protected_namespaces": ()}
+    model_config = ConfigDict(protected_namespaces=())
     
     model_name: str = Field(..., min_length=1, max_length=100)
     model_type: str = Field(..., description="Tipo de modelo ML")
@@ -49,7 +55,8 @@ class ModelUploadRequest(BaseModel):
     description: Optional[str] = Field(None, max_length=500)
     tags: Optional[List[str]] = Field(default_factory=list)
     
-    @validator('model_name')
+    @field_validator('model_name')
+    @classmethod
     def validate_model_name(cls, v):
         """Validar nombre del modelo."""
         if not v.replace('_', '').replace('-', '').isalnum():
@@ -60,6 +67,8 @@ class ModelUploadRequest(BaseModel):
 
 class ValidationDetails(BaseModel):
     """Detalles de validación."""
+    model_config = ConfigDict(protected_namespaces=())
+    
     input_valid: bool
     model_valid: bool
     validation_time_ms: Optional[float] = None
@@ -67,6 +76,8 @@ class ValidationDetails(BaseModel):
 
 class ModelInfo(BaseModel):
     """Información del modelo."""
+    model_config = ConfigDict(protected_namespaces=())
+    
     model_id: str
     status: str
     type: Optional[str] = None
@@ -75,6 +86,8 @@ class ModelInfo(BaseModel):
 
 class PredictionResponse(BaseModel):
     """Response de predicción estructurada."""
+    model_config = ConfigDict(protected_namespaces=())
+    
     prediction: List[float]
     validation_details: Optional[ValidationDetails] = None
     model_info: ModelInfo
@@ -83,6 +96,8 @@ class PredictionResponse(BaseModel):
 
 class ModelUploadResponse(BaseModel):
     """Response de subida de modelo."""
+    model_config = ConfigDict(protected_namespaces=())
+    
     message: str
     model_name: str
     status: str
@@ -92,6 +107,8 @@ class ModelUploadResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     """Response de error estandarizada."""
+    model_config = ConfigDict(protected_namespaces=())
+    
     error_type: str
     message: str
     details: Optional[Dict[str, Any]] = None
@@ -102,6 +119,8 @@ class ErrorResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     """Response de health check."""
+    model_config = ConfigDict(protected_namespaces=())
+    
     status: str
     version: str
     timestamp: datetime = Field(default_factory=datetime.now)
@@ -109,6 +128,8 @@ class HealthResponse(BaseModel):
 
 class ModelsListResponse(BaseModel):
     """Response para listado de modelos."""
+    model_config = ConfigDict(protected_namespaces=())
+    
     models: List[str]
     total_count: int
     available_types: List[str] 
