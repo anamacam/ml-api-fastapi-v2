@@ -1,0 +1,109 @@
+# ======================================
+# 🔧 Pre-commit Configuration
+# ======================================
+# Ejecutar: pre-commit install
+# Uso: pre-commit run --all-files
+
+repos:
+  # ======================================
+  # 🧹 Checks generales
+  # ======================================
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: debug-statements
+
+  # ======================================
+  # 🎨 Formateo de código
+  # ======================================
+  - repo: https://github.com/psf/black
+    rev: 23.7.0
+    hooks:
+      - id: black
+        language_version: python3
+        args: [--line-length=88]
+
+  # ======================================
+  # 🔧 Linting
+  # ======================================
+  - repo: https://github.com/PyCQA/flake8
+    rev: 6.0.0
+    hooks:
+      - id: flake8
+        args: [--max-line-length=88, --extend-ignore=E203, W503]
+
+  # ======================================
+  # 📋 Imports
+  # ======================================
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.12.0
+    hooks:
+      - id: isort
+        args: [--profile=black]
+
+  # ======================================
+  # 🧪 Tests automáticos
+  # ======================================
+  - repo: local
+    hooks:
+      - id: pytest-check
+        name: pytest-check
+        entry: python
+        args: ["-m", "pytest", "backend/tests/", "-v", "--tb=short"]
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: true
+
+  # ======================================
+  # 🔍 Checklist de Calidad Automatizado
+  # ======================================
+  - repo: local
+    hooks:
+      - id: quality-checklist
+        name: quality-checklist
+        entry: python
+        args: ["backend/infrastructure/scripts/quick_quality.py"]
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: true
+
+  # ======================================
+  # 📊 Análisis de Deuda Técnica
+  # ======================================
+  - repo: local
+    hooks:
+      - id: tech-debt-analysis
+        name: tech-debt-analysis
+        entry: python
+        args:
+          [
+            "backend/infrastructure/scripts/tech_debt_analyzer.py",
+            "--format",
+            "console",
+          ]
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: true
+
+# ======================================
+# ⚙️ Configuración CI
+# ======================================
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit hooks
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: ""
+  autoupdate_commit_msg: "[pre-commit.ci] pre-commit autoupdate"
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false
