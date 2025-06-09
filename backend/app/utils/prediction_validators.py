@@ -19,7 +19,7 @@ REQUIRED_FIELDS = ["age", "income", "category", "score"]
 # Tipos esperados para cada campo
 FIELD_TYPES = {
     "age": (int, float),
-    "income": (int, float), 
+    "income": (int, float),
     "category": str,
     "score": (int, float)
 }
@@ -35,7 +35,7 @@ NUMERIC_RANGES = {
 class ValidationError:
     """Tipos de errores de validación."""
     EMPTY_DATA = "empty"
-    INVALID_TYPES = "invalid_types" 
+    INVALID_TYPES = "invalid_types"
     MISSING_FIELDS = "missing_fields"
     OUT_OF_RANGE = "out_of_range"
 
@@ -43,23 +43,23 @@ class ValidationError:
 def validate_prediction_input(data: Any) -> Dict[str, Any]:
     """
     Valida datos de entrada para predicciones ML.
-    
+
     Realiza validación completa de:
     - Datos no vacíos
     - Tipos de datos correctos
     - Campos requeridos presentes
     - Rangos numéricos válidos
-    
+
     Args:
         data: Datos de entrada para validar
-        
+
     Returns:
         Dict con 'valid' (bool) y opcionalmente 'error' y 'missing_fields'
-        
+
     Examples:
         >>> validate_prediction_input(None)
         {'valid': False, 'error': 'Data is empty or None'}
-        
+
         >>> validate_prediction_input({'age': 25, 'income': 50000.0, 'category': 'premium', 'score': 0.85})
         {'valid': True}
     """
@@ -68,26 +68,26 @@ def validate_prediction_input(data: Any) -> Dict[str, Any]:
         empty_result = _validate_not_empty(data)
         if not empty_result["valid"]:
             return empty_result
-        
+
         # Validar tipos de datos
         types_result = _validate_field_types(data)
         if not types_result["valid"]:
             return types_result
-            
+
         # Validar campos requeridos
         required_result = _validate_required_fields(data)
         if not required_result["valid"]:
             return required_result
-            
+
         # Validar rangos numéricos
         ranges_result = _validate_numeric_ranges(data)
         if not ranges_result["valid"]:
             return ranges_result
-            
+
         # Todo válido
         logger.info("Validation successful for prediction input")
         return {"valid": True}
-        
+
     except Exception as e:
         logger.error(f"Unexpected error during validation: {e}")
         return {
@@ -103,13 +103,13 @@ def _validate_not_empty(data: Any) -> Dict[str, Any]:
             "valid": False,
             "error": "Data is empty or None"
         }
-    
+
     if isinstance(data, dict) and len(data) == 0:
         return {
             "valid": False,
             "error": "Data dictionary is empty"
         }
-    
+
     return {"valid": True}
 
 
@@ -117,7 +117,7 @@ def _validate_field_types(data: Any) -> Dict[str, Any]:
     """Valida que los tipos de campos sean correctos."""
     if not isinstance(data, dict):
         return {"valid": True}  # Skip if not dict
-    
+
     for field_name, expected_types in FIELD_TYPES.items():
         if field_name in data:
             value = data[field_name]
@@ -126,7 +126,7 @@ def _validate_field_types(data: Any) -> Dict[str, Any]:
                     "valid": False,
                     "error": f"invalid_types: {field_name} must be {expected_types}"
                 }
-    
+
     return {"valid": True}
 
 
@@ -134,19 +134,19 @@ def _validate_required_fields(data: Any) -> Dict[str, Any]:
     """Valida que estén presentes los campos requeridos."""
     if not isinstance(data, dict):
         return {"valid": True}  # Skip if not dict
-    
+
     missing_fields = []
     for field in REQUIRED_FIELDS:
         if field not in data:
             missing_fields.append(field)
-    
+
     if missing_fields:
         return {
             "valid": False,
             "error": "missing_fields detected",
             "missing_fields": missing_fields
         }
-    
+
     return {"valid": True}
 
 
@@ -154,7 +154,7 @@ def _validate_numeric_ranges(data: Any) -> Dict[str, Any]:
     """Valida que los valores numéricos estén en rangos válidos."""
     if not isinstance(data, dict):
         return {"valid": True}  # Skip if not dict
-    
+
     for field_name, (min_val, max_val) in NUMERIC_RANGES.items():
         if field_name in data:
             value = data[field_name]
@@ -164,16 +164,16 @@ def _validate_numeric_ranges(data: Any) -> Dict[str, Any]:
                         "valid": False,
                         "error": f"out_of_range: {field_name} must be between {min_val} and {max_val}"
                     }
-    
+
     return {"valid": True}
 
 
 def get_validation_schema() -> Dict[str, Any]:
     """
     Retorna el schema de validación actual.
-    
+
     Útil para documentación y debugging.
-    
+
     Returns:
         Dict con configuración de validación
     """

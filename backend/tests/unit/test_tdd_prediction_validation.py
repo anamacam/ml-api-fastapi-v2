@@ -145,7 +145,7 @@ def test_get_validation_schema():
     from app.utils.prediction_validators import get_validation_schema
 
     schema = get_validation_schema()
-    
+
     assert "required_fields" in schema
     assert "field_types" in schema
     assert "numeric_ranges" in schema
@@ -159,15 +159,15 @@ def test_validate_prediction_input_handles_unexpected_errors():
     Test adicional: validate_prediction_input debe manejar errores inesperados.
     """
     from app.utils.prediction_validators import validate_prediction_input
-    
+
     # Caso válido: objeto que no es dict pasa las validaciones básicas
     class ValidObject:
         pass
-    
+
     result = validate_prediction_input(ValidObject())
     # Objetos no-dict pasan validaciones básicas pero fallan en campos requeridos
     assert result["valid"] is True  # Se acepta porque skip validaciones de dict
-    
+
     # Caso más realista: None después de validación exitosa
     result_none = validate_prediction_input(None)
     assert result_none["valid"] is False
