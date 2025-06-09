@@ -16,8 +16,10 @@ from datetime import datetime
 
 from app.utils.prediction_validators import validate_prediction_input
 from app.utils.ml_model_validators import validate_ml_model
+from app.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 class HybridPredictionService:
     """
@@ -28,14 +30,18 @@ class HybridPredictionService:
     - Compatibilidad total con tests TDD existentes
     """
     
-    def __init__(self, use_real_models: bool = True):
+    def __init__(self, use_real_models: Optional[bool] = None):
         """
         Inicializar servicio híbrido.
         
         Args:
-            use_real_models: Si usar modelos reales o mocks para testing
+            use_real_models: Si usar modelos reales o mocks. Si None, usa configuración de entorno
         """
-        self.use_real_models = use_real_models
+        # Usar configuración por entorno si no se especifica explícitamente
+        if use_real_models is None:
+            self.use_real_models = settings.should_use_real_models
+        else:
+            self.use_real_models = use_real_models
         self.real_models: Dict[str, Any] = {}
         self.model_metadata: Dict[str, Dict[str, Any]] = {}
         
@@ -48,13 +54,16 @@ class HybridPredictionService:
         if self.use_real_models:
             self._load_real_models()
         else:
-            logger.info("🧪 Modo TEST: Usando modelos mock para TDD")
+            logger.info(f"🧪 Modo {settings.environment.upper()}: Usando modelos mock para TDD")
     
     def _load_real_models(self) -> None:
         """Cargar modelos reales desde disco."""
         try:
-            # Path a los modelos reales (relativo desde backend/)
-            models_path = Path("../data/models").resolve()
+            # Path a los modelos reales desde configuración
+            models_path = settings.ml_models_path
+            if not models_path.is_absolute():
+                # Si es relativo, hacerlo relativo al directorio backend/
+                models_path = Path("../").resolve() / models_path
             registry_path = models_path / "model_registry.json"
             
             if not models_path.exists():

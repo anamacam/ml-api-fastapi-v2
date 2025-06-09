@@ -1,13 +1,16 @@
 """
-FastAPI Application - REFACTORIZADA con servicios separados.
+FastAPI Application - REFACTORIZADA con configuración por entornos.
 
-REFACTOR PHASE: Código elegante, mantenible y escalable.
+REFACTOR PHASE: Código elegante, mantenible y escalable con configuración profesional.
 """
 
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 from contextlib import asynccontextmanager
+
+# Configuración por entornos
+from app.config.settings import get_settings
 
 # Importar servicios refactorizados
 from app.services.hybrid_prediction_service import HybridPredictionService
@@ -28,6 +31,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Obtener configuración
+settings = get_settings()
+
 # Instancias globales de servicios (en producción usar Dependency Injection)
 prediction_service = None
 model_management_service = None
@@ -38,15 +44,14 @@ async def lifespan(app: FastAPI):
     # Startup
     global prediction_service, model_management_service
     
-    # Usar modelos reales en producción, mocks en testing
-    import os
-    use_real_models = os.getenv("TESTING", "false").lower() != "true"
-    
-    prediction_service = HybridPredictionService(use_real_models=use_real_models)
+    # Los servicios usan automáticamente la configuración por entornos
+    prediction_service = HybridPredictionService()
     model_management_service = ModelManagementService()
     
     logger.info("🚀 Servicios híbridos inicializados correctamente")
-    logger.info(f"📊 Modo: {'Modelos Reales' if use_real_models else 'Modelos Mock (Testing)'}")
+    logger.info(f"🌍 Entorno: {settings.environment.upper()}")
+    logger.info(f"📊 Modelos reales: {'SÍ' if settings.should_use_real_models else 'NO (Mock)'}")
+    logger.info(f"🐛 Debug: {'ACTIVADO' if settings.debug else 'DESACTIVADO'}")
     
     yield
     
@@ -55,16 +60,17 @@ async def lifespan(app: FastAPI):
 
 # Crear aplicación FastAPI refactorizada
 app = FastAPI(
-    title="ML API FastAPI v2 - Refactorizada",
-    description="API de Machine Learning con arquitectura TDD y servicios separados",
-    version="2.1.0",
-    lifespan=lifespan
+    title=settings.api_title,
+    description="API de Machine Learning con arquitectura TDD y configuración por entornos",
+    version=settings.api_version,
+    lifespan=lifespan,
+    debug=settings.debug
 )
 
 # Middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -75,10 +81,8 @@ def get_prediction_service() -> HybridPredictionService:
     """Obtener servicio de predicción híbrido."""
     global prediction_service
     if prediction_service is None:
-        # Inicialización para tests o uso directo
-        import os
-        use_real_models = os.getenv("TESTING", "false").lower() != "true"
-        prediction_service = HybridPredictionService(use_real_models=use_real_models)
+        # Inicialización para tests o uso directo - usa configuración por entornos
+        prediction_service = HybridPredictionService()
     return prediction_service
 
 def get_model_service() -> ModelManagementService:

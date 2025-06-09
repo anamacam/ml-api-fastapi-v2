@@ -8,8 +8,12 @@ Tercer ciclo TDD: RED -> GREEN -> REFACTOR
 """
 
 import pytest
+import os
 from fastapi.testclient import TestClient
 import numpy as np
+
+# Configurar entorno de testing
+os.environ["ENV"] = "testing"
 
 
 def test_predict_endpoint_validates_input_data():
