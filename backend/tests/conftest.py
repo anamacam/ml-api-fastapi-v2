@@ -45,7 +45,7 @@ def sample_health_response():
 
 @pytest.fixture
 def mock_prediction_data():
-    """Datos de predicción de prueba.""" 
+    """Datos de predicción de prueba."""
     return {
         "input_features": [1.0, 2.0, 3.0, 4.0],
         "model_version": "v1.0",
@@ -60,4 +60,4 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "unit: Tests unitarios")
     config.addinivalue_line("markers", "integration: Tests de integración")
     config.addinivalue_line("markers", "e2e: Tests end-to-end")
-    config.addinivalue_line("markers", "slow: Tests lentos") 
+    config.addinivalue_line("markers", "slow: Tests lentos")

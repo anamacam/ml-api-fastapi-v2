@@ -1,8 +1,8 @@
 # 🚨 ISSUE: Commits Realizados Sin Smart Commit - Bypaseando Validaciones
 
-**📅 Fecha**: 8 de Diciembre 2024  
-**🎯 Prioridad**: **CRÍTICA**  
-**📊 Estado**: Repositorio comprometido - Commits sin validaciones por bypass del sistema  
+**📅 Fecha**: 8 de Diciembre 2024
+**🎯 Prioridad**: **CRÍTICA**
+**📊 Estado**: Repositorio comprometido - Commits sin validaciones por bypass del sistema
 **👤 Asignado**: Equipo de desarrollo
 
 ---

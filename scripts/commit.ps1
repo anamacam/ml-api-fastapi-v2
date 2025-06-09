@@ -45,17 +45,17 @@ Write-Host ("=" * 25) -ForegroundColor Cyan
 
 if ($Fast) {
     Write-Host "⚡ Usando versión RÁPIDA (validaciones selectivas)" -ForegroundColor Yellow
-    
+
     if ([string]::IsNullOrWhiteSpace($Message)) {
         Write-Host "❌ Versión rápida requiere mensaje" -ForegroundColor Red
         Write-Host "Uso: .\scripts\commit.ps1 -Fast -Message 'feat: description'" -ForegroundColor Gray
         exit 1
     }
-    
+
     & "$ScriptDir\smart_commit_fast.ps1" -Message $Message
 } else {
     Write-Host "🔒 Usando versión COMPLETA (todas las validaciones)" -ForegroundColor Green
-    
+
     if ($Interactive) {
         & "$ScriptDir\smart_commit_clean.ps1" -Interactive
     } elseif (-not [string]::IsNullOrWhiteSpace($Message)) {
@@ -64,4 +64,4 @@ if ($Fast) {
         # Modo interactivo por defecto si no se proporciona mensaje
         & "$ScriptDir\smart_commit_clean.ps1" -Interactive
     }
-} 
+}

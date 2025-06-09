@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     Versión optimizada que solo analiza archivos del commit actual:
-    - Valida mensajes Conventional Commits 
+    - Valida mensajes Conventional Commits
     - Ejecuta tests solo de archivos relacionados
     - Análisis de calidad SELECTIVO (no todo el proyecto)
     - 10x más rápido que smart_commit_clean.ps1
@@ -33,10 +33,10 @@ function Write-ColorOutput {
 
 function Test-CommitMessage {
     param([string]$Message)
-    
+
     Write-ColorOutput "⚡ Validando mensaje (rápido)..." "Yellow"
     $conventionalPattern = '^(feat|fix|docs|style|refactor|test|chore)(\(.+\))?: .{1,50}$'
-    
+
     if ($Message -match $conventionalPattern) {
         Write-ColorOutput "✅ Mensaje válido" "Green"
         return $true
@@ -49,23 +49,23 @@ function Test-CommitMessage {
 
 function Invoke-FastChecks {
     Write-ColorOutput "⚡ Checks rápidos (solo archivos staged)..." "Yellow"
-    
+
     # Obtener archivos staged
     $stagedFiles = git diff --cached --name-only
     $hasTests = $false
     $hasPython = $false
-    
+
     foreach ($file in $stagedFiles) {
         if ($file -match "test.*\.py$") { $hasTests = $true }
         if ($file -match "\.py$") { $hasPython = $true }
     }
-    
+
     # Solo ejecutar tests si hay archivos Python
     if ($hasPython) {
         Write-ColorOutput "  🧪 Ejecutando tests relevantes..." "Gray"
         try {
             Push-Location "$ProjectRoot\backend"
-            
+
             if ($hasTests) {
                 # Ejecutar solo tests de archivos modificados - FIX: usar rutas relativas backend
                 $testFiles = $stagedFiles | Where-Object { $_ -match "test.*\.py$" } | ForEach-Object { $_.Replace("backend/", "") }
@@ -76,7 +76,7 @@ function Invoke-FastChecks {
                 # Ejecutar test básico de health
                 python -m pytest tests/unit/test_tdd_health.py -q 2>&1 | Out-Null
             }
-            
+
             if ($LASTEXITCODE -eq 0) {
                 Write-ColorOutput "  ✅ Tests: OK" "Green"
             } else {
@@ -94,7 +94,7 @@ function Invoke-FastChecks {
     } else {
         Write-ColorOutput "  ⏭️ Tests: SKIP (no Python files)" "Gray"
     }
-    
+
     Write-ColorOutput "  ⚡ Quality: SKIP (usando análisis rápido)" "Gray"
     Write-ColorOutput "✅ Checks completados" "Green"
     return $true
@@ -103,32 +103,32 @@ function Invoke-FastChecks {
 function Main {
     Write-ColorOutput "⚡ Smart Commit FAST - Solo archivos del commit" "Cyan"
     Write-ColorOutput ("=" * 50) "Cyan"
-    
+
     Set-Location $ProjectRoot
-    
+
     # Verificar staging area
     $stagedFiles = git diff --cached --name-only
     if (-not $stagedFiles) {
         Write-ColorOutput "❌ No hay archivos en staging area" "Red"
         exit 1
     }
-    
+
     Write-ColorOutput "📁 Archivos a commitear ($($stagedFiles.Count)):" "White"
     foreach ($file in $stagedFiles | Select-Object -First 5) {
         Write-ColorOutput "   $file" "Gray"
     }
-    
+
     # Validar mensaje
     if (-not (Test-CommitMessage -Message $Message)) {
         exit 1
     }
-    
+
     # Ejecutar checks rápidos
     if (-not (Invoke-FastChecks)) {
         Write-ColorOutput "❌ Checks fallaron" "Red"
         exit 1
     }
-    
+
     # Commit
     Write-ColorOutput "🚀 Realizando commit..." "Green"
     try {
@@ -143,4 +143,4 @@ function Main {
     }
 }
 
-Main 
+Main

@@ -84,7 +84,7 @@ test: add unit tests for user service
 # ❌ NO DISPONIBLE
 git commit -m "quick fix" --no-verify
 
-# ❌ NO DISPONIBLE  
+# ❌ NO DISPONIBLE
 git commit -m "wip" --skip-ci
 ```
 
@@ -202,7 +202,7 @@ python -m pytest tests/unit/test_specific.py -v
 - **Quality Score Actual:** 82.2/100 (Grado A)
 - **Git Practices Score:** Variable (mejorando)
 - **Commits Rechazados:** ~15% (mantiene calidad)
-- **Time to Commit:** 
+- **Time to Commit:**
   - Completo: ~30-60 segundos
   - Rápido: ~5-10 segundos
 
@@ -228,4 +228,4 @@ Los scripts pueden personalizarse modificando:
 - [Conventional Commits](https://www.conventionalcommits.org/)
 - [Git Best Practices](docs/GIT_BEST_PRACTICES.md)
 - [Quality Standards](TECHNICAL_DEBT.md)
-- [Testing Guidelines](backend/tests/README.md) 
+- [Testing Guidelines](backend/tests/README.md)

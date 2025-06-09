@@ -136,23 +136,23 @@ def check_api_endpoints(endpoints: Optional[list]) -> bool:
         if endpoints is None:
             logger.debug("Endpoints list is None")
             return False
-        
+
         # Validación de tipo
         if not isinstance(endpoints, list):
             logger.warning(f"Expected list, got {type(endpoints)}")
             return False
-        
+
         # Verificación de contenido
         has_endpoints = len(endpoints) > 0
-        
+
         # Log detallado para debugging
         if has_endpoints:
             logger.debug(f"Found {len(endpoints)} endpoints: {endpoints[:3]}...")
         else:
             logger.debug("No endpoints found in list")
-        
+
         return has_endpoints
-        
+
     except Exception as e:
         logger.error(f"Unexpected error checking API endpoints: {e}")
         return False

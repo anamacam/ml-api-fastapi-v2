@@ -1,9 +1,9 @@
 # 🚨 ISSUE #001: Commits Realizados Sin Smart Commit - Bypaseando Validaciones
 
-**📅 Fecha**: 8 de Diciembre 2024  
-**🎯 Prioridad**: **CRÍTICA**  
-**📊 Estado**: 🔴 **OPEN** - Repositorio comprometido  
-**👤 Asignado**: Equipo de desarrollo  
+**📅 Fecha**: 8 de Diciembre 2024
+**🎯 Prioridad**: **CRÍTICA**
+**📊 Estado**: 🔴 **OPEN** - Repositorio comprometido
+**👤 Asignado**: Equipo de desarrollo
 **🏷️ Labels**: `critical`, `quality`, `tdd`, `process`
 
 ---
@@ -168,6 +168,6 @@ Configurar protecciones para forzar uso obligatorio del Smart Commit y prevenir 
 
 ---
 
-**🏷️ Labels**: `critical`, `quality`, `tdd`, `process`, `bypass`, `smart-commit`  
-**🔗 Milestone**: Calidad y TDD - Fase 1  
+**🏷️ Labels**: `critical`, `quality`, `tdd`, `process`, `bypass`, `smart-commit`
+**🔗 Milestone**: Calidad y TDD - Fase 1
 **👥 Assignees**: @equipo-desarrollo
