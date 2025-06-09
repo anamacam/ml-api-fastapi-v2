@@ -19,7 +19,7 @@ from app.services.model_management_service import ModelManagementService
 # Importar modelos refactorizados
 from app.models.api_models import (
     PredictionRequest, ModelUploadRequest,
-    PredictionResponse, ModelUploadResponse, 
+    PredictionResponse, ModelUploadResponse,
     HealthResponse, ErrorResponse,
     ValidationDetails, ModelInfo
 )
@@ -31,7 +31,7 @@ settings = get_settings()
 # Configurar logging usando el nivel del entorno
 log_level_map = {
     "DEBUG": logging.DEBUG,
-    "INFO": logging.INFO, 
+    "INFO": logging.INFO,
     "WARNING": logging.WARNING,
     "ERROR": logging.ERROR,
     "CRITICAL": logging.CRITICAL
@@ -59,18 +59,18 @@ async def lifespan(app: FastAPI):
     """Gestión del ciclo de vida de la aplicación."""
     # Startup
     global prediction_service, model_management_service
-    
+
     # Los servicios usan automáticamente la configuración por entornos
     prediction_service = HybridPredictionService()
     model_management_service = ModelManagementService()
-    
+
     logger.info("🚀 Servicios híbridos inicializados correctamente")
     logger.info(f"🌍 Entorno: {settings.environment.upper()}")
     logger.info(f"📊 Modelos reales: {'SÍ' if settings.should_use_real_models else 'NO (Mock)'}")
     logger.info(f"🐛 Debug: {'ACTIVADO' if settings.debug else 'DESACTIVADO'}")
-    
+
     yield
-    
+
     # Shutdown
     logger.info("👋 Aplicación cerrando...")
 
@@ -118,25 +118,25 @@ async def predict(
 ):
     """
     Endpoint de predicción refactorizado con servicios separados.
-    
+
     Arquitectura limpia:
     - Validación en servicio
-    - Manejo de errores centralizado  
+    - Manejo de errores centralizado
     - Respuesta tipada con Pydantic
     """
     try:
         success, result = service.validate_and_predict(
-            request.features, 
+            request.features,
             request.model_id
         )
-        
+
         if not success:
             error = result
-            
+
             # Manejo específico por tipo de error
             if error["error_type"] == "input_validation":
                 validation_result = error["validation_result"]
-                
+
                 if "missing_fields" in validation_result:
                     raise HTTPException(
                         status_code=422,
@@ -153,19 +153,19 @@ async def predict(
                             "invalid_types": True
                         }
                     )
-            
+
             elif error["error_type"] == "model_not_found":
                 raise HTTPException(
                     status_code=400,
                     detail={"model_validation_error": f"Model '{error['model_id']}' not found"}
                 )
-            
+
             elif error["error_type"] == "prediction_failed":
                 raise HTTPException(
                     status_code=500,
                     detail={"prediction_failed": error["error_message"]}
                 )
-        
+
         # Respuesta exitosa usando modelo Pydantic
         return PredictionResponse(
             prediction=result["prediction"],
@@ -179,7 +179,7 @@ async def predict(
                 type=result["model_info"].get("type")
             )
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -196,7 +196,7 @@ async def upload_model(
 ):
     """
     Endpoint para subir modelos refactorizado.
-    
+
     Usa servicio separado para validación y registro.
     """
     try:
@@ -205,14 +205,14 @@ async def upload_model(
             request.model_type,
             request.model_data
         )
-        
+
         if not success:
             error = result
             raise HTTPException(
                 status_code=422,
                 detail={"model_validation_error": error.get("message", "Invalid model")}
             )
-        
+
         # Respuesta exitosa usando modelo Pydantic
         return ModelUploadResponse(
             message=result["message"],
@@ -220,7 +220,7 @@ async def upload_model(
             status=result["status"],
             model_type=result.get("model_type")
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -250,12 +250,12 @@ async def list_models(
     try:
         available_models = service.list_available_models()
         model_details = []
-        
+
         for model_id in available_models:
             model_info = service.get_model_info(model_id)
             if model_info:
                 model_details.append(model_info)
-        
+
         return {
             "models": available_models,
             "model_details": model_details,

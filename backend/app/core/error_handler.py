@@ -55,12 +55,12 @@ class ClassifiedError:
 
 class ErrorClassificationStrategy(ABC):
     """Estrategia abstracta para clasificación de errores"""
-    
+
     @abstractmethod
     def can_classify(self, error: Exception) -> bool:
         """Determinar si esta estrategia puede clasificar el error"""
         pass
-    
+
     @abstractmethod
     def classify(self, error: Exception, context: str = "") -> ErrorPatternConfig:
         """Clasificar el error usando esta estrategia"""
@@ -69,7 +69,7 @@ class ErrorClassificationStrategy(ABC):
 
 class PatternBasedClassifier(ErrorClassificationStrategy):
     """Clasificador basado en patrones de texto - Strategy Pattern"""
-    
+
     def __init__(self):
         # Configuración centralizada - elimina duplicación
         self.error_configs: Dict[ErrorTypes, ErrorPatternConfig] = {
@@ -109,34 +109,34 @@ class PatternBasedClassifier(ErrorClassificationStrategy):
                 friendly_message="Too many requests. Please wait a moment before trying again."
             )
         }
-        
+
         # Crear índice invertido para búsqueda eficiente
         self.pattern_to_config: Dict[str, ErrorPatternConfig] = {}
         for config in self.error_configs.values():
             for pattern in config.patterns:
                 self.pattern_to_config[pattern] = config
-    
+
     def can_classify(self, error: Exception) -> bool:
         """Verificar si hay algún patrón que coincida"""
         error_message = str(error).lower()
         return any(pattern in error_message for pattern in self.pattern_to_config.keys())
-    
+
     def classify(self, error: Exception, context: str = "") -> ErrorPatternConfig:
         """Clasificar error usando patrones"""
         error_message = str(error).lower()
-        
+
         # Buscar el primer patrón que coincida
         for pattern, config in self.pattern_to_config.items():
             if pattern in error_message:
                 return config
-        
+
         # Fallback (no debería llegar aquí si can_classify() funcionó correctamente)
         raise ValueError(f"No pattern found for error: {error}")
 
 
 class ExceptionTypeClassifier(ErrorClassificationStrategy):
     """Clasificador basado en tipo de excepción - Strategy Pattern"""
-    
+
     def __init__(self):
         self.exception_mappings: Dict[Type[Exception], ErrorPatternConfig] = {
             ConnectionError: ErrorPatternConfig(
@@ -161,11 +161,11 @@ class ExceptionTypeClassifier(ErrorClassificationStrategy):
                 friendly_message="Please check your input data format and try again."
             )
         }
-    
+
     def can_classify(self, error: Exception) -> bool:
         """Verificar si el tipo de excepción está mapeado"""
         return type(error) in self.exception_mappings
-    
+
     def classify(self, error: Exception, context: str = "") -> ErrorPatternConfig:
         """Clasificar por tipo de excepción"""
         return self.exception_mappings[type(error)]
@@ -174,19 +174,19 @@ class ExceptionTypeClassifier(ErrorClassificationStrategy):
 class MLErrorHandler:
     """
     Manejador avanzado de errores específicos para Machine Learning
-    
+
     REFACTORED: Aplicando Strategy Pattern y eliminando duplicación
     """
-    
+
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        
+
         # Strategy Pattern - múltiples estrategias de clasificación
         self.classification_strategies: list[ErrorClassificationStrategy] = [
             PatternBasedClassifier(),
             ExceptionTypeClassifier()
         ]
-        
+
         # Configuración por defecto para errores no clasificados
         self.default_config = ErrorPatternConfig(
             error_type=ErrorTypes.SYSTEM_ERROR,
@@ -195,19 +195,19 @@ class MLErrorHandler:
             patterns=[],
             friendly_message="The prediction service encountered an unexpected error. Please try again later."
         )
-    
+
     def classify_error(self, error: Exception, context: str = "") -> ClassifiedError:
         """
         Clasificar error usando estrategias múltiples
-        
+
         REFACTORED: Simplificado usando Strategy Pattern
         """
         # Intentar clasificar con cada estrategia
         config = self._find_classification_config(error)
-        
+
         # Crear contexto enriquecido
         enriched_context = self._create_enriched_context(error, context)
-        
+
         classified = ClassifiedError(
             error_type=config.error_type,
             severity=config.severity,
@@ -216,30 +216,30 @@ class MLErrorHandler:
             original_error=error,
             user_message=config.friendly_message
         )
-        
+
         # Log para debugging
         self._log_classification(classified, context)
-        
+
         return classified
-    
+
     def get_user_friendly_message(self, error: Exception) -> str:
         """
         Convertir error técnico a mensaje amigable
-        
+
         REFACTORED: Delegado a configuración centralizada
         """
         config = self._find_classification_config(error)
         return config.friendly_message
-    
+
     def _find_classification_config(self, error: Exception) -> ErrorPatternConfig:
         """Encontrar configuración usando estrategias - Strategy Pattern"""
         for strategy in self.classification_strategies:
             if strategy.can_classify(error):
                 return strategy.classify(error)
-        
+
         # Fallback a configuración por defecto
         return self.default_config
-    
+
     def _create_enriched_context(self, error: Exception, context: str) -> Dict[str, Any]:
         """Crear contexto enriquecido - método extraído para DRY"""
         return {
@@ -248,7 +248,7 @@ class MLErrorHandler:
             "error_message": str(error),
             "timestamp": datetime.now().isoformat()
         }
-    
+
     def _log_classification(self, classified: ClassifiedError, context: str) -> None:
         """Loggear clasificación - método extraído para DRY"""
         self.logger.warning(
@@ -261,26 +261,26 @@ class MLErrorHandler:
 # Factory Pattern para creación de excepciones específicas
 class MLExceptionFactory:
     """Factory para crear excepciones ML específicas - Factory Pattern"""
-    
+
     @staticmethod
-    def create_model_load_error(message: str, model_path: str = None, 
+    def create_model_load_error(message: str, model_path: str = None,
                               model_type: str = None) -> 'ModelLoadError':
         """Crear error de carga de modelo"""
         return ModelLoadError(message, model_path, model_type)
-    
+
     @staticmethod
-    def create_prediction_error(message: str, model_id: str = None, 
+    def create_prediction_error(message: str, model_id: str = None,
                               input_shape: tuple = None, expected_shape: tuple = None,
                               model_version: str = None) -> 'PredictionError':
         """Crear error de predicción"""
         return PredictionError(message, model_id, input_shape, expected_shape, model_version)
-    
+
     @staticmethod
-    def create_validation_error(message: str, field_name: str = None, 
+    def create_validation_error(message: str, field_name: str = None,
                               expected_type: str = None) -> 'ValidationError':
         """Crear error de validación"""
         return ValidationError(message, field_name, expected_type)
-    
+
     @staticmethod
     def create_rate_limit_error(message: str, retry_after_seconds: int = None,
                               limit_type: str = None, current_usage: int = None) -> 'RateLimitError':
@@ -292,7 +292,7 @@ class MLExceptionFactory:
 
 class ModelLoadError(Exception):
     """Error al cargar modelos ML"""
-    
+
     def __init__(self, message: str, model_path: str = None, model_type: str = None):
         super().__init__(message)
         self.model_path = model_path
@@ -301,8 +301,8 @@ class ModelLoadError(Exception):
 
 class PredictionError(Exception):
     """Error durante predicción ML"""
-    
-    def __init__(self, message: str, model_id: str = None, input_shape: tuple = None, 
+
+    def __init__(self, message: str, model_id: str = None, input_shape: tuple = None,
                  expected_shape: tuple = None, model_version: str = None):
         super().__init__(message)
         self.model_id = model_id
@@ -314,7 +314,7 @@ class PredictionError(Exception):
 
 class ValidationError(Exception):
     """Error de validación de entrada"""
-    
+
     def __init__(self, message: str, field_name: str = None, expected_type: str = None):
         super().__init__(message)
         self.field_name = field_name
@@ -323,8 +323,8 @@ class ValidationError(Exception):
 
 class RateLimitError(Exception):
     """Error de límite de rate limiting"""
-    
-    def __init__(self, message: str, retry_after_seconds: int = None, 
+
+    def __init__(self, message: str, retry_after_seconds: int = None,
                  limit_type: str = None, current_usage: int = None):
         super().__init__(message)
         self.retry_after_seconds = retry_after_seconds
@@ -334,8 +334,8 @@ class RateLimitError(Exception):
 
 class SystemError(Exception):
     """Error del sistema general"""
-    
+
     def __init__(self, message: str, component: str = None, severity: str = "medium"):
         super().__init__(message)
         self.component = component
-        self.severity = severity 
+        self.severity = severity

@@ -24,13 +24,13 @@ if (-not (Test-Path $sourceFile)) {
 try {
     Copy-Item $sourceFile $targetFile -Force
     Write-Host "✅ Configuración $Environment aplicada" -ForegroundColor Green
-    
+
     # Mostrar configuración aplicada
     Write-Host "`n📋 Configuración actual:" -ForegroundColor Yellow
     Get-Content $targetFile | Where-Object { $_ -notmatch "^#" -and $_ -ne "" } | ForEach-Object {
         Write-Host "  $_" -ForegroundColor White
     }
-    
+
     Write-Host "`n🚀 Listo para usar entorno $Environment" -ForegroundColor Green
 }
 catch {
@@ -59,4 +59,4 @@ switch ($Environment) {
         Write-Host "  • CORS configurado para producción" -ForegroundColor White
         Write-Host "  • ⚠️  Asegúrate de configurar SECRET_KEY" -ForegroundColor Yellow
     }
-} 
+}

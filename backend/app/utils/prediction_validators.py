@@ -33,7 +33,7 @@ class ValidationConfig:
     required_fields: List[str]
     field_types: Dict[str, tuple]
     numeric_ranges: Dict[str, tuple]
-    
+
     @classmethod
     def get_prediction_config(cls) -> 'ValidationConfig':
         """Factory method para configuración de predicciones."""
@@ -56,7 +56,7 @@ class ValidationConfig:
 # REFACTORED: Template Method Pattern - Validación Base Abstracta
 class BaseValidator(ABC):
     """Template Method: Estructura común para validaciones de endpoints."""
-    
+
     def validate(self, data: Any) -> Dict[str, Any]:
         """
         Template method que define el flujo de validación.
@@ -67,50 +67,50 @@ class BaseValidator(ABC):
             result = self._validate_format(data)
             if not result["valid"]:
                 return result
-            
+
             result = self._validate_content(data)
             if not result["valid"]:
                 return result
-            
+
             result = self._validate_business_rules(data)
             if not result["valid"]:
                 return result
-            
+
             # Hook method para validación específica
             result = self._validate_specific(data)
             if not result["valid"]:
                 return result
-            
+
             return self._create_success_result(data)
-            
+
         except Exception as e:
             return self._handle_unexpected_error(e)
-    
+
     # Template method steps - implementados por subclases
     @abstractmethod
     def _validate_format(self, data: Any) -> Dict[str, Any]:
         """Validar formato básico de datos."""
         pass
-    
+
     @abstractmethod
     def _validate_content(self, data: Any) -> Dict[str, Any]:
         """Validar contenido de datos."""
         pass
-    
+
     @abstractmethod
     def _validate_business_rules(self, data: Any) -> Dict[str, Any]:
         """Validar reglas de negocio."""
         pass
-    
+
     def _validate_specific(self, data: Any) -> Dict[str, Any]:
         """Hook method para validación específica (opcional)."""
         return {"valid": True}
-    
+
     def _create_success_result(self, data: Any) -> Dict[str, Any]:
         """REFACTORED: Resultado exitoso estandarizado."""
         logger.info(f"Validation successful for {self.__class__.__name__}")
         return {"valid": True}
-    
+
     def _handle_unexpected_error(self, error: Exception) -> Dict[str, Any]:
         """REFACTORED: Manejo de errores centralizado."""
         logger.error(f"Unexpected error in {self.__class__.__name__}: {error}")
@@ -123,15 +123,15 @@ class BaseValidator(ABC):
 # REFACTORED: Chain of Responsibility - Manejadores de Error
 class ValidationErrorHandler(ABC):
     """Chain of Responsibility: Base para manejo escalado de errores."""
-    
+
     def __init__(self):
         self._next_handler: Optional['ValidationErrorHandler'] = None
-    
+
     def set_next(self, handler: 'ValidationErrorHandler') -> 'ValidationErrorHandler':
         """Configurar siguiente handler en la cadena."""
         self._next_handler = handler
         return handler
-    
+
     def handle(self, error_type: ValidationErrorType, context: Dict[str, Any]) -> Dict[str, Any]:
         """Template method para manejo de errores."""
         if self._can_handle(error_type):
@@ -140,17 +140,17 @@ class ValidationErrorHandler(ABC):
             return self._next_handler.handle(error_type, context)
         else:
             return self._default_handle(error_type, context)
-    
+
     @abstractmethod
     def _can_handle(self, error_type: ValidationErrorType) -> bool:
         """¿Puede este handler manejar este tipo de error?"""
         pass
-    
+
     @abstractmethod
     def _do_handle(self, error_type: ValidationErrorType, context: Dict[str, Any]) -> Dict[str, Any]:
         """Manejar el error específico."""
         pass
-    
+
     def _default_handle(self, error_type: ValidationErrorType, context: Dict[str, Any]) -> Dict[str, Any]:
         """Handler por defecto para errores no manejados."""
         return {
@@ -162,10 +162,10 @@ class ValidationErrorHandler(ABC):
 
 class EmptyDataErrorHandler(ValidationErrorHandler):
     """Handler específico para datos vacíos."""
-    
+
     def _can_handle(self, error_type: ValidationErrorType) -> bool:
         return error_type == ValidationErrorType.EMPTY_DATA
-    
+
     def _do_handle(self, error_type: ValidationErrorType, context: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "valid": False,
@@ -175,10 +175,10 @@ class EmptyDataErrorHandler(ValidationErrorHandler):
 
 class TypeErrorHandler(ValidationErrorHandler):
     """Handler específico para errores de tipo."""
-    
+
     def _can_handle(self, error_type: ValidationErrorType) -> bool:
         return error_type == ValidationErrorType.INVALID_TYPES
-    
+
     def _do_handle(self, error_type: ValidationErrorType, context: Dict[str, Any]) -> Dict[str, Any]:
         field = context.get("field")
         expected_types = context.get("expected_types")
@@ -190,10 +190,10 @@ class TypeErrorHandler(ValidationErrorHandler):
 
 class MissingFieldsErrorHandler(ValidationErrorHandler):
     """Handler específico para campos faltantes."""
-    
+
     def _can_handle(self, error_type: ValidationErrorType) -> bool:
         return error_type == ValidationErrorType.MISSING_FIELDS
-    
+
     def _do_handle(self, error_type: ValidationErrorType, context: Dict[str, Any]) -> Dict[str, Any]:
         missing_fields = context.get("missing_fields", [])
         return {
@@ -205,10 +205,10 @@ class MissingFieldsErrorHandler(ValidationErrorHandler):
 
 class RangeErrorHandler(ValidationErrorHandler):
     """Handler específico para errores de rango."""
-    
+
     def _can_handle(self, error_type: ValidationErrorType) -> bool:
         return error_type == ValidationErrorType.OUT_OF_RANGE
-    
+
     def _do_handle(self, error_type: ValidationErrorType, context: Dict[str, Any]) -> Dict[str, Any]:
         field = context.get("field")
         min_val = context.get("min_val")
@@ -222,34 +222,34 @@ class RangeErrorHandler(ValidationErrorHandler):
 # REFACTORED: Implementación Concreta usando Template Method
 class PredictionInputValidator(BaseValidator):
     """Validador de entrada de predicciones usando Template Method Pattern."""
-    
+
     def __init__(self, config: ValidationConfig = None):
         self.config = config or ValidationConfig.get_prediction_config()
         # REFACTORED: Chain of Responsibility para manejo de errores
         self.error_handler = self._setup_error_chain()
-    
+
     def _setup_error_chain(self) -> ValidationErrorHandler:
         """REFACTORED: Configurar cadena de manejo de errores."""
         empty_handler = EmptyDataErrorHandler()
         type_handler = TypeErrorHandler()
         missing_handler = MissingFieldsErrorHandler()
         range_handler = RangeErrorHandler()
-        
+
         # Configurar cadena
         empty_handler.set_next(type_handler).set_next(missing_handler).set_next(range_handler)
         return empty_handler
-    
+
     def _validate_format(self, data: Any) -> Dict[str, Any]:
         """Validar formato básico: no vacío."""
         if data is None or (isinstance(data, dict) and len(data) == 0):
             return self.error_handler.handle(ValidationErrorType.EMPTY_DATA, {"data": data})
         return {"valid": True}
-    
+
     def _validate_content(self, data: Any) -> Dict[str, Any]:
         """Validar contenido: tipos de datos."""
         if not isinstance(data, dict):
             return {"valid": True}  # Skip if not dict
-        
+
         for field_name, expected_types in self.config.field_types.items():
             if field_name in data:
                 value = data[field_name]
@@ -258,14 +258,14 @@ class PredictionInputValidator(BaseValidator):
                         ValidationErrorType.INVALID_TYPES,
                         {"field": field_name, "expected_types": expected_types}
                     )
-        
+
         return {"valid": True}
-    
+
     def _validate_business_rules(self, data: Any) -> Dict[str, Any]:
         """Validar reglas de negocio: campos requeridos y rangos."""
         if not isinstance(data, dict):
             return {"valid": True}
-        
+
         # Validar campos requeridos
         missing_fields = [field for field in self.config.required_fields if field not in data]
         if missing_fields:
@@ -273,7 +273,7 @@ class PredictionInputValidator(BaseValidator):
                 ValidationErrorType.MISSING_FIELDS,
                 {"missing_fields": missing_fields}
             )
-        
+
         # Validar rangos numéricos
         for field_name, (min_val, max_val) in self.config.numeric_ranges.items():
             if field_name in data:
@@ -283,7 +283,7 @@ class PredictionInputValidator(BaseValidator):
                         ValidationErrorType.OUT_OF_RANGE,
                         {"field": field_name, "min_val": min_val, "max_val": max_val}
                     )
-        
+
         return {"valid": True}
 
 
@@ -293,14 +293,14 @@ class ValidationFacade:
     Facade Pattern: Interface simplificada para todas las validaciones.
     REFACTORED: Punto único de acceso elimina duplicación en uso.
     """
-    
+
     def __init__(self):
         self.prediction_validator = PredictionInputValidator()
-    
+
     def validate_prediction_input(self, data: Any) -> Dict[str, Any]:
         """Validar entrada de predicción con facade simplificado."""
         return self.prediction_validator.validate(data)
-    
+
     def get_validation_schema(self) -> Dict[str, Any]:
         """Schema de validación para documentación."""
         config = ValidationConfig.get_prediction_config()

@@ -96,13 +96,13 @@ def test_validate_ml_model_validates_prediction_capability():
     class BrokenModel:
         def predict(self, X):
             raise Exception("Prediction failed")
-        
+
         def fit(self, X, y):
             pass
 
     model = BrokenModel()
     test_data = np.array([[1], [2]])
-    
+
     result = validate_ml_model(model, test_data=test_data)
     assert result["valid"] is False
     assert "prediction_failed" in result["error"]
@@ -121,13 +121,13 @@ def test_validate_ml_model_validates_output_format():
     class BadOutputModel:
         def predict(self, X):
             return "invalid_output"  # String en lugar de array
-        
+
         def fit(self, X, y):
             pass
 
     model = BadOutputModel()
     test_data = np.array([[1], [2]])
-    
+
     result = validate_ml_model(model, test_data=test_data)
     assert result["valid"] is False
     assert "invalid_output_format" in result["error"]
@@ -143,7 +143,7 @@ def test_sklearn_model_validator_supports_sklearn():
 
     validator = SklearnModelValidator()
     model = LinearRegression()
-    
+
     assert validator.supports_model(model) is True
 
 
@@ -154,11 +154,11 @@ def test_sklearn_model_validator_rejects_non_sklearn():
     from app.utils.ml_model_validators import SklearnModelValidator
 
     validator = SklearnModelValidator()
-    
+
     class CustomModel:
         def predict(self, X):
             return [1, 2, 3]
-    
+
     model = CustomModel()
     # Ahora con la lógica mejorada debe funcionar correctamente
     assert validator.supports_model(model) is False
@@ -171,14 +171,14 @@ def test_generic_model_validator_accepts_any_model():
     from app.utils.ml_model_validators import GenericModelValidator
 
     validator = GenericModelValidator()
-    
+
     class AnyModel:
         def predict(self, X):
             return [1, 2, 3]
-    
+
     model = AnyModel()
     result = validator.validate(model)
-    
+
     assert validator.supports_model(model) is True
     assert result["valid"] is True
 
@@ -190,7 +190,7 @@ def test_get_supported_model_types():
     from app.utils.ml_model_validators import get_supported_model_types
 
     types = get_supported_model_types()
-    
+
     assert isinstance(types, list)
     assert len(types) > 0
     assert "sklearn.*" in types
@@ -204,7 +204,7 @@ def test_get_validation_config():
     from app.utils.ml_model_validators import get_validation_config
 
     config = get_validation_config()
-    
+
     assert "required_methods" in config
     assert "sklearn_fitted_attributes" in config
     assert "valid_prediction_types" in config
@@ -224,13 +224,13 @@ def test_validate_ml_model_handles_empty_prediction():
     class EmptyPredictionModel:
         def predict(self, X):
             return []  # Lista vacía
-        
+
         def fit(self, X, y):
             pass
 
     model = EmptyPredictionModel()
     test_data = np.array([[1], [2]])
-    
+
     result = validate_ml_model(model, test_data=test_data)
     assert result["valid"] is False
     assert "empty" in result["error"]
@@ -247,12 +247,12 @@ def test_validate_ml_model_accepts_tuple_output():
     class TupleOutputModel:
         def predict(self, X):
             return (1, 2, 3)  # Tupla válida
-        
+
         def fit(self, X, y):
             pass
 
     model = TupleOutputModel()
     test_data = np.array([[1], [2]])
-    
+
     result = validate_ml_model(model, test_data=test_data)
-    assert result["valid"] is True 
+    assert result["valid"] is True
