@@ -33,10 +33,10 @@ function Write-ColorOutput {
 
 function Test-CommitMessage {
     param([string]$Message)
-    
+
     Write-ColorOutput "Validando mensaje de commit..." "Yellow"
     $conventionalPattern = '^(feat|fix|docs|style|refactor|test|chore)(\(.+\))?: .{1,50}$'
-    
+
     if ($Message -match $conventionalPattern) {
         Write-ColorOutput "Mensaje válido (Score: 100/100)" "Green"
         return $true
@@ -44,7 +44,7 @@ function Test-CommitMessage {
     else {
         Write-ColorOutput "Mensaje inválido (Score: 0/100)" "Red"
         Write-ColorOutput "Issues encontrados:" "Red"
-        
+
         if ($Message.Length -gt 50) {
             Write-ColorOutput "  - Muy largo ($($Message.Length) chars, max 50)" "Red"
         }
@@ -54,7 +54,7 @@ function Test-CommitMessage {
         if (-not ($Message -match ': ')) {
             Write-ColorOutput "  - Debe tener formato: tipo(scope): descripcion" "Red"
         }
-        
+
         return $false
     }
 }
@@ -94,7 +94,7 @@ function Invoke-TDDChecks {
     try {
         $hasGitignore = Test-Path "$ProjectRoot\.gitignore"
         $hasReadme = Test-Path "$ProjectRoot\README.md"
-        
+
         if ($hasGitignore -and $hasReadme) {
             Write-ColorOutput "  - Git Practices: GOOD" "Green"
         }
@@ -154,9 +154,9 @@ function Main {
     Write-ColorOutput ("=" * 45) "Cyan"
     Write-ColorOutput "⚠️ MODO TEMPORAL: Calidad esencial + velocidad" "Yellow"
     Write-ColorOutput ("=" * 45) "Cyan"
-    
+
     Set-Location $ProjectRoot
-    
+
     $status = Get-GitStatus
 
     if ($status.StagedFiles.Count -eq 0) {
@@ -196,7 +196,7 @@ function Main {
 
         $commitHash = git rev-parse --short HEAD
         Write-ColorOutput "Hash: $commitHash" "Gray"
-        
+
         Write-ColorOutput "" "White"
         Write-ColorOutput "📋 SIGUIENTE PASO:" "Cyan"
         Write-ColorOutput "  Cuando termines el desarrollo TDD, usa:" "White"
@@ -209,4 +209,4 @@ function Main {
     }
 }
 
-Main 
+Main
