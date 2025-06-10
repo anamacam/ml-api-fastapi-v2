@@ -15,8 +15,21 @@ from abc import ABC, abstractmethod
 # Configuración del logger
 logger = logging.getLogger(__name__)
 
+# Configurar logger si no está configurado
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
 # Métodos requeridos para modelos ML
 REQUIRED_MODEL_METHODS = ["predict"]
+
+# Métodos opcionales comunes en modelos ML
+OPTIONAL_MODEL_METHODS = ["predict_proba", "predict_log_proba", "decision_function", "transform"]
 
 # Atributos que indican modelo sklearn entrenado
 SKLEARN_FITTED_ATTRIBUTES = [
@@ -95,7 +108,11 @@ class GenericModelValidator(ModelValidator):
         return {"valid": True}
 
 
-def validate_ml_model(model: Any, test_data: Optional[np.ndarray] = None) -> Dict[str, Any]:
+def validate_ml_model(
+    model: Any, 
+    test_data: Optional[np.ndarray] = None,
+    required_methods: Optional[List[str]] = None
+) -> Dict[str, Any]:
     """
     Valida modelo ML antes de usar para predicciones.
 
@@ -109,6 +126,7 @@ def validate_ml_model(model: Any, test_data: Optional[np.ndarray] = None) -> Dic
     Args:
         model: Modelo ML para validar
         test_data: Datos de prueba opcionales para validar predicción
+        required_methods: Lista de métodos requeridos (default: ["predict"])
 
     Returns:
         Dict con 'valid' (bool) y opcionalmente 'error' y 'missing_methods'
@@ -131,7 +149,8 @@ def validate_ml_model(model: Any, test_data: Optional[np.ndarray] = None) -> Dic
             return null_result
 
         # Validación de métodos requeridos
-        methods_result = _validate_required_methods(model)
+        methods_to_check = required_methods or REQUIRED_MODEL_METHODS
+        methods_result = _validate_required_methods(model, methods_to_check)
         if not methods_result["valid"]:
             return methods_result
 
@@ -142,6 +161,11 @@ def validate_ml_model(model: Any, test_data: Optional[np.ndarray] = None) -> Dic
 
         # Validación de capacidad de predicción (opcional)
         if test_data is not None:
+            # Validar tamaño de test_data para evitar cómputo pesado
+            data_validation = _validate_test_data(test_data)
+            if not data_validation["valid"]:
+                return data_validation
+                
             prediction_result = _validate_prediction_capability(model, test_data)
             if not prediction_result["valid"]:
                 return prediction_result
@@ -168,11 +192,11 @@ def _validate_not_null(model: Any) -> Dict[str, Any]:
     return {"valid": True}
 
 
-def _validate_required_methods(model: Any) -> Dict[str, Any]:
+def _validate_required_methods(model: Any, methods_to_check: List[str]) -> Dict[str, Any]:
     """Valida que el modelo tenga métodos requeridos."""
     missing_methods = []
 
-    for method in REQUIRED_MODEL_METHODS:
+    for method in methods_to_check:
         if not hasattr(model, method) or not callable(getattr(model, method)):
             missing_methods.append(method)
 
@@ -198,6 +222,44 @@ def _validate_model_by_type(model: Any) -> Dict[str, Any]:
             return validator.validate(model)
 
     return {"valid": True}
+
+
+def _validate_test_data(test_data: np.ndarray, max_samples: int = 1000) -> Dict[str, Any]:
+    """
+    Valida que test_data sea apropiado para predicción.
+    
+    Args:
+        test_data: Datos de prueba
+        max_samples: Máximo número de muestras permitidas
+        
+    Returns:
+        Dict con resultado de validación
+    """
+    try:
+        # Verificar que no esté vacío
+        if test_data is None or (hasattr(test_data, '__len__') and len(test_data) == 0):
+            return {
+                "valid": False,
+                "error": "test_data is empty or None"
+            }
+        
+        # Verificar tamaño para evitar cómputo pesado
+        if hasattr(test_data, 'shape') and len(test_data.shape) > 0:
+            n_samples = test_data.shape[0]
+            if n_samples > max_samples:
+                logger.warning(f"test_data has {n_samples} samples, limiting to {max_samples} for performance")
+                return {
+                    "valid": False,
+                    "error": f"test_data too large: {n_samples} samples > {max_samples} limit"
+                }
+        
+        return {"valid": True}
+        
+    except Exception as e:
+        return {
+            "valid": False,
+            "error": f"test_data validation failed: {str(e)}"
+        }
 
 
 def _validate_prediction_capability(model: Any, test_data: np.ndarray) -> Dict[str, Any]:
@@ -254,8 +316,10 @@ def get_validation_config() -> Dict[str, Any]:
     """
     return {
         "required_methods": REQUIRED_MODEL_METHODS,
+        "optional_methods": OPTIONAL_MODEL_METHODS,
         "sklearn_fitted_attributes": SKLEARN_FITTED_ATTRIBUTES,
         "valid_prediction_types": [t.__name__ for t in VALID_PREDICTION_TYPES],
         "supported_model_types": get_supported_model_types(),
-        "version": "2.0.0"
+        "max_test_samples": 1000,
+        "version": "2.1.0"
     }

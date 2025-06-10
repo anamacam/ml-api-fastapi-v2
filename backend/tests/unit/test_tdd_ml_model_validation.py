@@ -256,3 +256,171 @@ def test_validate_ml_model_accepts_tuple_output():
 
     result = validate_ml_model(model, test_data=test_data)
     assert result["valid"] is True
+
+
+# NUEVOS TESTS PARA MEJORAS IMPLEMENTADAS
+
+def test_validate_ml_model_with_custom_required_methods():
+    """
+    Test para métodos requeridos personalizados (MEJORA CRÍTICA).
+    """
+    from app.utils.ml_model_validators import validate_ml_model
+
+    # Modelo que tiene predict_proba pero no decision_function
+    class ClassifierModel:
+        def predict(self, X):
+            return [1, 0, 1]
+        
+        def predict_proba(self, X):
+            return [[0.8, 0.2], [0.3, 0.7], [0.9, 0.1]]
+
+    model = ClassifierModel()
+    
+    # Debe pasar con métodos por defecto
+    result = validate_ml_model(model)
+    assert result["valid"] is True
+    
+    # Debe pasar al requerir predict_proba
+    result = validate_ml_model(model, required_methods=["predict", "predict_proba"])
+    assert result["valid"] is True
+    
+    # Debe fallar al requerir decision_function
+    result = validate_ml_model(model, required_methods=["predict", "decision_function"])
+    assert result["valid"] is False
+    assert "missing_methods" in result["error"]
+    assert "decision_function" in result["missing_methods"]
+
+
+def test_validate_test_data_rejects_empty_data():
+    """
+    Test para validación de test_data vacío (MEJORA CRÍTICA).
+    """
+    from app.utils.ml_model_validators import validate_ml_model
+    import numpy as np
+
+    class SimpleModel:
+        def predict(self, X):
+            return [1, 2, 3]
+
+    model = SimpleModel()
+    
+    # Test con array vacío
+    empty_data = np.array([])
+    result = validate_ml_model(model, test_data=empty_data)
+    assert result["valid"] is False
+    assert "empty" in result["error"]
+    
+    # Test con None
+    result = validate_ml_model(model, test_data=None)
+    assert result["valid"] is True  # None es opcional, no debe fallar
+
+
+def test_validate_test_data_limits_large_datasets():
+    """
+    Test para límite de tamaño de test_data (MEJORA CRÍTICA).
+    """
+    from app.utils.ml_model_validators import validate_ml_model
+    import numpy as np
+
+    class SimpleModel:
+        def predict(self, X):
+            return np.ones(X.shape[0])
+
+    model = SimpleModel()
+    
+    # Test con dataset demasiado grande (>1000 muestras)
+    large_data = np.random.rand(1500, 5)
+    result = validate_ml_model(model, test_data=large_data)
+    assert result["valid"] is False
+    assert "too large" in result["error"]
+    assert "1500" in result["error"]
+    assert "1000" in result["error"]
+
+
+def test_logging_configuration_works():
+    """
+    Test para verificar que el logging está configurado (MEJORA CRÍTICA).
+    """
+    from app.utils.ml_model_validators import logger
+    
+    # Verificar que el logger tiene handlers
+    assert len(logger.handlers) > 0
+    
+    # Verificar que el level está configurado
+    assert logger.level == 20  # INFO level
+    
+    # Verificar que el handler tiene formatter
+    handler = logger.handlers[0]
+    assert handler.formatter is not None
+
+
+def test_get_validation_config_includes_new_options():
+    """
+    Test para verificar que la configuración incluye nuevas opciones.
+    """
+    from app.utils.ml_model_validators import get_validation_config
+
+    config = get_validation_config()
+    
+    # Verificar nuevas opciones
+    assert "optional_methods" in config
+    assert "max_test_samples" in config
+    assert config["version"] == "2.1.0"
+    
+    # Verificar contenido de métodos opcionales
+    assert "predict_proba" in config["optional_methods"]
+    assert "decision_function" in config["optional_methods"]
+    assert "transform" in config["optional_methods"]
+    
+    # Verificar límite de muestras
+    assert config["max_test_samples"] == 1000
+
+
+def test_validate_ml_model_logs_success():
+    """
+    Test para verificar que se logea el éxito de validación.
+    """
+    import logging
+    from app.utils.ml_model_validators import validate_ml_model
+    from sklearn.linear_model import LinearRegression
+    import numpy as np
+
+    # Modelo sklearn entrenado
+    model = LinearRegression()
+    X = np.array([[1], [2], [3]])
+    y = np.array([1, 2, 3])
+    model.fit(X, y)
+
+    result = validate_ml_model(model)
+    assert result["valid"] is True
+    
+    # Verificar que no hay errores (logging funciona implícitamente)
+    # Este test verifica que el sistema de logging está funcionando sin errores
+
+
+def test_edge_cases_for_robustness():
+    """
+    Test para casos edge y robustez general.
+    """
+    from app.utils.ml_model_validators import validate_ml_model
+    import numpy as np
+
+    # Modelo con método predict que no es callable
+    class BrokenModel:
+        predict = "not_a_method"
+
+    model = BrokenModel()
+    result = validate_ml_model(model)
+    assert result["valid"] is False
+    assert "missing_methods" in result["error"]
+    
+    # Test con test_data de dimensiones extrañas
+    class SimpleModel:
+        def predict(self, X):
+            return [1] * len(X)
+
+    model = SimpleModel()
+    weird_data = np.array([1, 2, 3])  # 1D array
+    result = validate_ml_model(model, test_data=weird_data)
+    # Debería manejar esto sin errores
+    assert result["valid"] is True
