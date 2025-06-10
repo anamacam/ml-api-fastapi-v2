@@ -109,7 +109,7 @@ class GenericModelValidator(ModelValidator):
 
 
 def validate_ml_model(
-    model: Any, 
+    model: Any,
     test_data: Optional[np.ndarray] = None,
     required_methods: Optional[List[str]] = None
 ) -> Dict[str, Any]:
@@ -165,7 +165,7 @@ def validate_ml_model(
             data_validation = _validate_test_data(test_data)
             if not data_validation["valid"]:
                 return data_validation
-                
+
             prediction_result = _validate_prediction_capability(model, test_data)
             if not prediction_result["valid"]:
                 return prediction_result
@@ -227,11 +227,11 @@ def _validate_model_by_type(model: Any) -> Dict[str, Any]:
 def _validate_test_data(test_data: np.ndarray, max_samples: int = 1000) -> Dict[str, Any]:
     """
     Valida que test_data sea apropiado para predicción.
-    
+
     Args:
         test_data: Datos de prueba
         max_samples: Máximo número de muestras permitidas
-        
+
     Returns:
         Dict con resultado de validación
     """
@@ -242,7 +242,7 @@ def _validate_test_data(test_data: np.ndarray, max_samples: int = 1000) -> Dict[
                 "valid": False,
                 "error": "test_data is empty or None"
             }
-        
+
         # Verificar tamaño para evitar cómputo pesado
         if hasattr(test_data, 'shape') and len(test_data.shape) > 0:
             n_samples = test_data.shape[0]
@@ -252,9 +252,9 @@ def _validate_test_data(test_data: np.ndarray, max_samples: int = 1000) -> Dict[
                     "valid": False,
                     "error": f"test_data too large: {n_samples} samples > {max_samples} limit"
                 }
-        
+
         return {"valid": True}
-        
+
     except Exception as e:
         return {
             "valid": False,
