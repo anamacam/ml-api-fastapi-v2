@@ -85,7 +85,7 @@ from app.models.user import User
 # Usar repository genérico
 async with get_async_session() as session:
     user_repo = BaseRepository(User, session)
-    
+
     # Operaciones CRUD
     user = await user_repo.create({"name": "Juan", "email": "juan@example.com"})
     users = await user_repo.get_all(skip=0, limit=10)
@@ -104,7 +104,7 @@ class UserRepository(BaseRepository[User]):
         super()._validate_create_data(data)
         if "@" not in data.get("email", ""):
             raise ValueError("Email inválido")
-    
+
     async def get_by_email(self, email: str) -> Optional[User]:
         from sqlalchemy import select
         stmt = select(self.model).where(self.model.email == email)
@@ -294,4 +294,4 @@ Este módulo fue desarrollado siguiendo estrictamente la metodología TDD:
 2. **🟢 GREEN**: Implementar código mínimo para pasar pruebas
 3. **🔵 REFACTOR**: Mejorar y optimizar manteniendo pruebas pasando
 
-**Resultado: 22/22 pruebas pasando (100% éxito) - Código robusto y confiable** 
+**Resultado: 22/22 pruebas pasando (100% éxito) - Código robusto y confiable**
