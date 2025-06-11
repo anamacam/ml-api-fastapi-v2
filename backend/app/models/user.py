@@ -16,8 +16,6 @@ from sqlalchemy.ext.declarative import declarative_base
 from ..core.database import Base
 from ..core.security import get_password_hash, verify_password
 
-Base = declarative_base()
-
 
 class UserRole(str, Enum):
     """Roles de usuario disponibles en el sistema."""
@@ -109,7 +107,7 @@ class User(Base):
 
     # Metadatos adicionales
     preferences = Column(Text, nullable=True)  # JSON string de preferencias
-    metadata = Column(Text, nullable=True)  # JSON string de metadata adicional
+    user_metadata = Column(Text, nullable=True)  # JSON string de metadata adicional
 
     # Relaciones
     roles = relationship("Role", secondary=user_roles, back_populates="users")
@@ -401,7 +399,7 @@ class UserActivity(Base):
     resource_id = Column(String(50), nullable=True)  # ID del recurso
 
     # Metadata adicional
-    metadata = Column(Text, nullable=True)  # JSON string con datos adicionales
+    activity_metadata = Column(Text, nullable=True)  # JSON string con datos adicionales
 
     # Timestamp
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
