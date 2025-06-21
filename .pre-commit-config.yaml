@@ -14,12 +14,42 @@ repos:
       - id: check-ast
         name: ✅ Verificar sintaxis Python
 
-  # Black para formateo Python (deshabilitado por problema con Python 3.12.5)
-  # - repo: https://github.com/psf/black
-  #   rev: 23.3.0
-  #   hooks:
-  #     - id: black
-  #       name: 🖤 Black - Formateo Python
+  # Pre-commit rápido de calidad
+  - repo: local
+    hooks:
+      - id: quick-quality-check
+        name: ⚡ Check rápido de calidad
+        entry: python infrastructure/scripts/quick_quality_check.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [commit]
+        
+      - id: progress-pre-commit
+        name: 📈 Actualizar progreso (pre-commit)
+        entry: python infrastructure/scripts/progress_tracker.py --pre-commit
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [commit]
+
+  # Black para formateo Python (habilitado con configuración especial)
+  - repo: https://github.com/psf/black
+    rev: 23.3.0
+    hooks:
+      - id: black
+        name: 🖤 Black - Formateo Python
+        args: [--line-length=88, --target-version=py311]
+        exclude: ^(venv/|__pycache__/)
+
+  # Flake8 para linting rápido
+  - repo: https://github.com/pycqa/flake8
+    rev: 6.0.0
+    hooks:
+      - id: flake8
+        name: 🔍 Flake8 - Linting Python
+        args: [--max-line-length=88, --extend-ignore=E203,W503]
+        exclude: ^(venv/|__pycache__/)
 
   # Análisis de deuda técnica (deshabilitado por problemas de encoding en Windows)
   # - repo: local

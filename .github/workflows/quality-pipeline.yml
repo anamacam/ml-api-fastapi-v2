@@ -1,0 +1,130 @@
+name: 🎯 Quality Pipeline - Tracking de Progreso
+
+on:
+  push:
+    branches: [ main, develop, 'feature/*' ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Análisis diario a las 9:00 AM
+    - cron: '0 9 * * *'
+
+jobs:
+  quality-analysis:
+    name: 📊 Análisis de Calidad
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout código
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Necesario para tracking histórico
+    
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: 📦 Instalar dependencias
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r backend/requirements/base.txt
+        pip install radon flake8 bandit safety
+    
+    - name: 🔍 Ejecutar análisis de deuda técnica
+      id: debt_analysis
+      run: |
+        cd backend
+        python ../infrastructure/scripts/tech_debt_analyzer.py --format json > ../reports/current_debt.json
+        echo "CURRENT_SCORE=$(python ../infrastructure/scripts/tech_debt_analyzer.py --format json | jq -r '.total_score')" >> $GITHUB_OUTPUT
+    
+    - name: 📋 Verificar estándares
+      run: |
+        python infrastructure/scripts/check_standards.py --format json > reports/standards_report.json
+    
+    - name: 📈 Generar tracking de progreso
+      id: progress_tracking
+      run: |
+        python infrastructure/scripts/progress_tracker.py
+        echo "PROGRESS_MADE=$(cat reports/progress_summary.json | jq -r '.improvement')" >> $GITHUB_OUTPUT
+        echo "TREND=$(cat reports/progress_summary.json | jq -r '.trend')" >> $GITHUB_OUTPUT
+    
+    - name: 🎨 Generar dashboard de progreso
+      run: |
+        python infrastructure/scripts/generate_dashboard.py
+    
+    - name: 📤 Subir reportes como artefactos
+      uses: actions/upload-artifact@v3
+      with:
+        name: quality-reports-${{ github.sha }}
+        path: |
+          reports/current_debt.json
+          reports/standards_report.json
+          reports/progress_summary.json
+          reports/dashboard.html
+        retention-days: 30
+    
+    - name: 🚨 Verificar umbrales de calidad
+      run: |
+        SCORE=${{ steps.debt_analysis.outputs.CURRENT_SCORE }}
+        if (( $(echo "$SCORE < 60.0" | bc -l) )); then
+          echo "❌ CRÍTICO: Score $SCORE está por debajo del umbral mínimo (60)"
+          exit 1
+        elif (( $(echo "$SCORE < 70.0" | bc -l) )); then
+          echo "⚠️ ADVERTENCIA: Score $SCORE necesita mejoras (target: 70+)"
+        elif (( $(echo "$SCORE < 80.0" | bc -l) )); then
+          echo "📈 BUENO: Score $SCORE está mejorando (target: 80+)"
+        else
+          echo "🎉 EXCELENTE: Score $SCORE está en rango óptimo!"
+        fi
+    
+    - name: 💬 Comentar en PR con progreso
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const score = '${{ steps.debt_analysis.outputs.CURRENT_SCORE }}';
+          const progress = '${{ steps.progress_tracking.outputs.PROGRESS_MADE }}';
+          const trend = '${{ steps.progress_tracking.outputs.TREND }}';
+          
+          let emoji = '📈';
+          if (trend === 'improving') emoji = '🚀';
+          else if (trend === 'declining') emoji = '📉';
+          
+          const comment = `## ${emoji} Quality Progress Report
+          
+          **Current Score:** ${score}/100
+          **Progress:** ${progress}
+          **Trend:** ${trend}
+          
+          ### 📊 Quality Breakdown
+          - 🎯 **Target Score:** 85+
+          - 📈 **Current Status:** ${score >= 80 ? '🟢 Excellent' : score >= 70 ? '🟡 Good' : '🔴 Needs Improvement'}
+          
+          ### 🔗 Full Reports
+          Check the [Quality Dashboard](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for detailed metrics.
+          
+          ${score < 70 ? '⚠️ **Action Required:** Score below recommended threshold' : ''}
+          ${progress.includes('+') ? '🎉 **Great Job!** Quality is improving!' : ''}
+          `;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+  celebrate-improvements:
+    name: 🎉 Celebrar Mejoras
+    runs-on: ubuntu-latest
+    needs: quality-analysis
+    if: contains(needs.quality-analysis.outputs.TREND, 'improving')
+    
+    steps:
+    - name: 🎊 Reconocer mejoras de calidad
+      run: |
+        echo "🎉 ¡Excelente trabajo! La calidad del código está mejorando."
+        echo "🚀 Score actual: ${{ needs.quality-analysis.outputs.CURRENT_SCORE }}"
+        echo "📈 Tendencia: ${{ needs.quality-analysis.outputs.TREND }}" 
