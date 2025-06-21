@@ -14,13 +14,19 @@ from datetime import datetime
 import joblib
 from pathlib import Path
 
-from ..core.config import get_settings
-from ..models.schemas import PredictionRequest, PredictionResponse
-from ..utils.validators import validate_prediction_input
-from ..utils.exceptions import PredictionError, ModelLoadError
+from ..services.model_management_service import ModelManagementService
+from ..utils.prediction_validators import validate_prediction_input
+from ..utils.ml_model_validators import validate_ml_model
+from ..config.settings import get_settings
+# from ..core.config import get_settings
+from ..core.database import DatabaseManager
+from ..core.error_handler import MLErrorHandler
+from ..models.api_models import PredictionRequest, PredictionResponse
+from ..utils.exceptions import ModelNotFoundError, PredictionError, ModelLoadError
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+error_handler = MLErrorHandler()
 
 
 class PredictionService:
@@ -157,6 +163,7 @@ class PredictionService:
 
         except Exception as e:
             logger.error(f"Error en predicción: {e}")
+            error_handler.classify_error(e, context="PredictionService.predict")
             raise PredictionError(f"Error realizando predicción: {e}")
 
     async def _preprocess_data(
@@ -190,6 +197,7 @@ class PredictionService:
             return processed_data
 
         except Exception as e:
+            error_handler.classify_error(e, context="PredictionService._preprocess_data")
             raise PredictionError(f"Error en preprocessing: {e}")
 
     def _basic_preprocessing(self, df: pd.DataFrame) -> np.ndarray:

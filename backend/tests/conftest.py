@@ -10,6 +10,9 @@ from unittest.mock import Mock
 import sys
 from pathlib import Path
 
+from app.core.database import DatabaseConfig, DatabaseManager
+import os
+
 # Agregar el directorio app al path para imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "app"))
 
@@ -52,6 +55,35 @@ def mock_prediction_data():
         "prediction": 0.85,
         "confidence": 0.92
     }
+
+
+@pytest.fixture(scope="session")
+def test_db_config():
+    """Configuración de la base de datos de prueba"""
+    return DatabaseConfig(
+        database_url=os.getenv(
+            "TEST_DATABASE_URL",
+            "postgresql+asyncpg://postgres:postgres@localhost:5432/ml_api_test"
+        ),
+        echo=True
+    )
+
+
+@pytest.fixture(scope="session")
+async def test_db_manager(test_db_config):
+    """Manager de base de datos para tests"""
+    manager = DatabaseManager(test_db_config)
+    await manager.initialize()
+    yield manager
+    await manager.cleanup()
+
+
+@pytest.fixture(scope="function")
+async def test_db_session(test_db_manager):
+    """Sesión de base de datos para tests"""
+    async with test_db_manager.get_session() as session:
+        yield session
+        await session.rollback()  # Rollback después de cada test
 
 
 # Configuración de pytest

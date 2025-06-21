@@ -10,7 +10,11 @@ from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
-from app.models.user import User, UserCreate, UserInDB, UserUpdate
+from sqlalchemy.orm import Session
+
+from app.core.security import get_password_hash, verify_password
+from app.models.user import User, UserStatus
+from app.models.schemas import UserCreate, UserUpdate, UserInDB
 
 
 class TestUserModel:

@@ -140,7 +140,8 @@ function Invoke-PreCommitChecks {
     Write-ColorOutput "  - Ejecutando tests..." "Gray"
     try {
         Push-Location "$ProjectRoot\backend"
-        python -m pytest tests/unit/test_tdd_health.py -v --tb=short 2>&1 | Out-Null
+        # Ejecutar la suite de tests COMPLETA y mostrar errores
+        python -m pytest -v --tb=short
         $testResult = $LASTEXITCODE
         Pop-Location
 
@@ -162,7 +163,8 @@ function Invoke-PreCommitChecks {
     Write-ColorOutput "  - Verificando calidad..." "Gray"
     try {
         # Usar analyze_tech_debt.bat para verificar calidad COMPLETA
-        $qualityOutput = & "$ProjectRoot\analyze_tech_debt.bat" 2>&1
+        $qualityOutput = & "$ProjectRoot\analyze_tech_debt.bat"
+        # La validación del score se mantiene, pero ahora veremos el error si lo hay
         if ($qualityOutput -match "Score: (\d+\.?\d*)/100") {
             $score = [double]$matches[1]
             if ($score -ge 70) {
@@ -173,11 +175,14 @@ function Invoke-PreCommitChecks {
             }
         }
         else {
-            Write-ColorOutput "  - Quality: PASSED (Default)" "Green"
+            # Si no hay score, asumimos que pasó pero mostramos una advertencia
+            Write-ColorOutput "  - Quality: PASSED (No Score Found)" "Green"
         }
     }
     catch {
-        Write-ColorOutput "  - Quality: ERROR - $($_.Exception.Message)" "Red"
+        # Captura y muestra el error completo del script de calidad
+        Write-ColorOutput "  - Quality: ERROR" "Red"
+        Write-ColorOutput "    $($_.Exception.Message)" "Red"
         $allPassed = $false
     }
 

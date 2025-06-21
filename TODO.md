@@ -40,9 +40,35 @@
 - [ ] **Coverage >50%** en módulos core
 - [ ] **CI/CD pipeline** con tests automáticos
 
+### 🔴 **2. Módulo de Base de Datos (Crítico - 0%)**
+
+**Impacto**: +15% del score total
+
+#### **Tareas Inmediatas:**
+
+- [ ] **Configuración de Base de Datos**:
+  - [ ] Configurar SQLAlchemy
+  - [ ] Definir modelos base
+  - [ ] Configurar conexiones y pools
+
+- [ ] **Modelos Core**:
+  - [ ] Modelo de Usuario
+  - [ ] Modelo de Predicción
+  - [ ] Modelo de Configuración
+
+- [ ] **Migraciones**:
+  - [ ] Configurar Alembic
+  - [ ] Crear migración inicial
+  - [ ] Scripts de actualización
+
+#### **Meta Semana 1:**
+- [ ] **Estructura base** implementada
+- [ ] **Migraciones** funcionando
+- [ ] **Tests** de modelos básicos
+
 ---
 
-### 🟡 **2. Mejorar Documentación (Medio - 69.8%)**
+### 🟡 **3. Mejorar Documentación (Medio - 69.8%)**
 
 **Impacto**: +5.4% adicional del score total
 
@@ -70,7 +96,7 @@
 
 ## 🎯 **Prioridad MEDIA**
 
-### 📊 **3. Implementar Métricas y Monitoring**
+### 📊 **4. Implementar Métricas y Monitoring**
 
 - [ ] **Setup Prometheus/Grafana**:
 
@@ -83,7 +109,7 @@
   - [ ] Centralizar logs con ELK stack
   - [ ] Tracing distribuido
 
-### 🔧 **4. Automatización y CI/CD**
+### 🔧 **5. Automatización y CI/CD**
 
 - [ ] **GitHub Actions workflows**:
 
@@ -100,7 +126,7 @@
 
 ## 🎯 **Prioridad BAJA (Optimizaciones)**
 
-### 🚀 **5. Performance y Escalabilidad**
+### 🚀 **6. Performance y Escalabilidad**
 
 - [ ] **Cache distribuido**:
 
@@ -113,7 +139,7 @@
   - [ ] Implementar read replicas
   - [ ] Connection pooling
 
-### 🔐 **6. Seguridad**
+### 🔐 **7. Seguridad**
 
 - [ ] **Autenticación robusta**:
 

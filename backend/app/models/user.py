@@ -214,6 +214,24 @@ class User(Base):
         self.locked_until = None
         self.failed_login_attempts = 0
 
+    def can_make_prediction(self) -> bool:
+        """
+        Verificar si el usuario puede hacer predicciones.
+
+        Returns:
+            bool: True si el usuario puede hacer predicciones.
+        """
+        return self.is_active and not self.is_locked()
+
+    def get_display_name(self) -> str:
+        """
+        Obtener el nombre para mostrar del usuario.
+
+        Returns:
+            str: Nombre para mostrar.
+        """
+        return self.display_name
+
     def to_dict(self) -> dict:
         """
         Convertir el usuario a diccionario (sin información sensible).

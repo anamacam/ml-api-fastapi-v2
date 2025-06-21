@@ -16,6 +16,7 @@ from dataclasses import dataclass
 
 from pydantic import Field, field_validator, ValidationError, ConfigDict
 from pydantic_settings import BaseSettings
+from app.core.security_logger import SecurityEventFactory, SecurityLevel, EventType, get_security_logger
 
 # Configurar logger
 logger = logging.getLogger(__name__)
@@ -197,6 +198,12 @@ class Settings(BaseSettings):
         default=Path("data/models"),
         description="Directorio de modelos ML"
     )
+    
+    # Alias para compatibilidad
+    @property
+    def MODELS_PATH(self) -> Path:
+        """Alias para ml_models_path para compatibilidad"""
+        return self.ml_models_path
     use_real_models: bool = Field(
         default=True,
         description="Usar modelos reales (false para mocks en testing)"
@@ -368,19 +375,51 @@ class Settings(BaseSettings):
 
     def _log_security_warnings(self):
         """
-        Loggear advertencias de seguridad
-        REFACTORED: Usando patrones centralizados
+        Loggear advertencias de seguridad usando el nuevo sistema
+        REFACTORED: Usando el sistema de logging de seguridad avanzado
         """
+        security_logger = get_security_logger()
+        
         # Advertencia sobre secret key por defecto
         if self.secret_key == "dev-secret-key-change-in-production":
+            warning_event = SecurityEventFactory.create_threat_event(
+                threat_type="default_secret_key",
+                severity=SecurityLevel.HIGH,
+                details={
+                    "config_key": "secret_key",
+                    "current_value": "dev-secret-key-change-in-production",
+                    "recommendation": "Change secret key in production environment"
+                }
+            )
+            security_logger.log_event(warning_event)
             logger.warning("Using default SECRET_KEY - change in production!")
 
         # Advertencia sobre debug en no-desarrollo
         if self.debug and self.environment != Environment.DEVELOPMENT:
+            warning_event = SecurityEventFactory.create_threat_event(
+                threat_type="debug_mode_in_production",
+                severity=SecurityLevel.MEDIUM,
+                details={
+                    "environment": self.environment,
+                    "debug_enabled": self.debug,
+                    "recommendation": "Disable debug mode in non-development environments"
+                }
+            )
+            security_logger.log_event(warning_event)
             logger.warning(f"Debug mode enabled in {self.environment} environment")
 
         # Advertencia sobre modelos reales en testing
         if self.is_testing and self.use_real_models:
+            warning_event = SecurityEventFactory.create_threat_event(
+                threat_type="real_models_in_testing",
+                severity=SecurityLevel.MEDIUM,
+                details={
+                    "environment": "testing",
+                    "use_real_models": self.use_real_models,
+                    "recommendation": "Use mock models in testing environment"
+                }
+            )
+            security_logger.log_event(warning_event)
             logger.warning("Testing environment should not use real models")
 
     def __setattr__(self, name, value):
