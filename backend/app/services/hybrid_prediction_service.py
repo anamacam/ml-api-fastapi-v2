@@ -42,7 +42,9 @@ class HybridPredictionService:
         """
         # Usar configuración por entorno si no se especifica explícitamente
         if use_real_models is None:
-            self.use_real_models = getattr(settings, "should_use_real_models", False)
+            self.use_real_models = getattr(
+                settings, "should_use_real_models", False
+            )
         else:
             self.use_real_models = use_real_models
         self.real_models: Dict[str, Any] = {}
@@ -105,8 +107,9 @@ class HybridPredictionService:
                     try:
                         logger.info(f"🔄 Cargando modelo real: {model_name}")
                         self.real_models[model_name] = joblib.load(model_path)
+                        size_kb = model_path.stat().st_size / 1024
                         logger.info(
-                            f"✅ Modelo cargado: {model_name} ({model_path.stat().st_size / 1024:.1f}KB)"
+                            f"✅ Modelo cargado: {model_name} ({size_kb:.1f}KB)"
                         )
                     except Exception as e:
                         logger.error(f"❌ Error cargando {model_name}: {e}")
