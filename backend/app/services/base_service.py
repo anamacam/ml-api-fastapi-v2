@@ -18,23 +18,28 @@ Patrones aplicados:
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, TypeVar, Generic, Callable
+from typing import Any, Dict, List, Optional, TypeVar, Generic
 from dataclasses import dataclass, field
 from datetime import datetime
 from contextlib import contextmanager
 import time
 import traceback
 
-from ..utils.exceptions import BaseAppException
-from ..core.security_logger import SecurityEventFactory, SecurityLevel, get_security_logger
+# from ..utils.exceptions import BaseAppException  # Unused import
+from ..core.security_logger import (
+    SecurityEventFactory,
+    SecurityLevel,
+    get_security_logger,
+)
 from ..config.settings import get_settings
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 @dataclass
 class ServiceResult(Generic[T]):
     """Resultado de una operación de servicio"""
+
     success: bool
     data: Optional[T] = None
     error: Optional[str] = None
@@ -50,7 +55,7 @@ class ServiceResult(Generic[T]):
             "error": self.error,
             "details": self.details,
             "timestamp": self.timestamp.isoformat(),
-            "execution_time": self.execution_time
+            "execution_time": self.execution_time,
         }
 
 
@@ -58,7 +63,9 @@ class ServiceObserver(ABC):
     """Observer abstracto para eventos de servicio"""
 
     @abstractmethod
-    def on_service_event(self, event_type: str, service_name: str, details: Dict[str, Any]) -> None:
+    def on_service_event(
+        self, event_type: str, service_name: str, details: Dict[str, Any]
+    ) -> None:
         """Manejar evento de servicio"""
         pass
 
@@ -88,19 +95,59 @@ class BaseService(ABC):
         self.strategies: Dict[str, ServiceStrategy] = {}
         self.metrics: Dict[str, Any] = {}
 
+        # TDD CYCLE 7 - GREEN PHASE: Atributos requeridos por tests
+        self.config = self.settings
+        self.error_handler = self._create_error_handler()
+        self.is_initialized = False
+        self.last_error_context: Optional[Dict[str, Any]] = None
+
         # Configurar logging
         self._setup_logging()
+
+        # Inicializar servicio
+        try:
+            self.initialize()
+            self.is_initialized = True
+        except Exception as e:
+            self.logger.error(f"Failed to initialize service {service_name}: {e}")
+            self.is_initialized = False
 
     def _setup_logging(self) -> None:
         """Configurar logging del servicio"""
         if not self.logger.handlers:
             handler = logging.StreamHandler()
             formatter = logging.Formatter(
-                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
             )
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
             self.logger.setLevel(getattr(logging, self.settings.log_level.upper()))
+
+    def _create_error_handler(self) -> Dict[str, Any]:
+        """TDD CYCLE 7 - GREEN PHASE: Crear manejador de errores"""
+        return {
+            "logger": self.logger,
+            "security_logger": self.security_logger,
+            "error_count": 0,
+            "last_error": None,
+        }
+
+    def validate_input(self, data: Any) -> bool:
+        """TDD CYCLE 7 - GREEN PHASE: Validar entrada de datos"""
+        if data is None:
+            return False
+        if isinstance(data, dict) and len(data) == 0:
+            return False
+        return True
+
+    def handle_error(self, error: Exception, context: Dict[str, Any]) -> None:
+        """TDD CYCLE 7 - GREEN PHASE: Manejar errores con contexto"""
+        self.last_error_context = context
+        self.logger.error(f"Service error: {error}", extra=context)
+
+        if self.error_handler:
+            self.error_handler["error_count"] += 1
+            self.error_handler["last_error"] = str(error)
 
     def add_observer(self, observer: ServiceObserver) -> None:
         """Agregar observer al servicio"""
@@ -141,15 +188,21 @@ class BaseService(ABC):
 
             # 3. Post-operación (éxito)
             execution_time = time.time() - start_time
-            self._post_operation_success(operation, operation_id, execution_time, context_data)
+            self._post_operation_success(
+                operation, operation_id, execution_time, context_data
+            )
 
         except Exception as e:
             # 4. Manejo de errores
             execution_time = time.time() - start_time
-            self._post_operation_error(operation, operation_id, e, execution_time, context_data)
+            self._post_operation_error(
+                operation, operation_id, e, execution_time, context_data
+            )
             raise
 
-    def _pre_operation(self, operation: str, operation_id: str, context_data: Dict[str, Any]) -> None:
+    def _pre_operation(
+        self, operation: str, operation_id: str, context_data: Dict[str, Any]
+    ) -> None:
         """Preparar operación"""
         self.logger.info(f"Starting operation: {operation} (ID: {operation_id})")
 
@@ -161,40 +214,60 @@ class BaseService(ABC):
                 "service_name": self.service_name,
                 "operation": operation,
                 "operation_id": operation_id,
-                "context_data": context_data
-            }
+                "context_data": context_data,
+            },
         )
         self.security_logger.log_event(security_event)
 
         # Notificar observers
-        self.notify_observers("operation_start", {
-            "operation": operation,
-            "operation_id": operation_id,
-            "context_data": context_data
-        })
+        self.notify_observers(
+            "operation_start",
+            {
+                "operation": operation,
+                "operation_id": operation_id,
+                "context_data": context_data,
+            },
+        )
 
-    def _post_operation_success(self, operation: str, operation_id: str,
-                               execution_time: float, context_data: Dict[str, Any]) -> None:
+    def _post_operation_success(
+        self,
+        operation: str,
+        operation_id: str,
+        execution_time: float,
+        context_data: Dict[str, Any],
+    ) -> None:
         """Post-operación exitosa"""
-        self.logger.info(f"Operation completed: {operation} (ID: {operation_id}) in {execution_time:.3f}s")
+        self.logger.info(
+            f"Operation completed: {operation} (ID: {operation_id}) in {execution_time:.3f}s"
+        )
 
         # Actualizar métricas
         self._update_metrics(operation, execution_time, success=True)
 
         # Notificar observers
-        self.notify_observers("operation_success", {
-            "operation": operation,
-            "operation_id": operation_id,
-            "execution_time": execution_time,
-            "context_data": context_data
-        })
+        self.notify_observers(
+            "operation_success",
+            {
+                "operation": operation,
+                "operation_id": operation_id,
+                "execution_time": execution_time,
+                "context_data": context_data,
+            },
+        )
 
-    def _post_operation_error(self, operation: str, operation_id: str,
-                             error: Exception, execution_time: float,
-                             context_data: Dict[str, Any]) -> None:
+    def _post_operation_error(
+        self,
+        operation: str,
+        operation_id: str,
+        error: Exception,
+        execution_time: float,
+        context_data: Dict[str, Any],
+    ) -> None:
         """Post-operación con error"""
         error_msg = str(error)
-        self.logger.error(f"Operation failed: {operation} (ID: {operation_id}) - {error_msg}")
+        self.logger.error(
+            f"Operation failed: {operation} (ID: {operation_id}) - {error_msg}"
+        )
 
         # Log security event
         security_event = SecurityEventFactory.create_threat_event(
@@ -207,8 +280,8 @@ class BaseService(ABC):
                 "error": error_msg,
                 "execution_time": execution_time,
                 "context_data": context_data,
-                "traceback": traceback.format_exc()
-            }
+                "traceback": traceback.format_exc(),
+            },
         )
         self.security_logger.log_event(security_event)
 
@@ -216,15 +289,20 @@ class BaseService(ABC):
         self._update_metrics(operation, execution_time, success=False)
 
         # Notificar observers
-        self.notify_observers("operation_error", {
-            "operation": operation,
-            "operation_id": operation_id,
-            "error": error_msg,
-            "execution_time": execution_time,
-            "context_data": context_data
-        })
+        self.notify_observers(
+            "operation_error",
+            {
+                "operation": operation,
+                "operation_id": operation_id,
+                "error": error_msg,
+                "execution_time": execution_time,
+                "context_data": context_data,
+            },
+        )
 
-    def _update_metrics(self, operation: str, execution_time: float, success: bool) -> None:
+    def _update_metrics(
+        self, operation: str, execution_time: float, success: bool
+    ) -> None:
         """Actualizar métricas del servicio"""
         if "operations" not in self.metrics:
             self.metrics["operations"] = {}
@@ -236,8 +314,8 @@ class BaseService(ABC):
                 "error_count": 0,
                 "total_time": 0.0,
                 "avg_time": 0.0,
-                "min_time": float('inf'),
-                "max_time": 0.0
+                "min_time": float("inf"),
+                "max_time": 0.0,
             }
 
         op_metrics = self.metrics["operations"][operation]
@@ -260,7 +338,7 @@ class BaseService(ABC):
             return ServiceResult(
                 success=False,
                 error=f"Strategy '{strategy_name}' not found",
-                details={"available_strategies": list(self.strategies.keys())}
+                details={"available_strategies": list(self.strategies.keys())},
             )
 
         strategy = self.strategies[strategy_name]
@@ -275,7 +353,7 @@ class BaseService(ABC):
             "metrics": self.metrics,
             "observers_count": len(self.observers),
             "strategies_count": len(self.strategies),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
 
     def health_check(self) -> Dict[str, Any]:
@@ -285,7 +363,7 @@ class BaseService(ABC):
             "status": "healthy",
             "observers": len(self.observers),
             "strategies": len(self.strategies),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
 
     @abstractmethod
@@ -392,7 +470,7 @@ class ServiceManager:
                 results[name] = {
                     "status": "error",
                     "error": str(e),
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": datetime.utcnow().isoformat(),
                 }
         return results
 

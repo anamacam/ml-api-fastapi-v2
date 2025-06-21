@@ -5,9 +5,10 @@ Integra modelos reales existentes con la arquitectura TDD refactorizada.
 Mantiene compatibilidad con tests mientras usa modelos LightGBM y Random Forest reales.
 """
 
-from typing import Dict, List, Any, Optional, Union, Tuple
+from typing import Dict, List, Any, Optional, Tuple
 import numpy as np
-import pandas as pd
+
+# import pandas as pd  # Unused import
 import joblib
 import logging
 from pathlib import Path
@@ -15,11 +16,13 @@ import json
 from datetime import datetime
 
 from app.utils.prediction_validators import validate_prediction_input
-from app.utils.ml_model_validators import validate_ml_model
+
+# from app.utils.ml_model_validators import validate_ml_model  # Unused
 from app.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
 
 class HybridPredictionService:
     """
@@ -39,7 +42,7 @@ class HybridPredictionService:
         """
         # Usar configuración por entorno si no se especifica explícitamente
         if use_real_models is None:
-            self.use_real_models = settings.should_use_real_models
+            self.use_real_models = getattr(settings, "should_use_real_models", False)
         else:
             self.use_real_models = use_real_models
         self.real_models: Dict[str, Any] = {}
@@ -48,13 +51,24 @@ class HybridPredictionService:
         # Mock models para compatibilidad con tests TDD
         self.mock_models = {
             "default_model": {"status": "trained", "type": "sklearn"},
-            "sensitive_model": {"status": "trained", "type": "sklearn"}
+            "sensitive_model": {"status": "trained", "type": "sklearn"},
         }
+
+        # TDD CYCLE 7 - GREEN PHASE: Atributos requeridos por tests
+        self.primary_service = self._create_primary_service()
+        self.fallback_service = self._create_fallback_service()
+        self.strategy = self._create_strategy()
+        self.health_checker = self._create_health_checker()
+        self.is_hybrid_ready = False
+        self.fallback_threshold = 0.8
 
         if self.use_real_models:
             self._load_real_models()
         else:
-            logger.info(f"🧪 Modo {settings.environment.upper()}: Usando modelos mock para TDD")
+            env = getattr(settings, "environment", "testing")
+            logger.info(f"🧪 Modo {env.upper()}: Usando modelos mock para TDD")
+
+        self.is_hybrid_ready = True
 
     def _load_real_models(self) -> None:
         """Cargar modelos reales desde disco."""
@@ -74,7 +88,7 @@ class HybridPredictionService:
 
             # Cargar metadata del registry
             if registry_path.exists():
-                with open(registry_path, 'r') as f:
+                with open(registry_path, "r") as f:
                     self.model_metadata = json.load(f)
                 logger.info("✅ Metadata de modelos cargada")
 
@@ -91,7 +105,9 @@ class HybridPredictionService:
                     try:
                         logger.info(f"🔄 Cargando modelo real: {model_name}")
                         self.real_models[model_name] = joblib.load(model_path)
-                        logger.info(f"✅ Modelo cargado: {model_name} ({model_path.stat().st_size / 1024:.1f}KB)")
+                        logger.info(
+                            f"✅ Modelo cargado: {model_name} ({model_path.stat().st_size / 1024:.1f}KB)"
+                        )
                     except Exception as e:
                         logger.error(f"❌ Error cargando {model_name}: {e}")
 
@@ -99,17 +115,78 @@ class HybridPredictionService:
             if "lgbm_model" in self.real_models:
                 self.real_models["default_model"] = self.real_models["lgbm_model"]
 
-            logger.info(f"🚀 Modelos reales disponibles: {list(self.real_models.keys())}")
+            logger.info(
+                f"🚀 Modelos reales disponibles: {list(self.real_models.keys())}"
+            )
 
         except Exception as e:
             logger.error(f"❌ Error crítico cargando modelos reales: {e}")
             logger.info("🔄 Fallback a modo mock")
             self.use_real_models = False
 
+    def _create_primary_service(self) -> Dict[str, Any]:
+        """TDD CYCLE 7 - GREEN PHASE: Crear servicio primario"""
+        return {
+            "name": "primary_prediction_service",
+            "status": "active",
+            "predict": self._primary_predict,
+        }
+
+    def _create_fallback_service(self) -> Dict[str, Any]:
+        """TDD CYCLE 7 - GREEN PHASE: Crear servicio de fallback"""
+        return {
+            "name": "fallback_prediction_service",
+            "status": "standby",
+            "predict": self._fallback_predict,
+        }
+
+    def _create_strategy(self) -> Dict[str, Any]:
+        """TDD CYCLE 7 - GREEN PHASE: Crear estrategia híbrida"""
+        return {
+            "type": "hybrid_failover",
+            "primary_timeout": 5.0,
+            "fallback_enabled": True,
+        }
+
+    def _create_health_checker(self) -> Dict[str, Any]:
+        """TDD CYCLE 7 - GREEN PHASE: Crear health checker"""
+        return {"check_interval": 30, "last_check": datetime.now(), "status": "healthy"}
+
+    def _primary_predict(self, request):
+        """Predicción usando servicio primario"""
+        return self.validate_and_predict(
+            request.features, request.model_id or "default_model"
+        )
+
+    def _fallback_predict(self, request):
+        """Predicción usando servicio de fallback"""
+        return self._mock_prediction(
+            request.features, request.model_id or "default_model"
+        )
+
+    def predict_with_fallback(self, request):
+        """TDD CYCLE 7 - GREEN PHASE: Predicción con mecanismo de fallback"""
+        try:
+            # Intentar servicio primario
+            success, result = self.primary_service["predict"](request)
+            if success:
+                result["used_fallback"] = False
+                result["primary_error"] = None
+                return result
+            else:
+                raise Exception("Primary service failed")
+        except Exception as e:
+            # Usar fallback
+            logger.warning(f"Primary service failed, using fallback: {e}")
+            fallback_result = self.fallback_service["predict"](request)
+            return {
+                "prediction": fallback_result,
+                "used_fallback": True,
+                "primary_error": str(e),
+            }
+
     def validate_and_predict(
-        self,
-        features: Dict[str, Any],
-        model_id: str
+        self, features: Dict[str, Any], model_id: str
     ) -> Tuple[bool, Dict[str, Any]]:
         """
         Validar entrada y ejecutar predicción (compatibilidad TDD).
@@ -128,7 +205,7 @@ class HybridPredictionService:
             if not validation_result["valid"]:
                 return False, {
                     "error_type": "input_validation",
-                    "validation_result": validation_result
+                    "validation_result": validation_result,
                 }
 
             # Paso 2: Validar disponibilidad del modelo
@@ -137,7 +214,7 @@ class HybridPredictionService:
                 return False, {
                     "error_type": "model_not_found",
                     "model_id": model_id,
-                    "available_models": list(available_models.keys())
+                    "available_models": list(available_models.keys()),
                 }
 
             # Paso 3: Ejecutar predicción
@@ -146,26 +223,23 @@ class HybridPredictionService:
             # Paso 4: Retornar resultado estructurado (compatible con tests TDD)
             return True, {
                 "prediction": prediction,
-                "validation_details": {
-                    "input_valid": True,
-                    "model_valid": True
-                },
+                "validation_details": {"input_valid": True, "model_valid": True},
                 "model_info": {
                     "model_id": model_id,
                     "status": "trained",
                     "type": self._get_model_type(model_id),
-                    "is_real_model": self.use_real_models and model_id in self.real_models
-                }
+                    "is_real_model": self.use_real_models
+                    and model_id in self.real_models,
+                },
             }
 
         except Exception as e:
             logger.error(f"❌ Error en predicción: {e}")
-            return False, {
-                "error_type": "prediction_failed",
-                "error_message": str(e)
-            }
+            return False, {"error_type": "prediction_failed", "error_message": str(e)}
 
-    def _execute_prediction(self, features: Dict[str, Any], model_id: str) -> List[float]:
+    def _execute_prediction(
+        self, features: Dict[str, Any], model_id: str
+    ) -> List[float]:
         """
         Ejecutar predicción real o mock según configuración.
         """
@@ -174,7 +248,9 @@ class HybridPredictionService:
         else:
             return self._mock_prediction(features, model_id)
 
-    def _real_model_prediction(self, features: Dict[str, Any], model_id: str) -> List[float]:
+    def _real_model_prediction(
+        self, features: Dict[str, Any], model_id: str
+    ) -> List[float]:
         """
         Predicción usando modelos reales LightGBM/Random Forest.
         """
@@ -214,7 +290,7 @@ class HybridPredictionService:
         """
         # Para este ejemplo, asumimos que los modelos esperan estas 4 features
         # En producción, esto vendría de la metadata del modelo
-        expected_features = ["age", "income", "score", "category_encoded"]
+        # expected_features = ["age", "income", "score", "category_encoded"]
 
         # Convertir categoria a numérica (simple encoding)
         category_map = {"premium": 2, "standard": 1, "basic": 0, "unknown_category": -1}
@@ -225,7 +301,7 @@ class HybridPredictionService:
             features.get("age", 25),
             features.get("income", 50000),
             features.get("score", 0.5),
-            category_encoded
+            category_encoded,
         ]
 
         # Convertir a numpy array con shape (1, n_features) para una sola predicción
@@ -236,7 +312,10 @@ class HybridPredictionService:
         Predicción mock para testing (compatibilidad TDD).
         """
         # Mantener lógica mock original para tests
-        if model_id == "sensitive_model" and features.get("category") == "unknown_category":
+        if (
+            model_id == "sensitive_model"
+            and features.get("category") == "unknown_category"
+        ):
             raise Exception("Model cannot handle unknown category")
 
         # Lógica mock mejorada
@@ -270,13 +349,13 @@ class HybridPredictionService:
         """Obtener tipo del modelo."""
         if self.use_real_models and model_id in self.real_models:
             model = self.real_models[model_id]
-            if hasattr(model, '__class__'):
+            if hasattr(model, "__class__"):
                 module = model.__class__.__module__
-                if 'lightgbm' in module:
-                    return 'lightgbm'
-                elif 'sklearn' in module:
-                    return 'sklearn'
-            return 'unknown'
+                if "lightgbm" in module:
+                    return "lightgbm"
+                elif "sklearn" in module:
+                    return "sklearn"
+            return "unknown"
         else:
             return self.mock_models.get(model_id, {}).get("type", "mock")
 
@@ -294,16 +373,18 @@ class HybridPredictionService:
             "model_id": model_id,
             "type": self._get_model_type(model_id),
             "is_real_model": self.use_real_models and model_id in self.real_models,
-            "status": "trained"
+            "status": "trained",
         }
 
         # Agregar metadata si está disponible
         if model_id in self.model_metadata:
             metadata = self.model_metadata[model_id]
-            info.update({
-                "created_at": metadata.get("created_at"),
-                "description": metadata.get("description"),
-                "latest_version": metadata.get("latest_version")
-            })
+            info.update(
+                {
+                    "created_at": metadata.get("created_at"),
+                    "description": metadata.get("description"),
+                    "latest_version": metadata.get("latest_version"),
+                }
+            )
 
         return info
