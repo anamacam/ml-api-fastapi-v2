@@ -132,7 +132,7 @@ class DataValidator:
 # Service Manager global
 class ServiceManager:
     _instance = None
-    
+
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
@@ -198,7 +198,7 @@ except Exception as e:
 # ✅ Comentarios explicativos para lógica compleja
 def _setup_default_validation_chains(validator: DataValidator) -> None:
     """Configurar cadenas de validación por defecto"""
-    
+
     # Cadena para datos de predicción
     prediction_chain = ValidationChain([
         TypeValidator("model_id", str),
@@ -219,7 +219,7 @@ class SecurityValidator(Validator):
         for pattern in self.dangerous_patterns:
             if re.search(pattern, value, re.IGNORECASE):
                 threats_detected.append(pattern)
-        
+
         # Log security threat
         if not is_valid:
             threat_event = SecurityEventFactory.create_threat_event(
@@ -248,7 +248,7 @@ class Settings:
     def _log_security_warnings(self):
         """Loggear advertencias de seguridad usando el nuevo sistema"""
         security_logger = get_security_logger()
-        
+
         # Advertencia sobre secret key por defecto
         if self.secret_key == "dev-secret-key-change-in-production":
             warning_event = SecurityEventFactory.create_threat_event(
@@ -268,12 +268,12 @@ def _update_metrics(self, operation: str, execution_time: float, success: bool) 
     op_metrics = self.metrics["operations"][operation]
     op_metrics["total_count"] += 1
     op_metrics["total_time"] += execution_time
-    
+
     if success:
         op_metrics["success_count"] += 1
     else:
         op_metrics["error_count"] += 1
-    
+
     # Estadísticas de tiempo
     op_metrics["avg_time"] = op_metrics["total_time"] / op_metrics["total_count"]
     op_metrics["min_time"] = min(op_metrics["min_time"], execution_time)
@@ -357,4 +357,4 @@ La implementación realizada demuestra un alto nivel de calidad de código sigui
 - ✅ **Tests completos** que validan la funcionalidad
 - ✅ **Escalabilidad** preparada para el futuro
 
-El proyecto está listo para continuar su desarrollo con una base sólida y profesional. 
+El proyecto está listo para continuar su desarrollo con una base sólida y profesional.

@@ -173,4 +173,4 @@
 ### KPIs Mensuales
 - Uptime del sistema
 - Satisfacción del usuario
-- Tiempo medio de resolución de problemas 
+- Tiempo medio de resolución de problemas

@@ -61,15 +61,15 @@ function Install-PythonManual {
     Write-Host "`n📥 Descargando Python manualmente..." -ForegroundColor Yellow
     $pythonUrl = "https://www.python.org/ftp/python/3.12.0/python-3.12.0-amd64.exe"
     $installerPath = "$env:TEMP\python-3.12.0-amd64.exe"
-    
+
     try {
         Invoke-WebRequest -Uri $pythonUrl -OutFile $installerPath
         Write-Host "✅ Python descargado" -ForegroundColor Green
-        
+
         Write-Host "🔧 Instalando Python (se abrirá el instalador)..." -ForegroundColor Yellow
         Start-Process -FilePath $installerPath -ArgumentList "/quiet", "InstallAllUsers=1", "PrependPath=1" -Wait
         Write-Host "✅ Python instalado" -ForegroundColor Green
-        
+
         # Limpiar archivo temporal
         Remove-Item $installerPath -Force
         return $true
@@ -94,9 +94,9 @@ if (-not (Test-PythonInstalled)) {
     Write-Host "1. Instalar con winget (recomendado)" -ForegroundColor White
     Write-Host "2. Descargar manualmente" -ForegroundColor White
     Write-Host "3. Instalar desde python.org" -ForegroundColor White
-    
+
     $choice = Read-Host "`nSelecciona una opción (1-3)"
-    
+
     switch ($choice) {
         "1" {
             if (-not (Install-PythonWithWinget)) {
@@ -116,7 +116,7 @@ if (-not (Test-PythonInstalled)) {
             exit 1
         }
     }
-    
+
     # Verificar nuevamente después de la instalación
     if (-not (Test-PythonInstalled)) {
         Write-Host "❌ Python aún no está disponible. Reinicia PowerShell y ejecuta nuevamente." -ForegroundColor Red
@@ -221,4 +221,4 @@ Write-Host "`n🔄 PARA ACTIVAR EL ENTORNO VIRTUAL:" -ForegroundColor Cyan
 Write-Host "cd backend" -ForegroundColor Gray
 Write-Host ".\venv\Scripts\Activate.ps1" -ForegroundColor Gray
 
-Write-Host "`n✅ El proyecto está listo para desarrollo!" -ForegroundColor Green 
+Write-Host "`n✅ El proyecto está listo para desarrollo!" -ForegroundColor Green

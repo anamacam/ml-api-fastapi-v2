@@ -20,15 +20,15 @@ import json
 class BaseAppException(Exception):
     """
     Excepción base para toda la aplicación.
-    
+
     Aplica principios SOLID:
     - Single Responsibility: Manejo centralizado de errores
     - Open/Closed: Extensible sin modificar código existente
     """
-    
+
     def __init__(
-        self, 
-        message: str, 
+        self,
+        message: str,
         error_code: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
         context: Optional[Dict[str, Any]] = None
@@ -39,7 +39,7 @@ class BaseAppException(Exception):
         self.details = details or {}
         self.context = context or {}
         self.timestamp = datetime.utcnow()
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convertir excepción a diccionario para serialización"""
         return {
@@ -50,7 +50,7 @@ class BaseAppException(Exception):
             "context": self.context,
             "timestamp": self.timestamp.isoformat()
         }
-    
+
     def __str__(self) -> str:
         return f"{self.__class__.__name__}: {self.message}"
 
@@ -62,7 +62,7 @@ class ModelError(BaseAppException):
 
 class ModelNotFoundError(ModelError):
     """Error cuando no se encuentra un modelo específico"""
-    
+
     def __init__(self, model_id: str, available_models: Optional[list] = None):
         message = f"Modelo '{model_id}' no encontrado"
         details = {
@@ -74,7 +74,7 @@ class ModelNotFoundError(ModelError):
 
 class ModelLoadError(ModelError):
     """Error al cargar un modelo ML"""
-    
+
     def __init__(self, model_path: str, original_error: Optional[str] = None):
         message = f"Error cargando modelo desde '{model_path}'"
         details = {
@@ -86,7 +86,7 @@ class ModelLoadError(ModelError):
 
 class ModelValidationError(ModelError):
     """Error de validación de modelo ML"""
-    
+
     def __init__(self, validation_errors: list, model_info: Optional[Dict[str, Any]] = None):
         message = f"Error de validación del modelo: {len(validation_errors)} errores encontrados"
         details = {
@@ -98,8 +98,8 @@ class ModelValidationError(ModelError):
 
 class PredictionError(BaseAppException):
     """Error durante la predicción"""
-    
-    def __init__(self, model_id: str, input_data: Optional[Dict[str, Any]] = None, 
+
+    def __init__(self, model_id: str, input_data: Optional[Dict[str, Any]] = None,
                  original_error: Optional[str] = None):
         message = f"Error durante predicción con modelo '{model_id}'"
         details = {
@@ -112,7 +112,7 @@ class PredictionError(BaseAppException):
 
 class DataValidationError(BaseAppException):
     """Error de validación de datos de entrada"""
-    
+
     def __init__(self, field_errors: Dict[str, list], input_data: Optional[Dict[str, Any]] = None):
         message = f"Error de validación de datos: {len(field_errors)} campos inválidos"
         details = {
@@ -124,8 +124,8 @@ class DataValidationError(BaseAppException):
 
 class ConfigurationError(BaseAppException):
     """Error de configuración del sistema"""
-    
-    def __init__(self, config_key: str, expected_type: Optional[str] = None, 
+
+    def __init__(self, config_key: str, expected_type: Optional[str] = None,
                  current_value: Optional[Any] = None):
         message = f"Error de configuración en '{config_key}'"
         details = {
@@ -138,8 +138,8 @@ class ConfigurationError(BaseAppException):
 
 class DatabaseError(BaseAppException):
     """Error de base de datos"""
-    
-    def __init__(self, operation: str, table: Optional[str] = None, 
+
+    def __init__(self, operation: str, table: Optional[str] = None,
                  original_error: Optional[str] = None):
         message = f"Error de base de datos en operación '{operation}'"
         details = {
@@ -152,7 +152,7 @@ class DatabaseError(BaseAppException):
 
 class AuthenticationError(BaseAppException):
     """Error de autenticación"""
-    
+
     def __init__(self, user_id: Optional[str] = None, reason: Optional[str] = None):
         message = "Error de autenticación"
         if reason:
@@ -166,8 +166,8 @@ class AuthenticationError(BaseAppException):
 
 class AuthorizationError(BaseAppException):
     """Error de autorización"""
-    
-    def __init__(self, user_id: str, required_permission: str, 
+
+    def __init__(self, user_id: str, required_permission: str,
                  user_permissions: Optional[list] = None):
         message = f"Usuario '{user_id}' no tiene permiso '{required_permission}'"
         details = {
@@ -180,8 +180,8 @@ class AuthorizationError(BaseAppException):
 
 class RateLimitError(BaseAppException):
     """Error de límite de tasa excedido"""
-    
-    def __init__(self, user_id: str, endpoint: str, limit: int, 
+
+    def __init__(self, user_id: str, endpoint: str, limit: int,
                  current_usage: int, reset_time: Optional[datetime] = None):
         message = f"Límite de tasa excedido para endpoint '{endpoint}'"
         details = {
@@ -196,8 +196,8 @@ class RateLimitError(BaseAppException):
 
 class SecurityError(BaseAppException):
     """Error de seguridad"""
-    
-    def __init__(self, threat_type: str, severity: str = "medium", 
+
+    def __init__(self, threat_type: str, severity: str = "medium",
                  details: Optional[Dict[str, Any]] = None):
         message = f"Error de seguridad detectado: {threat_type}"
         security_details = {
@@ -214,11 +214,11 @@ class SecurityError(BaseAppException):
 class ExceptionFactory:
     """
     Factory para crear excepciones con contexto apropiado.
-    
+
     Aplica Factory Pattern para centralizar la creación de excepciones
     y asegurar consistencia en el manejo de errores.
     """
-    
+
     @staticmethod
     def create_model_error(error_type: str, **kwargs) -> ModelError:
         """Crear error de modelo específico"""
@@ -227,20 +227,20 @@ class ExceptionFactory:
             "load_error": ModelLoadError,
             "validation_error": ModelValidationError
         }
-        
+
         error_class = error_map.get(error_type, ModelError)
         return error_class(**kwargs)
-    
+
     @staticmethod
     def create_prediction_error(model_id: str, **kwargs) -> PredictionError:
         """Crear error de predicción con contexto"""
         return PredictionError(model_id=model_id, **kwargs)
-    
+
     @staticmethod
     def create_validation_error(field_errors: Dict[str, list], **kwargs) -> DataValidationError:
         """Crear error de validación de datos"""
         return DataValidationError(field_errors=field_errors, **kwargs)
-    
+
     @staticmethod
     def create_security_error(threat_type: str, **kwargs) -> SecurityError:
         """Crear error de seguridad"""
@@ -251,11 +251,11 @@ class ExceptionFactory:
 class ErrorHandlingStrategy:
     """
     Estrategia base para manejo de errores.
-    
+
     Aplica Strategy Pattern para diferentes tipos de manejo de errores
     según el contexto y tipo de aplicación.
     """
-    
+
     def handle_error(self, error: BaseAppException) -> Dict[str, Any]:
         """Manejar error según la estrategia"""
         raise NotImplementedError("Subclases deben implementar handle_error")
@@ -263,10 +263,10 @@ class ErrorHandlingStrategy:
 
 class LoggingErrorStrategy(ErrorHandlingStrategy):
     """Estrategia que solo registra errores"""
-    
+
     def __init__(self, logger):
         self.logger = logger
-    
+
     def handle_error(self, error: BaseAppException) -> Dict[str, Any]:
         """Registrar error y retornar información básica"""
         self.logger.error(f"Error manejado: {error}")
@@ -279,7 +279,7 @@ class LoggingErrorStrategy(ErrorHandlingStrategy):
 
 class DetailedErrorStrategy(ErrorHandlingStrategy):
     """Estrategia que proporciona detalles completos del error"""
-    
+
     def handle_error(self, error: BaseAppException) -> Dict[str, Any]:
         """Retornar información detallada del error"""
         return error.to_dict()
@@ -287,7 +287,7 @@ class DetailedErrorStrategy(ErrorHandlingStrategy):
 
 class ProductionErrorStrategy(ErrorHandlingStrategy):
     """Estrategia para producción - información limitada"""
-    
+
     def handle_error(self, error: BaseAppException) -> Dict[str, Any]:
         """Retornar información limitada para producción"""
         return {
@@ -295,4 +295,4 @@ class ProductionErrorStrategy(ErrorHandlingStrategy):
             "message": "An error occurred. Please contact support.",
             "error_code": error.error_code,
             "timestamp": error.timestamp.isoformat()
-        } 
+        }

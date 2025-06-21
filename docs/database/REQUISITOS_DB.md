@@ -107,4 +107,4 @@ passlib>=1.7.4  # Para hashing de contraseñas
 ### Soporte
 - Documentación de troubleshooting
 - Procedimientos de escalado
-- Contactos de emergencia 
+- Contactos de emergencia

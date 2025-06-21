@@ -198,7 +198,7 @@ class Settings(BaseSettings):
         default=Path("data/models"),
         description="Directorio de modelos ML"
     )
-    
+
     # Alias para compatibilidad
     @property
     def MODELS_PATH(self) -> Path:
@@ -379,7 +379,7 @@ class Settings(BaseSettings):
         REFACTORED: Usando el sistema de logging de seguridad avanzado
         """
         security_logger = get_security_logger()
-        
+
         # Advertencia sobre secret key por defecto
         if self.secret_key == "dev-secret-key-change-in-production":
             warning_event = SecurityEventFactory.create_threat_event(

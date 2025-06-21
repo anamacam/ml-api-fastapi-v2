@@ -204,7 +204,7 @@ class VPSDatabaseConfig(DatabaseConfig):
             20  # Máximo 20 conexiones
         )
         self.pool_size = min(self.pool_size, optimal_pool_size)
-        
+
         # Ajustar max_overflow basado en pool_size
         self.max_overflow = min(self.max_overflow, self.pool_size)
 
@@ -279,14 +279,14 @@ class DatabaseManager:
         if self.is_initialized:
             logger.warning("El gestor de base de datos ya está inicializado.")
             return
-        
+
         await self._create_engine_and_session()
         self._is_initialized = True
         logger.info("El gestor de base de datos se ha inicializado correctamente.")
 
     async def _create_engine_and_session(self) -> None:
         """Crear el engine y el sessionmaker con reintentos"""
-        
+
         engine_args: Dict[str, Any] = {"echo": self.config.echo}
 
         if self.config.driver_type == DatabaseDriver.SQLITE:
@@ -326,7 +326,7 @@ class DatabaseManager:
                     wait_time = 2 ** (attempt + 1)
                     logger.warning(f"Intento {attempt + 1} fallido: {e}. Reintentando en {wait_time}s...")
                     await asyncio.sleep(wait_time)
-        
+
         logger.error(f"Todos los intentos de conexión fallaron: {last_exception}", exc_info=True)
         if last_exception:
             raise last_exception
@@ -353,7 +353,7 @@ class DatabaseManager:
         """
         if not self.session_factory:
             raise RuntimeError("El gestor de base de datos no está inicializado.")
-        
+
         session = self.session_factory()
         try:
             yield session
@@ -375,7 +375,7 @@ class DatabaseManager:
         """Obtener métricas de la conexión y del pool"""
         if not self.engine:
             return {"error": "Engine no inicializado"}
-        
+
         pool = self.engine.pool
         self._connection_metrics = {
             "pool_class": pool.__class__.__name__,
@@ -408,7 +408,7 @@ class BaseRepository(Generic[ModelType]):
     Proporciona operaciones CRUD (Crear, Leer, Actualizar, Borrar)
     de forma type-safe y asíncrona.
     """
-    
+
     def __init__(self, model: Type[ModelType], session: AsyncSession):
         """
         Inicializar el repositorio.
@@ -433,12 +433,12 @@ class BaseRepository(Generic[ModelType]):
         """
         self.logger.debug(f"Creando una nueva instancia de {self.model.__name__} con datos: {data}")
         self._validate_create_data(data)
-        
+
         db_obj = self.model(**data)
         self.session.add(db_obj)
         await self.session.flush()
         await self.session.refresh(db_obj)
-        
+
         self.logger.info(f"{self.model.__name__} creado con ID: {db_obj.id}")
         return db_obj
 
@@ -491,12 +491,12 @@ class BaseRepository(Generic[ModelType]):
         if db_obj:
             for key, value in data.items():
                 setattr(db_obj, key, value)
-            
+
             self.session.add(db_obj)
             await self.session.flush()
             await self.session.refresh(db_obj)
             self.logger.info(f"{self.model.__name__} con ID {entity_id} actualizado.")
-        
+
         return db_obj
 
     async def delete(self, entity_id: Union[int, str]) -> bool:
@@ -683,7 +683,7 @@ async def get_async_session():
     manager = get_database_manager()
     if not manager or not manager.session_factory:
         raise RuntimeError("DatabaseManager no está inicializado. Llama a init_database() al inicio.")
-    
+
     async with manager.session_factory() as session:
         try:
             yield session
@@ -706,7 +706,7 @@ async def get_db_health() -> Dict[str, Any]:
     manager = get_database_manager()
     if not manager:
         return {"status": "error", "details": "DatabaseManager no está inicializado"}
-    
+
     checker = DatabaseHealthChecker(manager)
     return await checker.check_detailed_health()
 

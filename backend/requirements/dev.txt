@@ -37,4 +37,4 @@ flake8==6.1.0
 mypy==1.7.1
 
 # Pre-commit hooks
-pre-commit==3.6.0 
+pre-commit==3.6.0

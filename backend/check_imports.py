@@ -8,11 +8,11 @@ from pathlib import Path
 
 def check_imports():
     """Verificar todas las importaciones críticas del proyecto"""
-    
+
     # Lista de módulos críticos a verificar
     critical_modules = [
         'numpy',
-        'pandas', 
+        'pandas',
         'pydantic',
         'pydantic_settings',
         'fastapi',
@@ -32,16 +32,16 @@ def check_imports():
         'pyyaml',
         'toml'
     ]
-    
+
     print("🔍 Verificando importaciones del proyecto...")
     print(f"📁 Directorio actual: {Path.cwd()}")
     print(f"🐍 Python path: {sys.executable}")
     print(f"📦 Python version: {sys.version}")
     print()
-    
+
     failed_imports = []
     successful_imports = []
-    
+
     for module in critical_modules:
         try:
             importlib.import_module(module)
@@ -50,12 +50,12 @@ def check_imports():
         except ImportError as e:
             print(f"❌ {module}: {e}")
             failed_imports.append(module)
-    
+
     print()
     print("📊 Resumen:")
     print(f"✅ Importaciones exitosas: {len(successful_imports)}")
     print(f"❌ Importaciones fallidas: {len(failed_imports)}")
-    
+
     if failed_imports:
         print(f"\n❌ Módulos que fallaron: {', '.join(failed_imports)}")
         return False
@@ -65,9 +65,9 @@ def check_imports():
 
 def check_project_imports():
     """Verificar importaciones específicas del proyecto"""
-    
+
     print("\n🔍 Verificando importaciones del proyecto...")
-    
+
     project_modules = [
         'app.config.settings',
         'app.core.database',
@@ -76,9 +76,9 @@ def check_project_imports():
         'app.services.prediction_service',
         'app.utils.data_validators'
     ]
-    
+
     failed_project_imports = []
-    
+
     for module in project_modules:
         try:
             importlib.import_module(module)
@@ -86,7 +86,7 @@ def check_project_imports():
         except ImportError as e:
             print(f"❌ {module}: {e}")
             failed_project_imports.append(module)
-    
+
     if failed_project_imports:
         print(f"\n❌ Módulos del proyecto que fallaron: {', '.join(failed_project_imports)}")
         return False
@@ -97,17 +97,17 @@ def check_project_imports():
 if __name__ == "__main__":
     print("🚀 Iniciando verificación de importaciones...")
     print("=" * 50)
-    
+
     # Verificar dependencias externas
     external_ok = check_imports()
-    
+
     # Verificar módulos del proyecto
     project_ok = check_project_imports()
-    
+
     print("=" * 50)
     if external_ok and project_ok:
         print("🎉 ¡Todas las verificaciones pasaron exitosamente!")
         sys.exit(0)
     else:
         print("❌ Algunas verificaciones fallaron")
-        sys.exit(1) 
+        sys.exit(1)

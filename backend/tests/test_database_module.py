@@ -501,21 +501,21 @@ class TestDatabaseManagerVPS:
         # Configurar para usar la base de datos de prueba
         test_db_config.connection_retries = 2
         test_db_config.database_url = "postgresql+asyncpg://ml_api_user:ml_api_pass@31.97.137.139:5432/ml_api_test"
-        
+
         # Intentar conexión real
         manager = DatabaseManager(test_db_config)
-        
+
         # Verificar que el manager está configurado correctamente
         assert manager.config.connection_retries == 2
         assert manager.config.database_url == "postgresql+asyncpg://ml_api_user:ml_api_pass@31.97.137.139:5432/ml_api_test"
-        
+
         # Intentar inicializar
         await manager.initialize()
-        
+
         # Verificar que la conexión fue exitosa
         assert manager.engine is not None
         assert manager.session_factory is not None
-        
+
         # Verificar que podemos hacer una consulta simple
         async with manager.get_session() as session:
             result = await session.execute(text("SELECT 1"))

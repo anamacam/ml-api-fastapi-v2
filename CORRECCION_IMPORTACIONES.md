@@ -174,4 +174,4 @@ python -c "from app.utils.data_validators import DataValidator; print('Importaci
 2. **Verificar que los errores de importación desaparezcan**
 3. **Continuar con el desarrollo** usando las nuevas funcionalidades implementadas
 
-Los problemas de importación han sido resueltos completamente. El código funciona correctamente y las configuraciones del IDE deberían resolver los errores de linting. 
+Los problemas de importación han sido resueltos completamente. El código funciona correctamente y las configuraciones del IDE deberían resolver los errores de linting.

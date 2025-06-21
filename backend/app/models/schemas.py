@@ -17,7 +17,7 @@ class UserBase(BaseModel):
     email: EmailStr = Field(..., description="Correo electrónico del usuario.")
     username: str = Field(..., min_length=3, max_length=50, description="Nombre de usuario único.")
     full_name: Optional[str] = Field(None, max_length=100, description="Nombre completo del usuario.")
-    
+
     class Config:
         orm_mode = True
 
@@ -46,14 +46,12 @@ class UserInDB(UserBase):
     is_superuser: bool = Field(..., description="Si el usuario es superusuario.")
     status: UserStatus = Field(..., description="Estado actual del usuario.")
     created_at: datetime = Field(..., description="Fecha de creación del usuario.")
-    
+
 class UserPublic(BaseModel):
     """Esquema para la información pública de un usuario."""
     id: int
     username: str
     full_name: Optional[str]
-    
+
     class Config:
         orm_mode = True
-
-
