@@ -5,7 +5,7 @@ Este documento es una hoja de ruta para mejorar la calidad, mantenibilidad y rob
 ## ✅ Fase 1: Estabilización y Limpieza (Base)
 
 *   [ ] **Tarea 1: Finalizar Limpieza Actual**: Hacer `git add .` y un `smart_commit` con todos los cambios de limpieza de scripts y documentación que ya realizamos. Esto nos dará una base limpia para empezar.
-*   [ ] **Tarea 2: Centralizar Configuración**: Mover los archivos de configuración restantes (`.flake8`, `.pre-commit-config.yaml`, `pytest.ini`) a la carpeta `backend` para consolidar toda la configuración de Python en un solo lugar.
+*   [x] **Tarea 2: Centralizar Configuración**: Mover los archivos de configuración restantes (`.flake8`, `.pre-commit-config.yaml`, `pytest.ini`) a la carpeta `backend` para consolidar toda la configuración de Python en un solo lugar.
 *   [ ] **Tarea 3: Resolver Complejidad Ciclomática (Crítico)**: Refactorizar los 5 archivos con mayor complejidad para bajar el score. Empezar con `backend/check_imports.py` y `backend/app/main.py`.
 *   [ ] **Tarea 4: Eliminar Duplicación de Código (Alto)**: Identificar 3 patrones de código duplicado en `backend/tests/test_database_module.py` y refactorizarlos en funciones reutilizables o fixtures de pytest.
 
