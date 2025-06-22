@@ -2,29 +2,33 @@
 
 ## 📋 Resumen
 
-Sistema completo de buenas prácticas Git integrado con el checklist de calidad automatizado. Valida y mejora automáticamente mensajes de commit, estructura de branches, y flujos de trabajo.
+Este documento describe las buenas prácticas generales de Git adoptadas en este proyecto, como la estrategia de branches, el tamaño de los commits y cómo mantener un historial limpio.
+
+Para detalles sobre el **formato de los mensajes de commit (Conventional Commits)** y el uso de nuestro script de validación, por favor consulta nuestra guía principal:
+
+➡️ **[📄 Sistema de Commits Inteligentes (COMMIT_SYSTEM.md)](COMMIT_SYSTEM.md)**
 
 ## 🛠️ Herramientas Disponibles
 
-### 1. **🧠 Smart Commit** (`.\scripts\smart_commit.ps1`)
+### 1. **🧠 Smart Commit** (`.\scripts\smart_commit_clean.ps1`)
 
 Commit inteligente con validación automática:
 
 ```powershell
-# Modo interactivo (recomendado)
-.\scripts\smart_commit.ps1 -Interactive
+# Modo interactivo (RECOMENDADO)
+.\scripts\smart_commit_clean.ps1 -Interactive
 
-# Mensaje directo
-.\scripts\smart_commit.ps1 -Message "feat: add user authentication"
+# Commit directo con mensaje
+.\scripts\smart_commit_clean.ps1 -Message "feat: add user authentication"
 
-# Con tipo y scope
-.\scripts\smart_commit.ps1 -Type "fix" -Scope "auth" -Message "resolve login issue"
+# Commit con tipo y scope específicos
+.\scripts\smart_commit_clean.ps1 -Type "fix" -Scope "auth" -Message "resolve login issue"
 
-# Solo validar (sin commit real)
-.\scripts\smart_commit.ps1 -DryRun -Message "test message"
+# Modo dry-run (sin commit real)
+.\scripts\smart_commit_clean.ps1 -DryRun -Message "test message"
 
-# Forzar (no recomendado)
-.\scripts\smart_commit.ps1 -Force -Message "emergency fix"
+# Modo forzado (bypass validaciones)
+.\scripts\smart_commit_clean.ps1 -Force -Message "emergency fix"
 ```
 
 ### 2. **🔍 Analizador Git** (`git_best_practices.py`)
@@ -43,62 +47,6 @@ python backend/infrastructure/scripts/git_best_practices.py --template feat
 
 # Formato JSON
 python backend/infrastructure/scripts/git_best_practices.py --format json
-```
-
-## 📝 Conventional Commits
-
-### Formato Estándar
-
-```
-<tipo>(<scope>): <descripción>
-```
-
-### Tipos Permitidos
-
-| Tipo       | Descripción         | Ejemplo                             |
-| ---------- | ------------------- | ----------------------------------- |
-| `feat`     | Nueva funcionalidad | `feat(auth): add OAuth login`       |
-| `fix`      | Corrección de bug   | `fix(api): resolve timeout issue`   |
-| `docs`     | Documentación       | `docs(readme): update installation` |
-| `style`    | Formato código      | `style: fix indentation`            |
-| `refactor` | Refactorización     | `refactor(db): optimize queries`    |
-| `test`     | Tests               | `test(auth): add unit tests`        |
-| `chore`    | Mantenimiento       | `chore: update dependencies`        |
-| `perf`     | Performance         | `perf(api): improve response time`  |
-| `ci`       | CI/CD               | `ci: add GitHub Actions`            |
-| `build`    | Build system        | `build: update webpack config`      |
-| `revert`   | Revertir            | `revert: undo feature X`            |
-
-### Reglas de Mensajes
-
-✅ **HACER:**
-
-- Usar imperativos ("add", "fix", "update")
-- Máximo 50 caracteres en primera línea
-- Empezar con mayúscula después de los dos puntos
-- Ser específico y descriptivo
-
-❌ **NO HACER:**
-
-- Terminar con punto (.)
-- Usar tiempo pasado ("added", "fixed")
-- Palabras vagas ("temp", "wip", "debug")
-- Mensajes muy largos
-
-### Ejemplos
-
-```bash
-# ✅ CORRECTO
-feat(auth): add two-factor authentication
-fix(ui): resolve button alignment issue
-docs(api): update endpoint documentation
-test(utils): add validation unit tests
-
-# ❌ INCORRECTO
-added new feature.
-temp fix
-Fixed bug
-Update stuff
 ```
 
 ## 🌿 Estrategia de Branches
@@ -224,7 +172,7 @@ Ejecutar automáticamente:
 
 ```powershell
 # Commit con validación completa
-.\scripts\smart_commit.ps1 -Interactive
+.\scripts\smart_commit_clean.ps1 -Interactive
 
 # Solo ejecutar checks
 .\scripts\test.ps1
@@ -270,7 +218,7 @@ git config --global core.editor "code --wait"
 
 ```powershell
 # Commit inteligente
-.\scripts\smart_commit.ps1 -Interactive
+.\scripts\smart_commit_clean.ps1 -Interactive
 
 # Verificar calidad
 .\scripts\quality.ps1
@@ -286,7 +234,7 @@ python backend/infrastructure/scripts/git_best_practices.py
 python backend/infrastructure/scripts/git_best_practices.py --validate-message "tu mensaje"
 
 # Dry run (sin commit real)
-.\scripts\smart_commit.ps1 -DryRun -Message "test message"
+.\scripts\smart_commit_clean.ps1 -DryRun -Message "test message"
 ```
 
 ## 🔧 Configuración Avanzada
@@ -323,7 +271,7 @@ Crear `.gitmessage`:
 ### Aliases Útiles
 
 ```bash
-git config --global alias.smart-commit '!powershell -File scripts/smart_commit.ps1'
+git config --global alias.smart-commit '!powershell -File scripts/smart_commit_clean.ps1'
 git config --global alias.quality '!powershell -File scripts/quality.ps1'
 git config --global alias.analyze '!python backend/infrastructure/scripts/git_best_practices.py'
 ```

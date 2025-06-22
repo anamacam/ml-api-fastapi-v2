@@ -4,16 +4,16 @@ Sistema completo de validaciones automatizadas que garantiza la calidad del cód
 
 ## 📋 **Scripts Disponibles**
 
-### 🔒 **Script Principal: `commit.ps1`** (RECOMENDADO)
+### 🔒 **Script Principal: `smart_commit_clean.ps1`** (RECOMENDADO)
 ```powershell
-# Modo interactivo (predeterminado)
-.\scripts\commit.ps1
+# Modo interactivo
+.\scripts\smart_commit_clean.ps1
 
 # Con mensaje directo
-.\scripts\commit.ps1 -Message "feat: add user authentication"
+.\scripts\smart_commit_clean.ps1 -Message "feat: add user authentication"
 
-# Modo rápido para cambios pequeños
-.\scripts\commit.ps1 -Fast -Message "fix: typo in readme"
+# Modo rápido
+.\scripts\smart_commit_clean.ps1 -Fast -Message "fix: typo in readme"
 ```
 
 ### 🎯 **Scripts Específicos**
@@ -117,7 +117,7 @@ git commit -m "wip" --skip-ci
 git add .
 
 # 2. Usar sistema inteligente
-.\scripts\commit.ps1 -Interactive
+.\scripts\smart_commit_clean.ps1 -Interactive
 
 # 3. Seguir guía interactiva
 # 4. Commit automático si todas las validaciones pasan
@@ -129,13 +129,13 @@ git add .
 git add file.py
 
 # 2. Commit rápido
-.\scripts\commit.ps1 -Fast -Message "fix: typo in docstring"
+.\scripts\smart_commit_clean.ps1 -Fast -Message "fix: typo in docstring"
 ```
 
 ### 3. **Desarrollo con Modo Interactivo**
 ```powershell
 # 1. Ejecutar modo interactivo
-.\scripts\commit.ps1
+.\scripts\smart_commit_clean.ps1
 
 # 2. El sistema guía paso a paso:
 #    - Selección de tipo de commit
@@ -191,7 +191,7 @@ python -m pytest tests/unit/test_specific.py -v
 ### **Mensaje Rechazado**
 ```powershell
 # Usar modo interactivo para guía
-.\scripts\commit.ps1 -Interactive
+.\scripts\smart_commit_clean.ps1 -Interactive
 
 # Verificar formato:
 # tipo(ámbito): descripción ≤ 50 chars

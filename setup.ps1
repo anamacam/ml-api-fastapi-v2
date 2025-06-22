@@ -72,26 +72,52 @@ Set-Location ".."
 
 # Verificar sistema de commits
 Write-Host "`n🔍 Verificando sistema de commits..." -ForegroundColor Yellow
-$commitScriptExists = Test-Path "scripts/commit.ps1"
 $smartCommitExists = Test-Path "scripts/smart_commit_clean.ps1"
+$qualityScriptExists = Test-Path "scripts/setup_quality_pipeline.ps1"
+$envScriptExists = Test-Path "scripts/set_env.ps1"
 
-if ($commitScriptExists -and $smartCommitExists) {
-    Write-Host "✅ Sistema de commits inteligentes configurado" -ForegroundColor Green
+if ($smartCommitExists) {
+    Write-Host "✅ Smart Commit System: DISPONIBLE" -ForegroundColor Green
 } else {
-    Write-Host "⚠️ Sistema de commits incompleto" -ForegroundColor Yellow
+    Write-Host "❌ Smart Commit System: NO ENCONTRADO" -ForegroundColor Red
 }
+
+if ($qualityScriptExists) {
+    Write-Host "✅ Quality Pipeline: DISPONIBLE" -ForegroundColor Green
+} else {
+    Write-Host "❌ Quality Pipeline: NO ENCONTRADO" -ForegroundColor Red
+}
+
+if ($envScriptExists) {
+    Write-Host "✅ Environment Setup: DISPONIBLE" -ForegroundColor Green
+} else {
+    Write-Host "❌ Environment Setup: NO ENCONTRADO" -ForegroundColor Red
+}
+
+Write-Host ""
+Write-Host "🚀 COMANDOS PRINCIPALES:" -ForegroundColor Cyan
+Write-Host "🚀 .\scripts\smart_commit_clean.ps1                    - Sistema de commits inteligentes" -ForegroundColor White
+Write-Host "⚡ .\scripts\smart_commit_fast.ps1 -Message 'msg'      - Commits rápidos" -ForegroundColor White
+Write-Host "🔧 .\scripts\setup_quality_pipeline.ps1                - Configurar pipeline de calidad" -ForegroundColor White
+Write-Host "⚙️  .\scripts\set_env.ps1                              - Configurar variables de entorno" -ForegroundColor White
+
+Write-Host ""
+Write-Host "📚 EJEMPLOS DE USO:" -ForegroundColor Cyan
+Write-Host "1. .\scripts\smart_commit_clean.ps1 -Message 'feat: add feature'" -ForegroundColor Gray
+Write-Host "2. .\scripts\smart_commit_clean.ps1 -Interactive" -ForegroundColor Gray
+Write-Host "3. .\scripts\smart_commit_clean.ps1 -Interactive" -ForegroundColor Gray
 
 Write-Host "`n🎉 ¡Setup completado!" -ForegroundColor Green
 Write-Host "`n📋 COMANDOS DISPONIBLES:" -ForegroundColor Cyan
-Write-Host "🚀 .\scripts\commit.ps1                    - Sistema de commits inteligentes" -ForegroundColor White
-Write-Host "⚡ .\scripts\commit.ps1 -Fast              - Commits rápidos" -ForegroundColor White
-Write-Host "🧪 .\analyze_tech_debt.bat                 - Análisis de calidad completo" -ForegroundColor White
-Write-Host "🔧 .\refactor.bat                          - Herramientas de refactoring" -ForegroundColor White
+Write-Host "🚀 .\scripts\smart_commit_clean.ps1                    - Sistema de commits inteligentes" -ForegroundColor White
+Write-Host "⚡ .\scripts\smart_commit_fast.ps1 -Message 'msg'      - Commits rápidos" -ForegroundColor White
+Write-Host "🔧 .\scripts\setup_quality_pipeline.ps1                - Configurar pipeline de calidad" -ForegroundColor White
+Write-Host "⚙️  .\scripts\set_env.ps1                              - Configurar variables de entorno" -ForegroundColor White
 
 Write-Host "`n🔄 FLUJO DE DESARROLLO:" -ForegroundColor Cyan
 Write-Host "1. Hacer cambios en código" -ForegroundColor Gray
 Write-Host "2. git add ." -ForegroundColor Gray
-Write-Host "3. .\scripts\commit.ps1 -Interactive" -ForegroundColor Gray
+Write-Host "3. .\scripts\smart_commit_clean.ps1 -Interactive" -ForegroundColor Gray
 Write-Host "4. Seguir guía interactiva" -ForegroundColor Gray
 
 Write-Host "`n✅ El sistema validará automáticamente:" -ForegroundColor Green

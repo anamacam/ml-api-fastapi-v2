@@ -269,15 +269,18 @@ class PredictionInputValidator(BaseValidator):
         if not isinstance(data, dict):
             return {"valid": True}  # Skip if not dict
 
+        errors = {}
         for field_name, expected_types in self.config.field_types.items():
             if field_name in data:
                 value = data[field_name]
                 if not isinstance(value, expected_types):
-                    return self.error_handler.handle(
-                        ValidationErrorType.INVALID_TYPES,
-                        {"field": field_name, "expected_types": expected_types},
-                    )
-
+                    errors[field_name] = f"invalid_types: {field_name} must be {expected_types}"
+        if errors:
+            return {
+                "valid": False,
+                "error": "invalid_types",
+                "field_errors": errors
+            }
         return {"valid": True}
 
     def _validate_business_rules(self, data: Any) -> Dict[str, Any]:
@@ -285,27 +288,32 @@ class PredictionInputValidator(BaseValidator):
         if not isinstance(data, dict):
             return {"valid": True}
 
-        # Validar campos requeridos
-        missing_fields = [
-            field for field in self.config.required_fields if field not in data
-        ]
+        errors = {}
+        missing_fields = [field for field in self.config.required_fields if field not in data]
         if missing_fields:
-            return self.error_handler.handle(
-                ValidationErrorType.MISSING_FIELDS, {"missing_fields": missing_fields}
-            )
-
-        # Validar rangos numéricos
+            for field in missing_fields:
+                errors[field] = "missing_field"
         for field_name, (min_val, max_val) in self.config.numeric_ranges.items():
             if field_name in data:
                 value = data[field_name]
-                if isinstance(value, (int, float)) and (
-                    value < min_val or value > max_val
-                ):
-                    return self.error_handler.handle(
-                        ValidationErrorType.OUT_OF_RANGE,
-                        {"field": field_name, "min_val": min_val, "max_val": max_val},
-                    )
-
+                if isinstance(value, (int, float)) and (value < min_val or value > max_val):
+                    errors[field_name] = f"out_of_range: {field_name} must be between {min_val} and {max_val}"
+        if errors:
+            result = {
+                "valid": False,
+                "field_errors": errors
+            }
+            if missing_fields:
+                result["error"] = "missing_fields"
+                result["missing_fields"] = missing_fields
+            else:
+                # Para errores de rango, incluir el nombre del campo en el error principal
+                range_error_fields = [field for field, error in errors.items() if "out_of_range" in error]
+                if range_error_fields:
+                    result["error"] = f"out_of_range: {', '.join(range_error_fields)}"
+                else:
+                    result["error"] = "out_of_range"
+            return result
         return {"valid": True}
 
 
@@ -343,7 +351,11 @@ def validate_prediction_input(data: Any) -> Dict[str, Any]:
     Interface de compatibilidad hacia atrás.
     REFACTORED: Delegación a facade elimina duplicación.
     """
-    return _validation_facade.validate_prediction_input(data)
+    # Si es un PredictionRequest, extraer las features
+    if hasattr(data, 'features'):
+        return _validation_facade.validate_prediction_input(data.features)
+    else:
+        return _validation_facade.validate_prediction_input(data)
 
 
 def get_validation_schema() -> Dict[str, Any]:

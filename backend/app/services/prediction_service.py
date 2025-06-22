@@ -21,7 +21,7 @@ from ..config.settings import get_settings
 from ..core.error_handler import MLErrorHandler
 from ..models.api_models import PredictionRequest, PredictionResponse
 from ..services.model_management_service import ModelManagementService
-from ..utils.exceptions import ModelLoadError, PredictionError
+from ..utils.exceptions import ModelLoadError, PredictionError, DataValidationError
 from ..utils.ml_model_validators import validate_ml_model
 from ..utils.prediction_validators import validate_prediction_input
 
@@ -179,16 +179,23 @@ class PredictionService:
             ValueError: Si los datos de entrada no son válidos.
         """
         try:
-            # Validar entrada
-            validate_prediction_input(request)
+            # Validar entrada primero
+            validation_result = validate_prediction_input(request)
+            if not validation_result.get("valid", True):
+                field_errors = validation_result.get("field_errors", {})
+                if field_errors:
+                    raise DataValidationError({"invalid": field_errors})
+                else:
+                    raise DataValidationError({"invalid": validation_result.get("error", "Invalid input data")})
 
             # Verificar que el modelo existe
             model_id = request.model_id or "default_model"
             if model_id not in self.models:
                 available_models = list(self.models.keys())
                 raise PredictionError(
-                    f"Modelo '{model_id}' no encontrado. "
-                    f"Modelos disponibles: {available_models}"
+                    model_id=model_id,
+                    input_data=request.features,
+                    original_error=f"Modelo '{model_id}' no encontrado. Modelos disponibles: {available_models}"
                 )
 
             # Preparar datos
@@ -217,8 +224,16 @@ class PredictionService:
                 model_info=model_info,
             )
 
+        except DataValidationError as e:
+            logger.error(f"Error de validación: {e}")
+            raise  # Dejar que se propague
         except Exception as e:
             logger.error(f"Error en predicción: {e}")
+            # Implementar fallback básico
+            if "no encontrado" in str(e).lower():
+                fallback_message = f"Error en predicción: {e}. Fallback: usando modelo por defecto"
+                logger.warning(f"Activando fallback: {fallback_message}")
+                raise PredictionError(fallback_message)
             raise PredictionError(f"Error en predicción: {e}")
 
     async def _preprocess_data(

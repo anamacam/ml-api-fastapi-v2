@@ -244,7 +244,19 @@ class VPSDatabaseConfig(DatabaseConfig):
         compatibles (PostgreSQL/MySQL).
         """
         driver = self.database_url.split(":")[0]
-        if driver.startswith("postgresql") or driver.startswith("mysql"):
+        if driver.startswith("postgresql"):
+            # asyncpg no soporta connect_timeout, statement_timeout, command_timeout
+            # usar solo parámetros compatibles
+            return {
+                "timeout": 30,
+                "server_settings": {
+                    "keepalives": "1",
+                    "keepalives_idle": "30",
+                    "keepalives_interval": "10",
+                    "keepalives_count": "5",
+                }
+            }
+        elif driver.startswith("mysql"):
             return {
                 "connect_timeout": 30,
                 "command_timeout": self.query_timeout,

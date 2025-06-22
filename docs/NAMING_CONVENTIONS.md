@@ -65,7 +65,7 @@ frontend/web-app/src/types/interfaces.ts        # ✅ Definiciones tipos
 |------|------------|---------|-------------|
 | **Config** | `lowercase` + extensión | `nginx.conf`, `pytest.ini` | Archivos configuración |
 | **Docker** | **PascalCase** prefix | `Dockerfile.backend`, `Dockerfile.frontend` | Dockerfiles específicos |
-| **Scripts PowerShell** | `snake_case` | `smart_commit.ps1`, `auto_commit.ps1` | Scripts automatización |
+| **Scripts PowerShell** | `snake_case` | `smart_commit_clean.ps1`, `smart_commit_fast.ps1` | Scripts automatización |
 | **Batch** | `snake_case` | `setup_tdd.bat`, `analyze_tech_debt.bat` | Scripts Windows |
 | **Environment** | `.env` pattern | `.env.example`, `local.env` | Variables entorno |
 

@@ -4,7 +4,7 @@
 
 Este documento explica las decisiones de configuración de `flake8` y otros linters en el proyecto.
 
-## Configuración de `.flake8`
+## Configuración de `backend/.flake8`
 
 ### Exclusiones de Directorios
 

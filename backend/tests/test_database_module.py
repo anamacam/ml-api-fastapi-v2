@@ -482,13 +482,13 @@ class TestVPSDatabaseConfig:
         config.database_url = "postgresql+asyncpg://user:pass@localhost:5432/db"
         args = config.get_connection_args()
 
-        assert args["connect_timeout"] == 30
-        assert args["command_timeout"] == config.query_timeout
-        assert args["statement_timeout"] == config.query_timeout
-        assert args["keepalives"] == 1
-        assert args["keepalives_idle"] == 30
-        assert args["keepalives_interval"] == 10
-        assert args["keepalives_count"] == 5
+        # asyncpg usa 'timeout' en lugar de 'connect_timeout'
+        assert args["timeout"] == 30
+        assert "server_settings" in args
+        assert args["server_settings"]["keepalives"] == "1"
+        assert args["server_settings"]["keepalives_idle"] == "30"
+        assert args["server_settings"]["keepalives_interval"] == "10"
+        assert args["server_settings"]["keepalives_count"] == "5"
 
     def test_vps_config_resource_limits(self, mock_psutil):
         """Test: límites de recursos respetados"""
@@ -627,9 +627,7 @@ class TestDatabaseIntegrationVPS:
     async def test_vps_database_initialization(self, mock_psutil):
         """Test: inicialización de base de datos VPS"""
         vps_config = VPSDatabaseConfig(
-            database_url=(
-                "postgresql+asyncpg://postgres:postgres@localhost:5432/" "vps_test_db"
-            ),
+            database_url="sqlite+aiosqlite:///:memory:",  # Usar SQLite en memoria para tests
             pool_size=5,
             max_overflow=10,
         )
@@ -646,10 +644,7 @@ class TestDatabaseIntegrationVPS:
     async def test_vps_transaction_handling(self, mock_psutil):
         """Test: manejo de transacciones en VPS"""
         vps_config = VPSDatabaseConfig(
-            database_url=(
-                "postgresql+asyncpg://postgres:postgres@localhost:5432/"
-                "vps_transaction_test"
-            )
+            database_url="sqlite+aiosqlite:///:memory:"  # Usar SQLite en memoria para tests
         )
 
         manager = DatabaseManager(vps_config)

@@ -159,18 +159,9 @@ ml-api-fastapi-v2/
 └── refactor.bat                   # 🔧 Scripts refactoring
 ```
 
-## 🧪 Test-Driven Development (TDD)
+## 🧪 Calidad de Código y Testing
 
-Este proyecto implementa **TDD completo** siguiendo las mejores prácticas de desarrollo dirigido por tests:
-
-### 🎯 **Filosofía TDD:**
-
-- **🔴 Red**: Escribir test que falle primero
-- **🟢 Green**: Escribir código mínimo para pasar el test
-- **🔵 Refactor**: Mejorar código manteniendo tests verdes
-- **🔄 Repetir**: Ciclo continuo para cada funcionalidad
-
-### 🏗️ **Principios Implementados:**
+Este proyecto se adhiere a una estricta política de **Test-Driven Development (TDD)** y mantiene altos estándares de calidad de código.
 
 | Principio      | Descripción              | Beneficio              |
 | -------------- | ------------------------ | ---------------------- |
@@ -179,189 +170,12 @@ Este proyecto implementa **TDD completo** siguiendo las mejores prácticas de de
 | **DRY**        | Don't Repeat Yourself    | 🔧 Mantenible          |
 | **SOLID**      | Principios diseño        | 📐 Arquitectura sólida |
 
-### 🧪 **Estructura de Tests:**
+Para una explicación detallada sobre nuestra filosofía de TDD, estructura de tests y guías de desarrollo, consulta los siguientes documentos:
 
-```text
-backend/tests/
-├── 🔬 unit/                   # Tests unitarios (rápidos)
-│   ├── test_models/
-│   │   ├── test_user.py       # Modelo Usuario
-│   │   ├── test_prediction.py # Modelo Predicción
-│   │   └── test_ml_model.py   # Modelo ML
-│   ├── test_services/
-│   │   ├── test_auth.py       # Servicio autenticación
-│   │   ├── test_ml_service.py # Servicio ML
-│   │   └── test_cache.py      # Servicio cache
-│   └── test_utils/
-│       ├── test_validators.py # Validadores
-│       └── test_helpers.py    # Funciones helper
-├── 🔗 integration/            # Tests integración
-│   ├── test_api/
-│   │   ├── test_auth_flow.py  # Flujo autenticación
-│   │   ├── test_ml_pipeline.py # Pipeline ML completo
-│   │   └── test_websocket.py  # WebSocket real-time
-│   ├── test_database/
-│   │   ├── test_migrations.py # Migraciones DB
-│   │   └── test_transactions.py # Transacciones
-│   └── test_external/
-│       ├── test_redis.py      # Integración Redis
-│       └── test_file_storage.py # Storage archivos
-├── 🌐 e2e/                    # Tests end-to-end
-│   ├── test_user_journey.py   # Flujo usuario completo
-│   ├── test_ml_workflow.py    # Workflow ML completo
-│   └── test_admin_panel.py    # Panel administración
-├── 📊 performance/            # Tests rendimiento
-│   ├── test_load.py           # Tests carga
-│   ├── test_stress.py         # Tests estrés
-│   └── test_ml_latency.py     # Latencia ML
-├── 🔧 fixtures/               # Datos de prueba
-│   ├── conftest.py            # Configuración pytest
-│   ├── factories.py           # Factory Boy
-│   └── mock_data.py           # Datos mock
-└── 📋 reports/                # Reportes coverage
-    ├── coverage.xml           # Coverage XML
-    ├── junit.xml              # JUnit results
-    └── html/                  # Reporte HTML
-```
-
-### 🛠️ **Herramientas TDD:**
-
-| Herramienta        | Propósito           | Configuración          |
-| ------------------ | ------------------- | ---------------------- |
-| **pytest**         | Framework testing   | `pytest.ini`           |
-| **pytest-cov**     | Coverage reports    | `--cov=app`            |
-| **pytest-mock**    | Mocking avanzado    | `@pytest.fixture`      |
-| **factory-boy**    | Test data factories | `factories.py`         |
-| **pytest-asyncio** | Tests async         | `@pytest.mark.asyncio` |
-| **pytest-xdist**   | Tests paralelos     | `-n auto`              |
-
-### 🎯 **Patrones TDD:**
-
-#### **Arrange-Act-Assert (AAA)**
-
-```python
-def test_user_creation_should_hash_password():
-    # Arrange
-    raw_password = "test123"
-    user_data = {"email": "test@example.com", "password": raw_password}
-
-    # Act
-    user = User.create(user_data)
-
-    # Assert
-    assert user.password != raw_password
-    assert user.verify_password(raw_password)
-```
-
-#### **Given-When-Then (BDD)**
-
-```python
-def test_prediction_with_valid_model():
-    # Given: Un modelo entrenado y datos válidos
-    model = create_trained_model()
-    input_data = {"feature1": 1.0, "feature2": 2.0}
-
-    # When: Se hace una predicción
-    result = model.predict(input_data)
-
-    # Then: Se obtiene resultado válido
-    assert result.confidence > 0.8
-    assert result.prediction is not None
-```
-
-### 🚀 **Comandos TDD:**
-
-```bash
-# 🔧 Setup inicial TDD
-./setup_tdd.bat
-
-# 🧪 Ejecutar todos los tests
-pytest
-
-# 📊 Tests con coverage
-pytest --cov=app --cov-report=html
-
-# ⚡ Tests rápidos (solo unitarios)
-pytest tests/unit/ -v
-
-# 🔗 Tests integración
-pytest tests/integration/ -v
-
-# 🌐 Tests end-to-end
-pytest tests/e2e/ -v
-
-# 📈 Tests performance
-pytest tests/performance/ -v
-
-# 🔄 Tests en modo watch
-pytest-watch
-
-# 🚀 Tests paralelos
-pytest -n auto
-
-# 🎯 Tests específicos
-pytest tests/unit/test_models/test_user.py::test_user_creation
-
-# 📋 Generar reporte JUnit
-pytest --junitxml=tests/reports/junit.xml
-```
-
-### 📊 **Métricas TDD:**
-
-| Métrica          | Objetivo    | Actual | Estado       |
-| ---------------- | ----------- | ------ | ------------ |
-| **Coverage**     | >90%        | 0%     | 🔴 Pendiente |
-| **Tests/Código** | 1:1 ratio   | 0:1    | 🔴 Pendiente |
-| **Test Speed**   | <100ms unit | N/A    | ⚪ N/A       |
-| **Build Time**   | <5min total | N/A    | ⚪ N/A       |
-
-### 🔍 **Análisis TDD:**
-
-El proyecto incluye **análisis automático de prácticas TDD**:
-
-```bash
-# Analizar calidad TDD
-python infrastructure/scripts/tech_debt_analyzer.py
-
-# Métricas TDD evaluadas:
-# ✅ Estructura de tests (pytest/unittest)
-# ✅ Naming conventions descriptivos
-# ✅ Organización (fixtures, setup/teardown)
-# ✅ Patrones AAA/Given-When-Then
-# ✅ Calidad (mocks, parametrización)
-```
-
-### 🎨 **Integración CI/CD:**
-
-```yaml
-# .github/workflows/tdd.yml
-name: TDD Pipeline
-on: [push, pull_request]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.12"
-      - name: Install dependencies
-        run: pip install -r requirements/dev.txt
-      - name: Run TDD tests
-        run: |
-          pytest --cov=app --cov-report=xml
-          pytest tests/unit/ --junitxml=junit.xml
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
-```
-
-### 🎓 **Recursos TDD:**
-
-- 📖 [Test-Driven Development by Kent Beck](https://www.amazon.com/Test-Driven-Development-Kent-Beck/dp/0321146530)
-- 🎥 [TDD Best Practices](https://www.youtube.com/watch?v=qkblc5WRn-U)
-- 📚 [Pytest Documentation](https://docs.pytest.org/)
-- 🔧 [Factory Boy Guide](https://factoryboy.readthedocs.io/)
+- **[📄 Filosofía TDD Optimizada](TDD_STUB_PHILOSOPHY_OPTIMIZADA.md)**
+- **[📄 Sistema de Commits Inteligentes](docs/COMMIT_SYSTEM.md)**
+- **[📄 Buenas Prácticas de Git](docs/GIT_BEST_PRACTICES.md)**
+- **[📄 Deuda Técnica y Estándares](TECHNICAL_DEBT.md)**
 
 ## 🎨 Calidad de Código
 
@@ -371,7 +185,7 @@ Este proyecto mantiene altos estándares de calidad mediante herramientas automa
 
 | Herramienta | Propósito | Configuración |
 |-------------|-----------|---------------|
-| **flake8** | Linting Python | `.flake8` |
+| **flake8** | Linting Python | `backend/.flake8` |
 | **black** | Formateo código | `pyproject.toml` |
 | **isort** | Ordenar imports | `pyproject.toml` |
 | **mypy** | Type checking | `mypy.ini` |

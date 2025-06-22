@@ -380,7 +380,7 @@ class DataValidationError(BaseAppException):
         input_data: Optional[Dict[str, Any]] = None,
     ):
         error_count = sum(len(errors) for errors in field_errors.values())
-        message = f"Error de validación de datos: {error_count} errores en {len(field_errors)} campos"  # noqa: E501
+        message = f"Error de validación de datos inválidos: {error_count} errores en {len(field_errors)} campos"  # noqa: E501
 
         details = {
             "field_errors": field_errors,

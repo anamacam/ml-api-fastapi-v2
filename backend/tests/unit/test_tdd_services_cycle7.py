@@ -326,8 +326,15 @@ class TestPredictionServiceTDDCycle7:
             service = PredictionService()
 
             # RED: Debe fallar - predict necesita mejoras
+            # Usar datos válidos según el esquema requerido
             request = PredictionRequest(
-                features={"feature1": 1.0, "feature2": 2.0}, model_id="test_model"
+                features={
+                    "age": 30.0,
+                    "income": 50000.0,
+                    "category": "premium",
+                    "score": 0.85,
+                },
+                model_id="test_model"
             )
 
             # El servicio puede fallar por modelo no encontrado, pero debe
@@ -362,9 +369,15 @@ class TestPredictionServiceFailureCases:
 
             service = PredictionService()
 
-            # Solicitar modelo inexistente
+            # Solicitar modelo inexistente con datos válidos
             request = PredictionRequest(
-                features={"feature1": 1.0}, model_id="nonexistent_model"
+                features={
+                    "age": 25.0,
+                    "income": 40000.0,
+                    "category": "standard",
+                    "score": 0.75,
+                },
+                model_id="nonexistent_model"
             )
 
             with pytest.raises(PredictionError) as exc_info:
@@ -387,16 +400,22 @@ class TestPredictionServiceFailureCases:
 
             service = PredictionService()
 
-            # Datos inválidos
+            # Datos inválidos - campo score como string en lugar de número
             invalid_data = PredictionRequest(
-                features={"feature1": "not_a_number"}, model_id="test_model"
+                features={
+                    "age": 30.0,
+                    "income": 50000.0,
+                    "category": "premium",
+                    "score": "not_a_number",  # Este campo debe ser numérico
+                },
+                model_id="test_model"
             )
 
             with pytest.raises(DataValidationError) as exc_info:
                 await service.predict(invalid_data)
 
             assert (
-                "invalid" in str(exc_info.value).lower()
+                "inválidos" in str(exc_info.value).lower()
             ), "El error debe indicar datos inválidos"
         except ImportError:
             pytest.skip("PredictionService o DataValidationError no disponibles")
