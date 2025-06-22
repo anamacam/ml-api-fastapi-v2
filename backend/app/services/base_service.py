@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 🏗️ Servicio Base - Implementación de Principios SOLID
 
@@ -17,13 +18,15 @@ Patrones aplicados:
 """
 
 import logging
+import traceback
+import uuid
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, TypeVar, Generic
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
-from contextlib import contextmanager
-import time
-import traceback
+from typing import Any, Dict, Generic, List, Optional, TypeVar
+
+from ..config.settings import get_settings
 
 # from ..utils.exceptions import BaseAppException  # Unused import
 from ..core.security_logger import (
@@ -31,7 +34,6 @@ from ..core.security_logger import (
     SecurityLevel,
     get_security_logger,
 )
-from ..config.settings import get_settings
 
 T = TypeVar("T")
 
@@ -96,9 +98,9 @@ class BaseService(ABC):
         self.metrics: Dict[str, Any] = {}
 
         # TDD CYCLE 7 - GREEN PHASE: Atributos requeridos por tests
-        self.config = self.settings
+        self.config = self.settings  # Alias para compatibilidad con tests
         self.error_handler = self._create_error_handler()
-        self.is_initialized = False
+        self.is_initialized: bool = False
         self.last_error_context: Optional[Dict[str, Any]] = None
 
         # Configurar logging
@@ -133,15 +135,67 @@ class BaseService(ABC):
         }
 
     def validate_input(self, data: Any) -> bool:
-        """TDD CYCLE 7 - GREEN PHASE: Validar entrada de datos"""
+        """
+        Valida la entrada cubriendo edge cases típicos de ML/API:
+        - False para: None, listas vacías, tuplas vacías, sets vacíos,
+          strings vacíos, diccionarios vacíos.
+        - True para: 0, False, float('nan'), diccionarios anidados
+          aunque tengan vacío, otros tipos.
+
+        Estrategia TDD:
+        - RED PHASE: Inicialmente falla solo por lógica
+          (no AttributeError).
+        - GREEN PHASE: Lógica completa para cubrir tests de
+          edge cases.
+        - REFACTOR: Optimización y documentación completa.
+
+        Args:
+            data: Datos a validar (cualquier tipo)
+
+        Returns:
+            bool: True si los datos son válidos
+                para procesamiento ML
+
+        Examples:
+            >>> service.validate_input({"features": [1, 2, 3]})
+            # True
+            >>> service.validate_input([1, 2, 3])  # True
+            >>> service.validate_input([])  # False
+            >>> service.validate_input("")  # False
+            >>> service.validate_input({})  # False
+            >>> service.validate_input(())  # False
+            >>> service.validate_input(set())  # False
+            >>> service.validate_input(None)  # False
+            >>> service.validate_input(0)  # True (cero es válido)
+            >>> service.validate_input(False)  # True
+            # (booleano es válido)
+            >>> service.validate_input(float('nan'))  # True
+            # (NaN es válido)
+            >>> service.validate_input({"nested": {}})
+            # True (dict anidado)
+        """
+        # Edge case: None
         if data is None:
             return False
-        if isinstance(data, dict) and len(data) == 0:
+        # Edge case: empty str, empty list, empty tuple,
+        # empty set
+        if isinstance(data, (str, list, tuple, set)) and not data:
             return False
+        # Edge case: empty dict
+        if isinstance(data, dict) and not data:
+            return False
+        # Otros edge cases se consideran válidos
+        # (0, False, float('nan'), dicts anidados)
         return True
 
     def handle_error(self, error: Exception, context: Dict[str, Any]) -> None:
-        """TDD CYCLE 7 - GREEN PHASE: Manejar errores con contexto"""
+        """
+        TDD CYCLE 7 - GREEN PHASE: Manejar errores con contexto
+
+        Args:
+            error: Excepción a manejar
+            context: Contexto del error
+        """
         self.last_error_context = context
         self.logger.error(f"Service error: {error}", extra=context)
 
@@ -150,15 +204,32 @@ class BaseService(ABC):
             self.error_handler["last_error"] = str(error)
 
     def add_observer(self, observer: ServiceObserver) -> None:
-        """Agregar observer al servicio"""
+        """
+        Agregar observer al servicio
+
+        Args:
+            observer: Observer a agregar
+        """
         self.observers.append(observer)
 
     def add_strategy(self, name: str, strategy: ServiceStrategy) -> None:
-        """Agregar estrategia al servicio"""
+        """
+        Agregar estrategia al servicio
+
+        Args:
+            name: Nombre de la estrategia
+            strategy: Estrategia a agregar
+        """
         self.strategies[name] = strategy
 
     def notify_observers(self, event_type: str, details: Dict[str, Any]) -> None:
-        """Notificar a todos los observers"""
+        """
+        Notificar a todos los observers
+
+        Args:
+            event_type: Tipo de evento
+            details: Detalles del evento
+        """
         for observer in self.observers:
             try:
                 observer.on_service_event(event_type, self.service_name, details)
@@ -166,7 +237,7 @@ class BaseService(ABC):
                 self.logger.error(f"Error notifying observer: {e}")
 
     @contextmanager
-    def service_context(self, operation: str, **context_data):
+    def service_context(self, operation: str, **context_data: Any):
         """
         Context manager para operaciones de servicio.
 
@@ -175,9 +246,13 @@ class BaseService(ABC):
         2. Ejecutar operación
         3. Post-operación
         4. Manejo de errores
+
+        Args:
+            operation: Nombre de la operación
+            **context_data: Datos de contexto adicionales
         """
-        start_time = time.time()
-        operation_id = f"{self.service_name}_{operation}_{int(start_time)}"
+        operation_id = str(uuid.uuid4())
+        start_time = datetime.utcnow()
 
         try:
             # 1. Pre-operación
@@ -187,14 +262,16 @@ class BaseService(ABC):
             yield operation_id
 
             # 3. Post-operación (éxito)
-            execution_time = time.time() - start_time
+            end_time = datetime.utcnow()
+            execution_time = (end_time - start_time).total_seconds()
             self._post_operation_success(
                 operation, operation_id, execution_time, context_data
             )
 
         except Exception as e:
             # 4. Manejo de errores
-            execution_time = time.time() - start_time
+            end_time = datetime.utcnow()
+            execution_time = (end_time - start_time).total_seconds()
             self._post_operation_error(
                 operation, operation_id, e, execution_time, context_data
             )
@@ -238,7 +315,8 @@ class BaseService(ABC):
     ) -> None:
         """Post-operación exitosa"""
         self.logger.info(
-            f"Operation completed: {operation} (ID: {operation_id}) in {execution_time:.3f}s"
+            f"Operation completed: {operation} (ID: {operation_id}) "
+            f"in {execution_time: .3f}s"
         )
 
         # Actualizar métricas
@@ -268,6 +346,17 @@ class BaseService(ABC):
         self.logger.error(
             f"Operation failed: {operation} (ID: {operation_id}) - {error_msg}"
         )
+
+        # Establecer contexto de error
+        error_context = {
+            "operation": operation,
+            "operation_id": operation_id,
+            "error": error_msg,
+            "execution_time": execution_time,
+            "context_data": context_data,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+        self.handle_error(error, error_context)
 
         # Log security event
         security_event = SecurityEventFactory.create_threat_event(
@@ -332,8 +421,20 @@ class BaseService(ABC):
         op_metrics["min_time"] = min(op_metrics["min_time"], execution_time)
         op_metrics["max_time"] = max(op_metrics["max_time"], execution_time)
 
-    def execute_strategy(self, strategy_name: str, *args, **kwargs) -> ServiceResult:
-        """Ejecutar estrategia específica"""
+    def execute_strategy(
+        self, strategy_name: str, *args: Any, **kwargs: Any
+    ) -> ServiceResult:
+        """
+        Ejecutar estrategia específica
+
+        Args:
+            strategy_name: Nombre de la estrategia
+            *args: Argumentos posicionales
+            **kwargs: Argumentos con nombre
+
+        Returns:
+            ServiceResult: Resultado de la estrategia
+        """
         if strategy_name not in self.strategies:
             return ServiceResult(
                 success=False,
@@ -357,14 +458,53 @@ class BaseService(ABC):
         }
 
     def health_check(self) -> Dict[str, Any]:
-        """Verificar salud del servicio"""
+        """Verificar estado de salud del servicio"""
         return {
             "service_name": self.service_name,
-            "status": "healthy",
-            "observers": len(self.observers),
-            "strategies": len(self.strategies),
+            "is_initialized": self.is_initialized,
+            "observers_count": len(self.observers),
+            "strategies_count": len(self.strategies),
             "timestamp": datetime.utcnow().isoformat(),
         }
+
+    # TDD STUB METHODS - Following RED-GREEN-REFACTOR philosophy
+    # These methods return default values to pass linting,
+    # RED phase should fail on business logic, not missing methods
+
+    def get_service_info(self) -> Dict[str, Any]:
+        """
+        TDD STUB: Get detailed service information
+        RED: Returns minimal info by default for TDD failure
+        """
+        return {"name": self.service_name}  # RED: Minimal return for TDD
+
+    def restart_service(self) -> bool:
+        """
+        TDD STUB: Restart service
+        RED: Returns False by default for TDD failure
+        """
+        return False  # RED: Default return for TDD
+
+    def get_performance_stats(self) -> Dict[str, Any]:
+        """
+        TDD STUB: Get performance statistics
+        RED: Returns empty dict by default for TDD failure
+        """
+        return {}  # RED: Default return for TDD
+
+    def configure_service(self, config: Dict[str, Any]) -> bool:
+        """
+        TDD STUB: Configure service settings
+        RED: Returns False by default for TDD failure
+        """
+        return False  # RED: Default return for TDD
+
+    def backup_service_state(self) -> str:
+        """
+        TDD STUB: Backup current service state
+        RED: Returns empty string by default for TDD failure
+        """
+        return ""  # RED: Default return for TDD
 
     @abstractmethod
     def initialize(self) -> None:

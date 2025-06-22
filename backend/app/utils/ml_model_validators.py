@@ -1,16 +1,18 @@
+# -*- coding: utf-8 -*-
 """
-Validadores para modelos ML.
+ML Model Validators - Sistema de validacion robusto para modelos ML.
 
-Sistema de validación robusto y extensible para modelos de machine learning.
-Verifica integridad, capacidad de predicción y formato de salida.
+Sistema de validacion robusto y extensible para modelos de machine learning.
+Verifica integridad, capacidad de prediccion y formato de salida.
 
-Refactorizado: código limpio, modular y mantenible.
+Refactorizado: codigo limpio, modular y mantenible.
 """
 
-from typing import Dict, Any, Optional, List, Union, Type
-import numpy as np
 import logging
 from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional
+
+import numpy as np
 
 # Configuración del logger
 logger = logging.getLogger(__name__)
@@ -19,7 +21,7 @@ logger = logging.getLogger(__name__)
 if not logger.handlers:
     handler = logging.StreamHandler()
     formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
     handler.setFormatter(formatter)
     logger.addHandler(handler)
@@ -29,12 +31,21 @@ if not logger.handlers:
 REQUIRED_MODEL_METHODS = ["predict"]
 
 # Métodos opcionales comunes en modelos ML
-OPTIONAL_MODEL_METHODS = ["predict_proba", "predict_log_proba", "decision_function", "transform"]
+OPTIONAL_MODEL_METHODS = [
+    "predict_proba",
+    "predict_log_proba",
+    "decision_function",
+    "transform",
+]
 
 # Atributos que indican modelo sklearn entrenado
 SKLEARN_FITTED_ATTRIBUTES = [
-    'coef_', 'intercept_', 'n_features_in_',
-    'feature_names_in_', 'classes_', 'n_iter_'
+    "coef_",
+    "intercept_",
+    "n_features_in_",
+    "feature_names_in_",
+    "classes_",
+    "n_iter_",
 ]
 
 # Tipos de salida válidos para predicciones
@@ -43,6 +54,7 @@ VALID_PREDICTION_TYPES = (np.ndarray, list, tuple)
 
 class ModelValidationError:
     """Tipos de errores de validación de modelos."""
+
     NULL_MODEL = "null_model"
     MISSING_METHODS = "missing_methods"
     NOT_FITTED = "not_fitted"
@@ -69,16 +81,14 @@ class SklearnModelValidator(ModelValidator):
 
     def supports_model(self, model: Any) -> bool:
         """Verifica si es un modelo sklearn."""
-        if not hasattr(model, '__class__'):
+        if not hasattr(model, "__class__"):
             return False
 
-        module_name = getattr(model.__class__, '__module__', '')
-        class_name = getattr(model.__class__, '__name__', '')
+        module_name = getattr(model.__class__, "__module__", "")
 
         # Verificar que el módulo comience con 'sklearn'
         # y no sea solo que contenga 'sklearn' en el path del test
-        return (module_name.startswith('sklearn.') or
-                module_name == 'sklearn')
+        return module_name.startswith("sklearn.") or module_name == "sklearn"
 
     def validate(self, model: Any) -> Dict[str, Any]:
         """Valida modelo sklearn específicamente."""
@@ -86,7 +96,7 @@ class SklearnModelValidator(ModelValidator):
         if not self._is_fitted(model):
             return {
                 "valid": False,
-                "error": f"Model {ModelValidationError.NOT_FITTED}: sklearn model appears to be untrained"
+                "error": f"Model {ModelValidationError.NOT_FITTED}: sklearn model appears to be untrained",  # noqa: E501
             }
 
         return {"valid": True}
@@ -111,7 +121,7 @@ class GenericModelValidator(ModelValidator):
 def validate_ml_model(
     model: Any,
     test_data: Optional[np.ndarray] = None,
-    required_methods: Optional[List[str]] = None
+    required_methods: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
     Valida modelo ML antes de usar para predicciones.
@@ -176,23 +186,19 @@ def validate_ml_model(
 
     except Exception as e:
         logger.error(f"Unexpected error during model validation: {e}")
-        return {
-            "valid": False,
-            "error": f"Validation error: {str(e)}"
-        }
+        return {"valid": False, "error": f"Validation error: {str(e)}"}
 
 
 def _validate_not_null(model: Any) -> Dict[str, Any]:
     """Valida que el modelo no sea nulo."""
     if model is None:
-        return {
-            "valid": False,
-            "error": "Model is None"
-        }
+        return {"valid": False, "error": "Model is None"}
     return {"valid": True}
 
 
-def _validate_required_methods(model: Any, methods_to_check: List[str]) -> Dict[str, Any]:
+def _validate_required_methods(
+    model: Any, methods_to_check: List[str]
+) -> Dict[str, Any]:
     """Valida que el modelo tenga métodos requeridos."""
     missing_methods = []
 
@@ -204,7 +210,7 @@ def _validate_required_methods(model: Any, methods_to_check: List[str]) -> Dict[
         return {
             "valid": False,
             "error": "missing_methods detected",
-            "missing_methods": missing_methods
+            "missing_methods": missing_methods,
         }
 
     return {"valid": True}
@@ -214,7 +220,7 @@ def _validate_model_by_type(model: Any) -> Dict[str, Any]:
     """Valida modelo usando validador específico por tipo."""
     validators = [
         SklearnModelValidator(),
-        GenericModelValidator()  # Siempre último (catch-all)
+        GenericModelValidator(),  # Siempre último (catch-all)
     ]
 
     for validator in validators:
@@ -224,7 +230,9 @@ def _validate_model_by_type(model: Any) -> Dict[str, Any]:
     return {"valid": True}
 
 
-def _validate_test_data(test_data: np.ndarray, max_samples: int = 1000) -> Dict[str, Any]:
+def _validate_test_data(
+    test_data: np.ndarray, max_samples: int = 1000
+) -> Dict[str, Any]:
     """
     Valida que test_data sea apropiado para predicción.
 
@@ -237,32 +245,30 @@ def _validate_test_data(test_data: np.ndarray, max_samples: int = 1000) -> Dict[
     """
     try:
         # Verificar que no esté vacío
-        if test_data is None or (hasattr(test_data, '__len__') and len(test_data) == 0):
-            return {
-                "valid": False,
-                "error": "test_data is empty or None"
-            }
+        if test_data is None or (hasattr(test_data, "__len__") and len(test_data) == 0):
+            return {"valid": False, "error": "test_data is empty or None"}
 
         # Verificar tamaño para evitar cómputo pesado
-        if hasattr(test_data, 'shape') and len(test_data.shape) > 0:
+        if hasattr(test_data, "shape") and len(test_data.shape) > 0:
             n_samples = test_data.shape[0]
             if n_samples > max_samples:
-                logger.warning(f"test_data has {n_samples} samples, limiting to {max_samples} for performance")
+                logger.warning(
+                    f"test_data has {n_samples} samples, limiting to {max_samples} for performance"  # noqa: E501
+                )
                 return {
                     "valid": False,
-                    "error": f"test_data too large: {n_samples} samples > {max_samples} limit"
+                    "error": f"test_data too large: {n_samples} samples > {max_samples} limit",  # noqa: E501
                 }
 
         return {"valid": True}
 
     except Exception as e:
-        return {
-            "valid": False,
-            "error": f"test_data validation failed: {str(e)}"
-        }
+        return {"valid": False, "error": f"test_data validation failed: {str(e)}"}
 
 
-def _validate_prediction_capability(model: Any, test_data: np.ndarray) -> Dict[str, Any]:
+def _validate_prediction_capability(
+    model: Any, test_data: np.ndarray
+) -> Dict[str, Any]:
     """Valida capacidad de predicción y formato de salida."""
     try:
         prediction = model.predict(test_data)
@@ -271,23 +277,20 @@ def _validate_prediction_capability(model: Any, test_data: np.ndarray) -> Dict[s
         if not isinstance(prediction, VALID_PREDICTION_TYPES):
             return {
                 "valid": False,
-                "error": f"invalid_output_format: prediction must be one of {VALID_PREDICTION_TYPES}"
+                "error": f"invalid_output_format: prediction must be one of {VALID_PREDICTION_TYPES}",  # noqa: E501
             }
 
         # Validar que la predicción no esté vacía
-        if hasattr(prediction, '__len__') and len(prediction) == 0:
+        if hasattr(prediction, "__len__") and len(prediction) == 0:
             return {
                 "valid": False,
-                "error": "invalid_output_format: prediction is empty"
+                "error": "invalid_output_format: prediction is empty",
             }
 
         return {"valid": True}
 
     except Exception as e:
-        return {
-            "valid": False,
-            "error": f"prediction_failed: {str(e)}"
-        }
+        return {"valid": False, "error": f"prediction_failed: {str(e)}"}
 
 
 def get_supported_model_types() -> List[str]:
@@ -303,7 +306,7 @@ def get_supported_model_types() -> List[str]:
         "torch.nn.*",
         "xgboost.*",
         "lightgbm.*",
-        "generic (any object with predict method)"
+        "generic (any object with predict method)",
     ]
 
 
@@ -321,5 +324,5 @@ def get_validation_config() -> Dict[str, Any]:
         "valid_prediction_types": [t.__name__ for t in VALID_PREDICTION_TYPES],
         "supported_model_types": get_supported_model_types(),
         "max_test_samples": 1000,
-        "version": "2.1.0"
+        "version": "2.1.0",
     }

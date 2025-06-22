@@ -1,89 +1,95 @@
+# -*- coding: utf-8 -*-
 """
-FastAPI Application - REFACTORIZADA con configuración por entornos.
+FastAPI Application - Punto de entrada principal de la API.
 
-REFACTOR PHASE: Código elegante, mantenible y escalable con configuración profesional.
+Define la aplicación FastAPI, gestiona el ciclo de vida, configura middlewares,
+y registra los endpoints de la API.
 """
 
-from fastapi import FastAPI, HTTPException, Depends
-from fastapi.middleware.cors import CORSMiddleware
 import logging
 from contextlib import asynccontextmanager
+from typing import Any, Dict, Optional
 
-# Configuración por entornos
+# Configuración y Modelos
 from app.config.settings import get_settings
-
-# Importar servicios refactorizados
-from app.services.hybrid_prediction_service import HybridPredictionService
-from app.services.model_management_service import ModelManagementService
-
-# Importar modelos refactorizados
 from app.models.api_models import (
-    PredictionRequest, ModelUploadRequest,
-    PredictionResponse, ModelUploadResponse,
-    HealthResponse, ErrorResponse,
-    ValidationDetails, ModelInfo
+    HealthResponse,
+    ModelInfo,
+    ModelUploadRequest,
+    ModelUploadResponse,
+    PredictionRequest,
+    PredictionResponse,
+    ValidationDetails,
 )
 
-# Configurar logging mejorado
-# Obtener configuración primero
+# Servicios
+from app.services.hybrid_prediction_service import HybridPredictionService
+from app.services.model_management_service import ModelManagementService
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+
+# 1. --- Configuración e Inicialización ---
+
 settings = get_settings()
 
-# Configurar logging usando el nivel del entorno
-log_level_map = {
-    "DEBUG": logging.DEBUG,
-    "INFO": logging.INFO,
-    "WARNING": logging.WARNING,
-    "ERROR": logging.ERROR,
-    "CRITICAL": logging.CRITICAL
-}
-
+# Configurar el logger principal
 logging.basicConfig(
-    level=log_level_map.get(settings.log_level.upper(), logging.INFO),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=settings.log_level.upper(),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
 
-# Desactivar logs verbosos de librerías externas solo si no es DEBUG
-if settings.log_level.upper() != "DEBUG":
-    logging.getLogger("sqlalchemy").setLevel(logging.WARNING)
-    logging.getLogger("lightgbm").setLevel(logging.WARNING)
-    logging.getLogger("sklearn").setLevel(logging.WARNING)
+# Silenciar loggers de librerías en entornos no-debug
+if settings.environment != "development":
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 
-# Instancias globales de servicios (en producción usar Dependency Injection)
-prediction_service = None
-model_management_service = None
+
+# Declaración de servicios globales para ser gestionados por el lifespan
+prediction_service: Optional[HybridPredictionService] = None
+model_management_service: Optional[ModelManagementService] = None
+
+
+# 2. --- Gestión del Ciclo de Vida (Lifespan) ---
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Gestión del ciclo de vida de la aplicación."""
-    # Startup
+    """
+    Gestiona la inicialización y el apagado de los recursos de la aplicación,
+    como los servicios de ML.
+    """
     global prediction_service, model_management_service
+    logger.info("Iniciando la aplicación y los servicios...")
 
-    # Los servicios usan automáticamente la configuración por entornos
+    # Inicializar servicios
     prediction_service = HybridPredictionService()
     model_management_service = ModelManagementService()
 
-    logger.info("🚀 Servicios híbridos inicializados correctamente")
-    logger.info(f"🌍 Entorno: {settings.environment.upper()}")
-    logger.info(f"📊 Modelos reales: {'SÍ' if settings.should_use_real_models else 'NO (Mock)'}")
-    logger.info(f"🐛 Debug: {'ACTIVADO' if settings.debug else 'DESACTIVADO'}")
+    logger.info("🚀 Servicios inicializados correctamente")
+    logger.info(f"🌍 Entorno de ejecución: {settings.environment.upper()}")
+    logger.info(
+        f"📊 Usando modelos reales: {'SÍ' if settings.should_use_real_models else 'NO'}"
+    )
 
     yield
 
-    # Shutdown
-    logger.info("👋 Aplicación cerrando...")
+    # Acciones de apagado
+    logger.info("👋 Apagando la aplicación...")
+    # Aquí iría la lógica de limpieza si fuera necesaria (ej. cerrar conexiones)
 
-# Crear aplicación FastAPI refactorizada
+
+# 3. --- Creación y Configuración de la App FastAPI ---
+
 app = FastAPI(
     title=settings.api_title,
-    description="API de Machine Learning con arquitectura TDD y configuración por entornos",
+    description=f"API de Machine Learning (Entorno: {settings.environment})",
     version=settings.api_version,
     lifespan=lifespan,
-    debug=settings.debug
+    debug=settings.debug,
 )
 
-# Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,
@@ -92,193 +98,191 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Dependency injection functions
+
+# 4. --- Inyección de Dependencias ---
+
+
 def get_prediction_service() -> HybridPredictionService:
-    """Obtener servicio de predicción híbrido."""
-    global prediction_service
+    """Dependencia para obtener el servicio de predicción."""
     if prediction_service is None:
-        # Inicialización para tests o uso directo - usa configuración por entornos
-        prediction_service = HybridPredictionService()
+        raise HTTPException(
+            status_code=503, detail="Servicio de predicción no disponible."
+        )
     return prediction_service
 
+
 def get_model_service() -> ModelManagementService:
-    """Obtener servicio de gestión de modelos."""
-    global model_management_service
+    """Dependencia para obtener el servicio de gestión de modelos."""
     if model_management_service is None:
-        # Inicialización para tests o uso directo
-        model_management_service = ModelManagementService()
+        raise HTTPException(
+            status_code=503, detail="Servicio de modelos no disponible."
+        )
     return model_management_service
 
-# ===== ENDPOINTS REFACTORIZADOS =====
 
-@app.post("/api/v1/predict", response_model=PredictionResponse)
+# 5. --- Endpoints de la API ---
+
+
+@app.get("/", summary="Endpoint raíz de la API", tags=["General"])
+async def root():
+    """Devuelve un mensaje de bienvenida y enlaces a la documentación."""
+    return {
+        "message": "🤖 Bienvenido a la ML API v2",
+        "environment": settings.environment,
+        "version": settings.api_version,
+        "docs_url": "/docs",
+        "health_check": "/health",
+    }
+
+
+@app.get(
+    "/health",
+    response_model=HealthResponse,
+    summary="Verifica la salud de la aplicación",
+    tags=["General"],
+)
+async def health_check():
+    """
+    Endpoint de health check que proporciona el estado general de la aplicación
+    y sus servicios principales.
+    """
+    return HealthResponse(
+        status="healthy",
+        version=settings.api_version,
+        services={
+            "environment": settings.environment,
+            "debug_mode": str(settings.debug),
+            "real_models_enabled": str(settings.should_use_real_models),
+        },
+    )
+
+
+@app.post(
+    "/api/v1/predict",
+    response_model=PredictionResponse,
+    summary="Realiza una predicción",
+    tags=["Predicciones"],
+)
 async def predict(
     request: PredictionRequest,
-    service: HybridPredictionService = Depends(get_prediction_service)
+    service: HybridPredictionService = Depends(get_prediction_service),
 ):
     """
-    Endpoint de predicción refactorizado con servicios separados.
-
-    Arquitectura limpia:
-    - Validación en servicio
-    - Manejo de errores centralizado
-    - Respuesta tipada con Pydantic
+    Recibe datos de entrada y devuelve una predicción del modelo.
     """
     try:
-        success, result = service.validate_and_predict(
-            request.features,
-            request.model_id
-        )
+        model_id = request.model_id or "default_model"
+        success, result = service.validate_and_predict(request.features, model_id)
 
         if not success:
-            error = result
+            # El tipo de error ya viene clasificado por el servicio
+            raise _handle_prediction_error(result)
 
-            # Manejo específico por tipo de error
-            if error["error_type"] == "input_validation":
-                validation_result = error["validation_result"]
-
-                if "missing_fields" in validation_result:
-                    raise HTTPException(
-                        status_code=422,
-                        detail={
-                            "validation_error": "Missing required fields",
-                            "missing_fields": validation_result["missing_fields"]
-                        }
-                    )
-                else:
-                    raise HTTPException(
-                        status_code=422,
-                        detail={
-                            "validation_error": validation_result["error"],
-                            "invalid_types": True
-                        }
-                    )
-
-            elif error["error_type"] == "model_not_found":
-                raise HTTPException(
-                    status_code=400,
-                    detail={"model_validation_error": f"Model '{error['model_id']}' not found"}
-                )
-
-            elif error["error_type"] == "prediction_failed":
-                raise HTTPException(
-                    status_code=500,
-                    detail={"prediction_failed": error["error_message"]}
-                )
-
-        # Respuesta exitosa usando modelo Pydantic
         return PredictionResponse(
             prediction=result["prediction"],
-            validation_details=ValidationDetails(
-                input_valid=result["validation_details"]["input_valid"],
-                model_valid=result["validation_details"]["model_valid"]
-            ) if request.include_validation_details else None,
+            validation_details=_get_validation_details(request, result),
             model_info=ModelInfo(
                 model_id=result["model_info"]["model_id"],
                 status=result["model_info"]["status"],
-                type=result["model_info"].get("type")
-            )
+                type=result["model_info"].get("type"),
+            ),
         )
 
     except HTTPException:
-        raise
+        raise  # Re-lanzar HTTPErrors manejadas por _handle_prediction_error
     except Exception as e:
-        logger.error(f"Error inesperado en predicción: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail={"error": "Internal server error"}
+        logger.error(
+            f"Error inesperado en el endpoint de predicción: {e}", exc_info=True
         )
+        raise HTTPException(status_code=500, detail="Error interno del servidor.")
 
-@app.post("/api/v1/models", response_model=ModelUploadResponse)
+
+@app.post(
+    "/api/v1/models",
+    response_model=ModelUploadResponse,
+    summary="Sube y registra un nuevo modelo",
+    tags=["Modelos"],
+)
 async def upload_model(
     request: ModelUploadRequest,
-    service: ModelManagementService = Depends(get_model_service)
+    service: ModelManagementService = Depends(get_model_service),
 ):
     """
-    Endpoint para subir modelos refactorizado.
-
-    Usa servicio separado para validación y registro.
+    Permite subir un nuevo modelo para que esté disponible para predicciones.
     """
     try:
         success, result = service.validate_and_register_model(
-            request.model_name,
-            request.model_type,
-            request.model_data
+            model_name=request.model_name,
+            model_type=request.model_type,
+            model_data=request.model_data,
         )
-
         if not success:
-            error = result
-            raise HTTPException(
-                status_code=422,
-                detail={"model_validation_error": error.get("message", "Invalid model")}
-            )
+            raise HTTPException(status_code=422, detail=result)
 
-        # Respuesta exitosa usando modelo Pydantic
         return ModelUploadResponse(
-            message=result["message"],
-            model_name=result["model_name"],
-            status=result["status"],
-            model_type=result.get("model_type")
+            message=f"Modelo '{request.model_name}' subido y registrado exitosamente.",
+            model_name=request.model_name,
+            status="registered",
+            model_type=request.model_type,
         )
-
     except HTTPException:
-        raise
+        raise  # Re-lanzar la excepción HTTP específica sin modificar
     except Exception as e:
-        logger.error(f"Error subiendo modelo: {e}")
+        logger.error(f"Error en la subida de modelo: {e}", exc_info=True)
         raise HTTPException(
-            status_code=500,
-            detail={"error": "Error processing model upload"}
+            status_code=500, detail=f"Error interno al procesar el modelo: {e}"
         )
 
-@app.get("/health", response_model=HealthResponse)
-async def health_check():
-    """Health check mejorado con información de servicios."""
-    return HealthResponse(
-        status="healthy",
-        version="2.1.0",
-        services={
-            "prediction_service": "running" if prediction_service else "not_initialized",
-            "model_management": "running" if model_management_service else "not_initialized"
-        }
-    )
 
-@app.get("/api/v1/models")
+@app.get("/api/v1/models", summary="Lista los modelos disponibles", tags=["Modelos"])
 async def list_models(
-    service: HybridPredictionService = Depends(get_prediction_service)
+    service: HybridPredictionService = Depends(get_prediction_service),
 ):
-    """Listar modelos disponibles (reales + mocks)."""
+    """Devuelve una lista de todos los modelos de predicción disponibles."""
     try:
-        available_models = service.list_available_models()
-        model_details = []
-
-        for model_id in available_models:
-            model_info = service.get_model_info(model_id)
-            if model_info:
-                model_details.append(model_info)
-
+        models = service.list_available_models()
         return {
-            "models": available_models,
-            "model_details": model_details,
-            "total_count": len(available_models),
-            "status": "success",
-            "real_models_enabled": service.use_real_models
+            "total_models": len(models),
+            "available_types": ["lightgbm", "sklearn", "mock"],
+            "models": models,
         }
     except Exception as e:
-        logger.error(f"Error listando modelos: {e}")
-        raise HTTPException(status_code=500, detail={"error": str(e)})
+        logger.error(f"Error al listar modelos: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500, detail="No se pudo obtener la lista de modelos."
+        )
 
-# Endpoint de documentación adicional
-@app.get("/")
-async def root():
-    """Root endpoint con información de la API."""
-    return {
-        "message": "🚀 ML API FastAPI v2 - Arquitectura TDD Refactorizada",
-        "version": "2.1.0",
-        "docs": "/docs",
-        "health": "/health",
-        "endpoints": {
-            "predict": "/api/v1/predict",
-            "upload_model": "/api/v1/models",
-            "list_models": "/api/v1/models"
-        }
-    }
+
+# 6. --- Funciones Auxiliares ---
+
+
+def _handle_prediction_error(error: Dict[str, Any]) -> HTTPException:
+    """
+    Traduce un error clasificado por el servicio a una HTTPException de FastAPI.
+    """
+    error_type = error.get("error_type")
+    if error_type == "input_validation":
+        return HTTPException(status_code=422, detail=error)
+    if error_type == "model_not_found":
+        return HTTPException(status_code=404, detail=error)
+    if error_type == "prediction_failed":
+        return HTTPException(status_code=500, detail=error)
+
+    # Fallback para errores no esperados
+    return HTTPException(status_code=500, detail="Error interno de predicción.")
+
+
+def _get_validation_details(
+    request: PredictionRequest, result: Dict[str, Any]
+) -> Optional[ValidationDetails]:
+    """
+    Construye el objeto de detalles de validación si fue solicitado.
+    """
+    if not request.include_validation_details:
+        return None
+
+    details = result.get("validation_details", {})
+    return ValidationDetails(
+        input_valid=details.get("input_valid", False),
+        model_valid=details.get("model_valid", False),
+    )

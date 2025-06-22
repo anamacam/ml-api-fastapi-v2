@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 🛡️ Sistema de Logging de Seguridad Avanzado
 
@@ -16,22 +17,23 @@ Patrones aplicados:
 - Template Method: Para flujos de logging estandarizados
 """
 
+import hashlib
 import json
 import logging
 import time
+import uuid
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from dataclasses import dataclass, asdict, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Optional, Dict, Any, List, Callable, Union
 from pathlib import Path
-import hashlib
-import uuid
+from typing import Any, Callable, Dict, List, Optional
 
 
 class SecurityLevel(Enum):
     """Niveles de seguridad para eventos"""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -40,6 +42,7 @@ class SecurityLevel(Enum):
 
 class EventType(Enum):
     """Tipos de eventos de seguridad"""
+
     AUTHENTICATION = "authentication"
     AUTHORIZATION = "authorization"
     RATE_LIMIT = "rate_limit"
@@ -59,6 +62,7 @@ class SecurityEvent:
     - Single Responsibility: Solo maneja datos del evento
     - Immutability: Datos inmutables para seguridad
     """
+
     event_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     event_type: EventType = EventType.SYSTEM
     security_level: SecurityLevel = SecurityLevel.LOW
@@ -121,7 +125,7 @@ class SecurityEventProcessor(ABC):
     Aplica Chain of Responsibility Pattern.
     """
 
-    def __init__(self, next_processor: Optional['SecurityEventProcessor'] = None):
+    def __init__(self, next_processor: Optional["SecurityEventProcessor"] = None):
         self.next_processor = next_processor
 
     @abstractmethod
@@ -164,9 +168,9 @@ class FileLoggingStrategy(LoggingStrategy):
         """Configurar logger para archivo"""
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
 
-        handler = logging.FileHandler(self.log_file, encoding='utf-8')
+        handler = logging.FileHandler(self.log_file, encoding="utf-8")
         formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
@@ -184,7 +188,7 @@ class FileLoggingStrategy(LoggingStrategy):
             SecurityLevel.LOW: logging.INFO,
             SecurityLevel.MEDIUM: logging.WARNING,
             SecurityLevel.HIGH: logging.ERROR,
-            SecurityLevel.CRITICAL: logging.CRITICAL
+            SecurityLevel.CRITICAL: logging.CRITICAL,
         }
         return mapping.get(security_level, logging.INFO)
 
@@ -252,7 +256,7 @@ class SecurityEventFactory:
         user_id: str,
         success: bool,
         ip_address: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None
+        details: Optional[Dict[str, Any]] = None,
     ) -> SecurityEvent:
         """Crear evento de autenticación"""
         event_type = EventType.AUTHENTICATION
@@ -263,8 +267,8 @@ class SecurityEventFactory:
             security_level=security_level,
             user_id=user_id,
             ip_address=ip_address,
-            message=f"Authentication {'failed' if not success else 'successful'} for user {user_id}",
-            details=details or {}
+            message=f"Authentication {'failed' if not success else 'successful'} for user {user_id}",  # noqa: E501
+            details=details or {},
         )
 
     @staticmethod
@@ -273,7 +277,7 @@ class SecurityEventFactory:
         endpoint: str,
         current_usage: int,
         limit: int,
-        ip_address: Optional[str] = None
+        ip_address: Optional[str] = None,
     ) -> SecurityEvent:
         """Crear evento de límite de tasa"""
         return SecurityEvent(
@@ -286,8 +290,8 @@ class SecurityEventFactory:
             details={
                 "current_usage": current_usage,
                 "limit": limit,
-                "exceeded_by": current_usage - limit
-            }
+                "exceeded_by": current_usage - limit,
+            },
         )
 
     @staticmethod
@@ -296,7 +300,7 @@ class SecurityEventFactory:
         model_id: str,
         operation: str,
         success: bool,
-        ip_address: Optional[str] = None
+        ip_address: Optional[str] = None,
     ) -> SecurityEvent:
         """Crear evento de acceso a modelo"""
         return SecurityEvent(
@@ -304,12 +308,8 @@ class SecurityEventFactory:
             security_level=SecurityLevel.HIGH if not success else SecurityLevel.LOW,
             user_id=user_id,
             ip_address=ip_address,
-            message=f"Model access {'failed' if not success else 'successful'} for {operation}",
-            details={
-                "model_id": model_id,
-                "operation": operation,
-                "success": success
-            }
+            message=f"Model access {'failed' if not success else 'successful'} for {operation}",  # noqa: E501
+            details={"model_id": model_id, "operation": operation, "success": success},
         )
 
     @staticmethod
@@ -318,7 +318,7 @@ class SecurityEventFactory:
         severity: SecurityLevel,
         user_id: Optional[str] = None,
         ip_address: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None
+        details: Optional[Dict[str, Any]] = None,
     ) -> SecurityEvent:
         """Crear evento de amenaza"""
         return SecurityEvent(
@@ -327,7 +327,7 @@ class SecurityEventFactory:
             user_id=user_id,
             ip_address=ip_address,
             message=f"Security threat detected: {threat_type}",
-            details=details or {}
+            details=details or {},
         )
 
 
@@ -436,8 +436,8 @@ class SecurityLogger:
                 details={
                     "context_info": context_info,
                     "error": str(e),
-                    "duration": time.time() - start_time
-                }
+                    "duration": time.time() - start_time,
+                },
             )
             self.log_event(error_event)
             raise
@@ -449,32 +449,31 @@ class SecurityLogger:
                 message="Security context completed",
                 details={
                     "context_info": context_info,
-                    "duration": time.time() - start_time
-                }
+                    "duration": time.time() - start_time,
+                },
             )
             self.log_event(completion_event)
 
     def get_events_by_user(self, user_id: str, limit: int = 100) -> List[SecurityEvent]:
         """Obtener eventos de un usuario específico"""
         return [
-            event for event in self.event_history[-limit:]
-            if event.user_id == user_id
+            event for event in self.event_history[-limit:] if event.user_id == user_id
         ]
 
-    def get_events_by_level(self, level: SecurityLevel, limit: int = 100) -> List[SecurityEvent]:
+    def get_events_by_level(
+        self, level: SecurityLevel, limit: int = 100
+    ) -> List[SecurityEvent]:
         """Obtener eventos por nivel de seguridad"""
         return [
-            event for event in self.event_history[-limit:]
+            event
+            for event in self.event_history[-limit:]
             if event.security_level == level
         ]
 
     def get_recent_events(self, minutes: int = 60) -> List[SecurityEvent]:
         """Obtener eventos recientes"""
         cutoff_time = datetime.utcnow() - timedelta(minutes=minutes)
-        return [
-            event for event in self.event_history
-            if event.timestamp >= cutoff_time
-        ]
+        return [event for event in self.event_history if event.timestamp >= cutoff_time]
 
 
 # Singleton para logger global

@@ -1,5 +1,7 @@
+# -*- coding: utf-8 -*-
 """
 Modelos Pydantic para API - FASE LIMPIEZA: Migrados a Pydantic V2.
+from typing import Any, Dict, List, Optional
 
 REFACTORED: Eliminando warnings y migrando a Pydantic V2
 - Migración @validator → @field_validator
@@ -7,14 +9,17 @@ REFACTORED: Eliminando warnings y migrando a Pydantic V2
 - ConfigDict para configuración moderna
 """
 
-from pydantic import BaseModel, Field, field_validator, ConfigDict
-from typing import Dict, Any, Optional, List, Union
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # ===== REQUEST MODELS =====
 
+
 class PredictionFeatures(BaseModel):
     """Modelo para features de predicción con validación robusta."""
+
     model_config = ConfigDict(protected_namespaces=())
 
     age: float = Field(..., ge=0, le=150, description="Edad en años")
@@ -22,31 +27,33 @@ class PredictionFeatures(BaseModel):
     category: str = Field(..., min_length=1, description="Categoría del cliente")
     score: float = Field(..., ge=0, le=1, description="Score de 0 a 1")
 
-    @field_validator('category')
+    @field_validator("category")
     @classmethod
     def validate_category(cls, v):
         """Validar categorías permitidas."""
-        allowed = ['premium', 'standard', 'basic', 'unknown_category']
+        allowed = ["premium", "standard", "basic", "unknown_category"]
         if v not in allowed:
-            raise ValueError(f'Category must be one of: {allowed}')
+            raise ValueError(f"Category must be one of: {allowed}")
         return v
+
 
 class PredictionRequest(BaseModel):
     """Request para predicción mejorado."""
+
     model_config = ConfigDict(protected_namespaces=())
 
     features: Dict[str, Any] = Field(..., description="Features para predicción")
     model_id: Optional[str] = Field(
-        default="default_model",
-        description="ID del modelo a usar"
+        default="default_model", description="ID del modelo a usar"
     )
     include_validation_details: Optional[bool] = Field(
-        default=True,
-        description="Incluir detalles de validación en respuesta"
+        default=True, description="Incluir detalles de validación en respuesta"
     )
+
 
 class ModelUploadRequest(BaseModel):
     """Request para subida de modelo mejorado."""
+
     model_config = ConfigDict(protected_namespaces=())
 
     model_name: str = Field(..., min_length=1, max_length=100)
@@ -55,18 +62,21 @@ class ModelUploadRequest(BaseModel):
     description: Optional[str] = Field(None, max_length=500)
     tags: Optional[List[str]] = Field(default_factory=list)
 
-    @field_validator('model_name')
+    @field_validator("model_name")
     @classmethod
     def validate_model_name(cls, v):
         """Validar nombre del modelo."""
-        if not v.replace('_', '').replace('-', '').isalnum():
-            raise ValueError('Model name must be alphanumeric with _ or -')
+        if not v.replace("_", "").replace("-", "").isalnum():
+            raise ValueError("Model name must be alphanumeric with _ or -")
         return v
+
 
 # ===== RESPONSE MODELS =====
 
+
 class ValidationDetails(BaseModel):
     """Detalles de validación."""
+
     model_config = ConfigDict(protected_namespaces=())
 
     input_valid: bool
@@ -74,8 +84,10 @@ class ValidationDetails(BaseModel):
     validation_time_ms: Optional[float] = None
     warnings: Optional[List[str]] = Field(default_factory=list)
 
+
 class ModelInfo(BaseModel):
     """Información del modelo."""
+
     model_config = ConfigDict(protected_namespaces=())
 
     model_id: str
@@ -84,8 +96,10 @@ class ModelInfo(BaseModel):
     version: Optional[str] = None
     last_updated: Optional[datetime] = None
 
+
 class PredictionResponse(BaseModel):
     """Response de predicción estructurada."""
+
     model_config = ConfigDict(protected_namespaces=())
 
     prediction: List[float]
@@ -94,8 +108,10 @@ class PredictionResponse(BaseModel):
     request_id: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.now)
 
+
 class ModelUploadResponse(BaseModel):
     """Response de subida de modelo."""
+
     model_config = ConfigDict(protected_namespaces=())
 
     message: str
@@ -105,8 +121,10 @@ class ModelUploadResponse(BaseModel):
     upload_id: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.now)
 
+
 class ErrorResponse(BaseModel):
     """Response de error estandarizada."""
+
     model_config = ConfigDict(protected_namespaces=())
 
     error_type: str
@@ -115,10 +133,13 @@ class ErrorResponse(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.now)
     request_id: Optional[str] = None
 
+
 # ===== UTILITY MODELS =====
+
 
 class HealthResponse(BaseModel):
     """Response de health check."""
+
     model_config = ConfigDict(protected_namespaces=())
 
     status: str
@@ -126,8 +147,10 @@ class HealthResponse(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.now)
     services: Optional[Dict[str, str]] = Field(default_factory=dict)
 
+
 class ModelsListResponse(BaseModel):
     """Response para listado de modelos."""
+
     model_config = ConfigDict(protected_namespaces=())
 
     models: List[str]

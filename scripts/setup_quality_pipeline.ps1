@@ -76,7 +76,7 @@ Write-Status "3. Configurando pre-commit hooks..." "INFO"
 
 if (Test-Path ".pre-commit-config.yaml") {
     Write-Status "Configuracion pre-commit encontrada" "SUCCESS"
-    
+
     try {
         pre-commit install
         Write-Status "Pre-commit hooks instalados" "SUCCESS"
@@ -164,4 +164,4 @@ Write-Host "  🎯 Meta Inmediata: 75+ puntos"
 Write-Host "  🚀 Meta Final: 85+ puntos"
 
 Write-Status "PIPELINE HIBRIDO LISTO!" "SUCCESS"
-Write-Host "Cada commit ahora mejorara automaticamente tu score de calidad" 
+Write-Host "Cada commit ahora mejorara automaticamente tu score de calidad"

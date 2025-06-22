@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 🚦 Sistema de Rate Limiting y Throttling
 
@@ -8,12 +9,13 @@ import time
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Dict, Optional, Any
 from enum import Enum
+from typing import Any, Dict, Optional
 
 
 class UserTier(Enum):
     """Niveles de usuarios para diferentes limites"""
+
     REGULAR = "regular"
     PREMIUM = "premium"
     ENTERPRISE = "enterprise"
@@ -22,6 +24,7 @@ class UserTier(Enum):
 @dataclass
 class ThrottleConfig:
     """Configuración de throttling"""
+
     max_requests_per_minute: int = 60
     max_requests_per_hour: int = 1000
     burst_limit: int = 10
@@ -31,6 +34,7 @@ class ThrottleConfig:
 @dataclass
 class LimitInfo:
     """Información sobre límites actuales del usuario"""
+
     requests_remaining: int
     reset_time: datetime
     current_usage: int
@@ -57,30 +61,30 @@ class RateLimiter:
         self.user_configs: Dict[str, ThrottleConfig] = {}
 
         # Configuraciones por tier
-        self.tier_configs = {
+        self.tier_configs: Dict[UserTier, ThrottleConfig] = {
             UserTier.REGULAR: ThrottleConfig(
-                max_requests_per_minute=30,
-                max_requests_per_hour=500,
-                burst_limit=5
+                max_requests_per_minute=30, max_requests_per_hour=500, burst_limit=5
             ),
             UserTier.PREMIUM: ThrottleConfig(
-                max_requests_per_minute=100,
-                max_requests_per_hour=2000,
-                burst_limit=20
+                max_requests_per_minute=100, max_requests_per_hour=2000, burst_limit=20
             ),
             UserTier.ENTERPRISE: ThrottleConfig(
                 max_requests_per_minute=500,
                 max_requests_per_hour=10000,
-                burst_limit=100
-            )
+                burst_limit=100,
+            ),
         }
 
     def set_user_tier(self, user_id: str, tier: str):
         """Establecer tier del usuario"""
-        if isinstance(tier, str):
-            tier = UserTier(tier)
-        self.user_tiers[user_id] = tier
-        self.user_configs[user_id] = self.tier_configs[tier]
+        try:
+            tier_enum = UserTier(tier)
+            self.user_tiers[user_id] = tier_enum
+            self.user_configs[user_id] = self.tier_configs[tier_enum]
+        except ValueError:
+            # Fallback a tier por defecto si el tier no es válido
+            self.user_tiers.pop(user_id, None)
+            self.user_configs.pop(user_id, None)
 
     def get_user_limit(self, user_id: str) -> ThrottleConfig:
         """Obtener configuración de límites para usuario"""
@@ -140,11 +144,12 @@ class RateLimiter:
             limit_info = self.get_limit_info(user_id)
 
             from app.core.error_handler import RateLimitError
+
             raise RateLimitError(
                 message=f"Rate limit exceeded for user {user_id}",
                 retry_after_seconds=60,
                 limit_type="per_minute",
-                current_usage=limit_info.current_usage
+                current_usage=limit_info.current_usage,
             )
 
         # Incrementar contador
@@ -175,7 +180,7 @@ class RateLimiter:
             requests_remaining=remaining,
             reset_time=next_minute,
             current_usage=current_requests,
-            max_allowed=config.max_requests_per_minute
+            max_allowed=config.max_requests_per_minute,
         )
 
     def reset_user_limits(self, user_id: str):
@@ -195,8 +200,11 @@ class RateLimiter:
             stats[user_id] = {
                 "current_usage": current_usage,
                 "max_allowed": config.max_requests_per_minute,
-                "usage_percentage": (current_usage / config.max_requests_per_minute) * 100,
-                "tier": self.user_tiers.get(user_id, "default").value if user_id in self.user_tiers else "default"
+                "usage_percentage": (
+                    (current_usage / config.max_requests_per_minute)  # noqa: W503
+                    * 100  # noqa: W503
+                ),
+                "tier": self.user_tiers.get(user_id, UserTier.REGULAR).value,
             }
 
         return stats

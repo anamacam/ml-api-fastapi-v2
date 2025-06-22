@@ -1,11 +1,12 @@
+# -*- coding: utf-8 -*-
 """
 Servicio de Gestión de Modelos ML.
 
-REFACTOR PHASE: Separar lógica de gestión de modelos.
+TDD PHASE: Implementación con stubs inteligentes siguiendo filosofía RED-GREEN-REFACTOR.
 """
 
-from typing import Dict, Any, List, Tuple
 import logging
+from typing import Any, Dict, List, Optional, Tuple
 
 # from app.utils.ml_model_validators import validate_ml_model, ModelValidator
 
@@ -13,19 +14,76 @@ logger = logging.getLogger(__name__)
 
 
 class ModelManagementService:
-    """Servicio para gestión y validación de modelos ML."""
+    """
+    ModelManagementService - Gestión centralizada de modelos y versiones.
+
+    Estrategia TDD:
+    - RED: Stubs definidos para evitar AttributeError, retornan valores
+      que fallan por lógica.
+    - GREEN: Implementación real para pasar asserts.
+    - REFACTOR: Optimización y documentación.
+
+    Ejemplo de uso (RED phase):
+        service = ModelManagementService()
+        assert service.get_model_version("modelo") is None  # Esperado en RED
+        assert service.update_model_version("modelo", "1.1") is False
+        assert service.register_model("modelo", "1.1") is False
+
+    Atributos principales:
+        model_registry: Registro de modelos y metadatos
+        version_control: Diccionario de control de versiones
+        model_cache: Caché local de modelos
+
+    Todos los métodos incluyen type hints para máxima compatibilidad linter y tests.
+    """
 
     def __init__(self):
-        self.supported_types = ["sklearn", "tensorflow", "pytorch", "xgboost"]
-        self.models_registry = {}
+        self.supported_types: List[str] = [
+            "sklearn",
+            "tensorflow",
+            "pytorch",
+            "xgboost",
+        ]
+        self.models_registry: Dict[str, Any] = {}
 
-        # TDD CYCLE 7 - GREEN PHASE: Atributos requeridos por tests
-        self.model_registry = self.models_registry  # Alias para compatibilidad
-        self.version_manager = self._create_version_manager()
-        self.performance_tracker = self._create_performance_tracker()
-        self.is_initialized = True
-        self.available_models = []
-        self.current_version = "v1.0.0"
+        # TDD CYCLE 7 - Atributos requeridos por tests
+        self.model_registry: Dict[str, Any] = self.models_registry  # Alias
+        self.version_control: Dict[str, str] = {}
+        self.model_cache: Dict[str, Any] = {}
+        self.version_manager: Dict[str, Any] = self._create_version_manager()
+        self.performance_tracker: Dict[str, Any] = self._create_performance_tracker()
+        self.is_initialized: bool = True
+        self.available_models: List[str] = []
+        self.current_version: str = "v1.0.0"
+
+    def get_model_version(self, model_name: str) -> Optional[str]:
+        """
+        RED PHASE: Siempre retorna None (provoca fallo lógico en asserts).
+        GREEN PHASE: Retorna versión si existe.
+        """
+        # TDD: Retorna None para que los tests fallen por lógica,
+        # no por error de atributo.
+        return None
+
+    def update_model_version(self, model_name: str, version: str) -> bool:
+        """
+        RED PHASE: Siempre retorna False (provoca fallo lógico).
+        GREEN PHASE: Retorna True si la actualización fue exitosa.
+        """
+        # TDD: Retorna False para que los tests fallen por lógica,
+        # no por error de atributo.
+        return False
+
+    def register_model(
+        self, model_name: str, version: str, model_data: Optional[Any] = None
+    ) -> bool:
+        """
+        RED PHASE: Siempre retorna False (provoca fallo lógico).
+        GREEN PHASE: Retorna True si el registro fue exitoso.
+        """
+        # TDD: Retorna False para que los tests fallen por lógica,
+        # no por error de atributo.
+        return False
 
     def validate_and_register_model(
         self, model_name: str, model_type: str, model_data: str
@@ -51,9 +109,6 @@ class ModelManagementService:
                     "error_type": "invalid_model_data",
                     "message": "Model data format is invalid",
                 }
-
-            # Aquí en producción validarías el modelo real
-            # Por ahora, mock de validación exitosa
 
             # Registrar modelo
             self.models_registry[model_name] = {
@@ -117,3 +172,26 @@ class ModelManagementService:
         except Exception as e:
             logger.error(f"Failed to switch to version {version}: {e}")
             return False
+
+    # === TDD STUBS MINIMALISTAS ===
+    # Filosofía: Evitar AttributeError, fallar por lógica de negocio
+
+    def validate_model_format(self, model_data: Any) -> bool:
+        """RED PHASE: Siempre retorna False (fallo lógico)."""
+        return False
+
+    def get_model_metrics(self, model_name: str) -> Dict[str, Any]:
+        """RED PHASE: Siempre retorna dict vacío (fallo lógico)."""
+        return {}
+
+    def backup_model(self, model_name: str) -> bool:
+        """RED PHASE: Siempre retorna False (fallo lógico)."""
+        return False
+
+    def restore_model(self, model_name: str, backup_id: str) -> bool:
+        """RED PHASE: Siempre retorna False (fallo lógico)."""
+        return False
+
+    def get_model_dependencies(self, model_name: str) -> List[str]:
+        """RED PHASE: Siempre retorna lista vacía (fallo lógico)."""
+        return []

@@ -1,13 +1,6 @@
-"""
-TDD para validación de modelos ML.
+"""Tests TDD para validación de modelos ML."""
 
-Tests que definen cómo debe comportarse la validación de modelos
-de machine learning antes de hacer predicciones.
-
-Nuevo ciclo TDD: RED -> GREEN -> REFACTOR
-"""
-
-import pytest
+from app.utils.ml_model_validators import validate_ml_model
 
 
 def test_validate_ml_model_rejects_none_model():
@@ -16,8 +9,6 @@ def test_validate_ml_model_rejects_none_model():
 
     RED PHASE: Este test debe FALLAR porque la función no existe.
     """
-    from app.utils.ml_model_validators import validate_ml_model
-
     # Modelo None
     result = validate_ml_model(None)
     assert result["valid"] is False
@@ -31,8 +22,6 @@ def test_validate_ml_model_validates_required_methods():
 
     RED PHASE: Este test debe FALLAR porque la función no existe.
     """
-    from app.utils.ml_model_validators import validate_ml_model
-
     # Modelo sin método predict
     class InvalidModel:
         def fit(self, X, y):
@@ -51,9 +40,8 @@ def test_validate_ml_model_accepts_valid_sklearn_model():
 
     RED PHASE: Este test debe FALLAR porque la función no existe.
     """
-    from app.utils.ml_model_validators import validate_ml_model
-    from sklearn.linear_model import LinearRegression
     import numpy as np
+    from sklearn.linear_model import LinearRegression
 
     # Modelo sklearn entrenado
     model = LinearRegression()
@@ -72,7 +60,6 @@ def test_validate_ml_model_validates_model_state():
 
     RED PHASE: Este test debe FALLAR porque la función no existe.
     """
-    from app.utils.ml_model_validators import validate_ml_model
     from sklearn.linear_model import LinearRegression
 
     # Modelo sklearn NO entrenado
@@ -89,7 +76,6 @@ def test_validate_ml_model_validates_prediction_capability():
 
     RED PHASE: Este test debe FALLAR porque la función no existe.
     """
-    from app.utils.ml_model_validators import validate_ml_model
     import numpy as np
 
     # Modelo que falla al predecir
@@ -114,7 +100,6 @@ def test_validate_ml_model_validates_output_format():
 
     RED PHASE: Este test debe FALLAR porque la función no existe.
     """
-    from app.utils.ml_model_validators import validate_ml_model
     import numpy as np
 
     # Modelo que retorna formato inválido
@@ -217,7 +202,6 @@ def test_validate_ml_model_handles_empty_prediction():
     """
     Test adicional: validate_ml_model debe detectar predicciones vacías.
     """
-    from app.utils.ml_model_validators import validate_ml_model
     import numpy as np
 
     # Modelo que retorna predicción vacía
@@ -240,7 +224,6 @@ def test_validate_ml_model_accepts_tuple_output():
     """
     Test adicional: validate_ml_model debe aceptar tuplas como salida válida.
     """
-    from app.utils.ml_model_validators import validate_ml_model
     import numpy as np
 
     # Modelo que retorna tupla
@@ -260,12 +243,11 @@ def test_validate_ml_model_accepts_tuple_output():
 
 # NUEVOS TESTS PARA MEJORAS IMPLEMENTADAS
 
+
 def test_validate_ml_model_with_custom_required_methods():
     """
     Test para métodos requeridos personalizados (MEJORA CRÍTICA).
     """
-    from app.utils.ml_model_validators import validate_ml_model
-
     # Modelo que tiene predict_proba pero no decision_function
     class ClassifierModel:
         def predict(self, X):
@@ -295,7 +277,6 @@ def test_validate_test_data_rejects_empty_data():
     """
     Test para validación de test_data vacío (MEJORA CRÍTICA).
     """
-    from app.utils.ml_model_validators import validate_ml_model
     import numpy as np
 
     class SimpleModel:
@@ -319,7 +300,6 @@ def test_validate_test_data_limits_large_datasets():
     """
     Test para límite de tamaño de test_data (MEJORA CRÍTICA).
     """
-    from app.utils.ml_model_validators import validate_ml_model
     import numpy as np
 
     class SimpleModel:
@@ -380,10 +360,8 @@ def test_validate_ml_model_logs_success():
     """
     Test para verificar que se logea el éxito de validación.
     """
-    import logging
-    from app.utils.ml_model_validators import validate_ml_model
-    from sklearn.linear_model import LinearRegression
     import numpy as np
+    from sklearn.linear_model import LinearRegression
 
     # Modelo sklearn entrenado
     model = LinearRegression()
@@ -402,7 +380,6 @@ def test_edge_cases_for_robustness():
     """
     Test para casos edge y robustez general.
     """
-    from app.utils.ml_model_validators import validate_ml_model
     import numpy as np
 
     # Modelo con método predict que no es callable

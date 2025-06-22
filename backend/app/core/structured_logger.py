@@ -1,5 +1,7 @@
+# -*- coding: utf-8 -*-
 """
 📊 Sistema de Logging Estructurado con Contexto
+from typing import Any, Dict, Optional
 
 Implementación TDD - FASE REFACTOR
 Aplicando: DRY Principle, Template Method Pattern
@@ -9,14 +11,15 @@ import json
 import logging
 import time
 from contextlib import contextmanager
-from dataclasses import dataclass, asdict, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from typing import Optional, Dict, Any, Union, Callable
 from enum import Enum
+from typing import Any, Dict, Optional
 
 
 class LogLevel(Enum):
     """Niveles de logging"""
+
     DEBUG = "debug"
     INFO = "info"
     WARNING = "warning"
@@ -27,6 +30,7 @@ class LogLevel(Enum):
 @dataclass
 class LogContext:
     """Contexto de logging estructurado"""
+
     request_id: Optional[str] = None
     user_id: Optional[str] = None
     model_id: Optional[str] = None
@@ -42,6 +46,7 @@ class LogContext:
 @dataclass
 class SecurityEvent:
     """Evento de seguridad para audit logging"""
+
     event_type: str
     user_id: Optional[str] = None
     ip_address: Optional[str] = None
@@ -60,6 +65,7 @@ class SecurityEvent:
 @dataclass
 class PerformanceMetrics:
     """Métricas de performance"""
+
     operation: str
     start_time: float
     end_time: Optional[float] = None
@@ -82,7 +88,7 @@ class PerformanceMetrics:
             "execution_time": self.execution_time,
             "category": "performance",
             "timestamp": datetime.now().isoformat(),
-            **self.custom_metrics
+            **self.custom_metrics,
         }
 
 
@@ -104,11 +110,12 @@ class StructuredLogger:
             LogLevel.INFO: self.logger.info,
             LogLevel.WARNING: self.logger.warning,
             LogLevel.ERROR: self.logger.error,
-            LogLevel.CRITICAL: self.logger.critical
+            LogLevel.CRITICAL: self.logger.critical,
         }
 
-    def _create_log_entry(self, level: str, message: str, context: Optional[LogContext] = None,
-                         **kwargs) -> str:
+    def _create_log_entry(
+        self, level: str, message: str, context: Optional[LogContext] = None, **kwargs
+    ) -> str:
         """
         Crear entrada de log estructurada en JSON
 
@@ -124,7 +131,7 @@ class StructuredLogger:
             "message": message,
             "logger": self.name,
             **effective_context.to_dict(),
-            **kwargs
+            **kwargs,
         }
 
         # Filtrar valores None
@@ -140,10 +147,21 @@ class StructuredLogger:
         # Crear nuevo contexto combinando ambos
         context_dict = self.default_context.to_dict()
         context_dict.update(context.to_dict())
-        return LogContext(**{k: v for k, v in context_dict.items()
-                           if k in LogContext.__dataclass_fields__})
+        return LogContext(
+            **{
+                k: v
+                for k, v in context_dict.items()
+                if k in LogContext.__dataclass_fields__
+            }
+        )
 
-    def _log(self, level: LogLevel, message: str, context: Optional[LogContext] = None, **kwargs):
+    def _log(
+        self,
+        level: LogLevel,
+        message: str,
+        context: Optional[LogContext] = None,
+        **kwargs
+    ):
         """
         Método plantilla para logging - Template Method Pattern
 
@@ -188,10 +206,7 @@ class StructuredLogger:
                 # ... operación ...
                 metrics.set_custom_metric("input_size", 1000)
         """
-        metrics = PerformanceMetrics(
-            operation=operation,
-            start_time=time.time()
-        )
+        metrics = PerformanceMetrics(operation=operation, start_time=time.time())
 
         try:
             yield metrics
@@ -217,7 +232,7 @@ class AuditLogger:
             "low": self.logger.info,
             "medium": self.logger.warning,
             "high": self.logger.error,
-            "critical": self.logger.error
+            "critical": self.logger.error,
         }
 
     def log_security_event(self, event: SecurityEvent):
@@ -227,11 +242,18 @@ class AuditLogger:
         REFACTORED: Simplificado usando mapeo de threat levels
         """
         log_json = json.dumps(event.to_dict(), default=str)
-        log_method = self._threat_level_methods.get(event.threat_level, self.logger.info)
+        log_method = self._threat_level_methods.get(
+            event.threat_level, self.logger.info
+        )
         log_method(log_json)
 
-    def log_unauthorized_access(self, user_id: str, endpoint: str, ip_address: str,
-                               details: Optional[Dict[str, Any]] = None):
+    def log_unauthorized_access(
+        self,
+        user_id: str,
+        endpoint: str,
+        ip_address: str,
+        details: Optional[Dict[str, Any]] = None,
+    ):
         """Log de acceso no autorizado"""
         event = self._create_security_event(
             event_type="unauthorized_access",
@@ -239,17 +261,23 @@ class AuditLogger:
             endpoint=endpoint,
             ip_address=ip_address,
             threat_level="medium",
-            details=details
+            details=details,
         )
         self.log_security_event(event)
 
-    def log_rate_limit_exceeded(self, user_id: str, endpoint: str, ip_address: str,
-                               current_usage: int, limit: int):
+    def log_rate_limit_exceeded(
+        self,
+        user_id: str,
+        endpoint: str,
+        ip_address: str,
+        current_usage: int,
+        limit: int,
+    ):
         """Log de límite de rate excedido"""
         details = {
             "current_usage": current_usage,
             "limit": limit,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
         event = self._create_security_event(
             event_type="rate_limit_exceeded",
@@ -257,44 +285,51 @@ class AuditLogger:
             endpoint=endpoint,
             ip_address=ip_address,
             threat_level="low",
-            details=details
+            details=details,
         )
         self.log_security_event(event)
 
-    def log_model_access(self, user_id: str, model_id: str, operation: str,
-                        ip_address: str, success: bool):
+    def log_model_access(
+        self,
+        user_id: str,
+        model_id: str,
+        operation: str,
+        ip_address: str,
+        success: bool,
+    ):
         """Log de acceso a modelos ML"""
         details = {
             "model_id": model_id,
             "operation": operation,
             "success": success,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
         event = self._create_security_event(
             event_type="model_access",
             user_id=user_id,
             ip_address=ip_address,
             threat_level="low" if success else "medium",
-            details=details
+            details=details,
         )
         self.log_security_event(event)
 
-    def _create_security_event(self, event_type: str, user_id: str = None,
-                             endpoint: str = None, ip_address: str = None,
-                             threat_level: str = "low",
-                             details: Optional[Dict[str, Any]] = None) -> SecurityEvent:
-        """
-        Factory method para crear eventos de seguridad - DRY
-
-        REFACTORED: Centraliza creación de SecurityEvent
-        """
+    def _create_security_event(
+        self,
+        event_type: str,
+        user_id: Optional[str] = None,
+        endpoint: Optional[str] = None,
+        ip_address: Optional[str] = None,
+        threat_level: str = "low",
+        details: Optional[Dict[str, Any]] = None,
+    ) -> SecurityEvent:
+        """Crear evento de seguridad - método helper"""
         return SecurityEvent(
             event_type=event_type,
             user_id=user_id,
             endpoint=endpoint,
             ip_address=ip_address,
             threat_level=threat_level,
-            details=details
+            details=details,
         )
 
 

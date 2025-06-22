@@ -4,10 +4,8 @@ Tests unitarios para el módulo de autenticación.
 Valida funcionamiento correcto de autenticación y autorización.
 """
 
-import pytest
-from unittest.mock import Mock, patch
-from datetime import datetime, timedelta
 import hashlib
+from datetime import datetime, timedelta
 
 
 class TestAuthenticationBasic:
@@ -59,13 +57,13 @@ class TestAuthenticationBasic:
         valid_emails = [
             "user@example.com",
             "test.user@domain.org",
-            "admin+test@company.co.uk"
+            "admin+test@company.co.uk",
         ]
         invalid_emails = [
             "invalid-email",
             "@domain.com",
             "user@",
-            "user space@domain.com"
+            "user space@domain.com",
         ]
 
         # Act & Assert
@@ -84,7 +82,13 @@ class TestAuthenticationBasic:
         """Test de restricciones de nombre de usuario."""
         # Arrange
         valid_usernames = ["user123", "test_user", "admin"]
-        invalid_usernames = ["", "ab", "user@123", "very_long_username_that_exceeds_limits"]
+        invalid_usernames = [
+            "",
+            "ab",
+            "user@123",
+            "very_long_username_that_exceeds_limits_and_should_be_invalid"
+            "_because_it_is_too_long_for_the_system",
+        ]
 
         # Act & Assert
         for username in valid_usernames:
@@ -92,12 +96,18 @@ class TestAuthenticationBasic:
             assert len(username) <= 50
 
         for username in invalid_usernames:
-            is_invalid = (
-                len(username) < 3 or
-                len(username) > 50 or
-                "@" in username
+            # Verificar que cada username inválido cumple al menos una
+            # condición de invalidez
+            is_too_short = len(username) < 3
+            is_too_long = len(username) > 50
+            has_invalid_char = "@" in username
+
+            assert (
+                is_too_short or is_too_long or has_invalid_char
+            ), (
+                f"Username '{username}' should be "
+                "invalid"
             )
-            assert is_invalid
 
 
 class TestJWTTokens:
@@ -106,7 +116,10 @@ class TestJWTTokens:
     def test_token_structure(self):
         """Test de estructura básica de token JWT."""
         # Arrange - Simular token JWT
-        mock_token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjEsImV4cCI6MTYwNzE5NjAwMH0.signature"
+        mock_token = (
+            "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9."
+            "eyJ1c2VySWQiOjEsImV4cCI6MTYwNzE5NjAwMH0.signature"
+        )
 
         # Act
         parts = mock_token.split(".")
@@ -124,7 +137,7 @@ class TestJWTTokens:
 
         # Act & Assert
         assert expired_time < current_time  # Token expirado
-        assert valid_time > current_time    # Token válido
+        assert valid_time > current_time  # Token válido
 
     def test_token_payload_validation(self):
         """Test de validación de payload de token."""
@@ -133,7 +146,7 @@ class TestJWTTokens:
             "user_id": 123,
             "username": "testuser",
             "exp": (datetime.now() + timedelta(hours=1)).timestamp(),
-            "iat": datetime.now().timestamp()
+            "iat": datetime.now().timestamp(),
         }
 
         # Act & Assert
@@ -154,7 +167,7 @@ class TestAuthorizationRoles:
             "admin": ["read", "write", "delete", "manage_users"],
             "user": ["read", "write"],
             "moderator": ["read", "write", "moderate"],
-            "readonly": ["read"]
+            "readonly": ["read"],
         }
 
         # Act & Assert
@@ -185,13 +198,13 @@ class TestAuthorizationRoles:
             access_map = {
                 "admin": ["admin_panel", "user_dashboard", "reports"],
                 "user": ["user_dashboard"],
-                "readonly": []
+                "readonly": [],
             }
             return resource in access_map.get(role, [])
 
         # Act & Assert
-        assert has_access(admin_role, protected_resource) == True
-        assert has_access(user_role, protected_resource) == False
+        assert has_access(admin_role, protected_resource)
+        assert not has_access(user_role, protected_resource)
 
 
 class TestAuthenticationSecurity:
@@ -200,33 +213,24 @@ class TestAuthenticationSecurity:
     def test_password_strength_validation(self):
         """Test de validación de fortaleza de contraseña."""
         # Arrange
-        strong_passwords = [
-            "StrongPass123!",
-            "MySecure#Password2024",
-            "Complex!Pass1"
-        ]
-        weak_passwords = [
-            "123456",
-            "password",
-            "abc123",
-            "qwerty"
-        ]
+        strong_passwords = ["StrongPass123!", "MySecure#Password2024", "Complex!Pass1"]
+        weak_passwords = ["123456", "password", "abc123", "qwerty"]
 
         def is_strong_password(password):
             return (
-                len(password) >= 8 and
-                any(c.isupper() for c in password) and
-                any(c.islower() for c in password) and
-                any(c.isdigit() for c in password) and
-                any(c in "!@#$%^&*" for c in password)
+                len(password) >= 8
+                and any(c.isupper() for c in password)  # noqa: W503
+                and any(c.islower() for c in password)  # noqa: W503
+                and any(c.isdigit() for c in password)  # noqa: W503
+                and any(c in "!@#$%^&*" for c in password)  # noqa: W503
             )
 
         # Act & Assert
         for password in strong_passwords:
-            assert is_strong_password(password) == True
+            assert is_strong_password(password)
 
         for password in weak_passwords:
-            assert is_strong_password(password) == False
+            assert not is_strong_password(password)
 
     def test_rate_limiting_simulation(self):
         """Test de simulación de rate limiting."""
@@ -245,9 +249,9 @@ class TestAuthenticationSecurity:
 
             # Assert primeros 5 intentos permitidos, resto no
             if attempt < max_attempts:
-                assert is_allowed == True
+                assert is_allowed
             else:
-                assert is_allowed == False
+                assert not is_allowed
 
     def test_session_timeout_validation(self):
         """Test de validación de timeout de sesión."""
@@ -278,13 +282,16 @@ class TestAuthenticationIntegration:
         step2_password_valid = len(password) >= 8
         step3_user_active = sample_user_data["is_active"]
 
-        login_successful = step1_user_exists and step2_password_valid and step3_user_active
+        login_successful = (
+            step1_user_exists and step2_password_valid
+            and step3_user_active  # noqa: W503
+        )
 
         # Assert
-        assert step1_user_exists == True
-        assert step2_password_valid == True
-        assert step3_user_active == True
-        assert login_successful == True
+        assert step1_user_exists
+        assert step2_password_valid
+        assert step3_user_active
+        assert login_successful
 
     def test_logout_workflow_simulation(self):
         """Test de simulación de flujo de logout."""
@@ -302,6 +309,30 @@ class TestAuthenticationIntegration:
         result = logout()
 
         # Assert
-        assert session_active == False
-        assert token_valid == False
-        assert result["status"] == "logged_out"
+        assert session_active is False
+        assert token_valid is False
+        assert (
+            result["status"] == "logged_out"
+        )
+
+    def test_logout_invalid_token(self):
+        """Test de validación de token inválido."""
+        # Arrange
+        session_active = True
+        token_valid = False
+
+        # Act - Simular logout
+        def logout():
+            nonlocal session_active, token_valid
+            session_active = False
+            token_valid = False
+            return {"status": "logged_out"}
+
+        result = logout()
+
+        # Assert
+        assert session_active is False
+        assert token_valid is False
+        assert (
+            result["status"] == "logged_out"
+        )

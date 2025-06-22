@@ -1,12 +1,6 @@
-"""
-Tests unitarios para el módulo de health check.
+"""Tests para el módulo de health check."""
 
-Valida funcionamiento correcto del endpoint de salud.
-"""
-
-import pytest
-from unittest.mock import Mock, patch
-from datetime import datetime
+from unittest.mock import patch
 
 
 class TestHealthCheck:
@@ -22,6 +16,8 @@ class TestHealthCheck:
         for key in expected_keys:
             assert key in sample_health_response
         assert sample_health_response["status"] == "healthy"
+        assert "timestamp" in sample_health_response
+        assert "version" in sample_health_response
 
     def test_health_check_status_values(self):
         """Test de valores válidos para status."""
@@ -39,7 +35,8 @@ class TestHealthCheck:
 
         # Act - Verificar que se puede parsear
         try:
-            parsed = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+            from datetime import datetime
+            parsed = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
             is_valid = True
         except ValueError:
             is_valid = False
@@ -69,7 +66,7 @@ class TestHealthCheck:
             assert isinstance(response["version"], str)
             assert len(response["version"]) > 0
 
-    @patch('time.time')
+    @patch("time.time")
     def test_health_check_performance(self, mock_time):
         """Test de tiempo de respuesta del health check."""
         # Arrange
@@ -110,7 +107,7 @@ class TestHealthCheck:
         error_response = {
             "status": "unhealthy",
             "error": "Database connection failed",
-            "timestamp": "2024-12-07T10:30:00Z"
+            "timestamp": "2024-12-07T10:30:00Z",
         }
 
         # Act & Assert
@@ -139,11 +136,7 @@ class TestHealthUtilities:
     def test_status_priority(self):
         """Test de prioridad de estados de salud."""
         # Arrange
-        status_priority = {
-            "healthy": 1,
-            "degraded": 2,
-            "unhealthy": 3
-        }
+        status_priority = {"healthy": 1, "degraded": 2, "unhealthy": 3}
 
         # Act & Assert
         assert status_priority["healthy"] < status_priority["degraded"]

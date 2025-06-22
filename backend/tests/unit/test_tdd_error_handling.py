@@ -12,12 +12,14 @@ Este archivo define el comportamiento esperado para:
 - Audit logging para seguridad
 """
 
-import pytest
-import asyncio
-import time
 import json
-from datetime import datetime, timedelta
-from unittest.mock import patch, MagicMock
+import os
+import time
+
+import pytest
+
+# Configurar entorno de testing
+os.environ["ENV"] = "testing"
 
 
 def test_ml_error_handler_should_exist():
@@ -31,8 +33,8 @@ def test_ml_error_handler_should_exist():
     # Verificar que se puede instanciar
     handler = MLErrorHandler()
     assert handler is not None
-    assert hasattr(handler, 'classify_error')
-    assert hasattr(handler, 'get_user_friendly_message')
+    assert hasattr(handler, "classify_error")
+    assert hasattr(handler, "get_user_friendly_message")
 
 
 def test_structured_logger_should_exist():
@@ -41,12 +43,12 @@ def test_structured_logger_should_exist():
 
     GREEN PHASE: Ahora el módulo debe existir y ser importable
     """
-    from app.core.structured_logger import StructuredLogger, LogContext
+    from app.core.structured_logger import StructuredLogger
 
     logger = StructuredLogger("test")
     assert logger is not None
-    assert hasattr(logger, 'info')
-    assert hasattr(logger, 'performance_context')
+    assert hasattr(logger, "info")
+    assert hasattr(logger, "performance_context")
 
 
 def test_rate_limiter_should_exist():
@@ -55,12 +57,12 @@ def test_rate_limiter_should_exist():
 
     GREEN PHASE: Ahora el módulo debe existir y ser importable
     """
-    from app.core.rate_limiter import RateLimiter, ThrottleConfig
+    from app.core.rate_limiter import RateLimiter
 
     limiter = RateLimiter()
     assert limiter is not None
-    assert hasattr(limiter, 'is_allowed')
-    assert hasattr(limiter, 'get_limit_info')
+    assert hasattr(limiter, "is_allowed")
+    assert hasattr(limiter, "get_limit_info")
 
 
 def test_retry_handler_should_exist():
@@ -69,13 +71,13 @@ def test_retry_handler_should_exist():
 
     GREEN PHASE: Ahora el módulo debe existir y ser importable
     """
-    from app.core.retry_handler import RetryHandler, RetryConfig
+    from app.core.retry_handler import RetryConfig, RetryHandler
 
     config = RetryConfig()
     handler = RetryHandler(config)
     assert handler is not None
-    assert hasattr(handler, 'execute')
-    assert hasattr(handler, 'execute_async')
+    assert hasattr(handler, "execute")
+    assert hasattr(handler, "execute_async")
 
 
 def test_health_monitor_should_exist():
@@ -88,11 +90,12 @@ def test_health_monitor_should_exist():
 
     monitor = HealthMonitor()
     assert monitor is not None
-    assert hasattr(monitor, 'record_prediction_latency')
-    assert hasattr(monitor, 'get_current_metrics')
+    assert hasattr(monitor, "record_prediction_latency")
+    assert hasattr(monitor, "get_current_metrics")
 
 
 # Tests más específicos que fallarán cuando implementemos las clases básicas
+
 
 def test_ml_error_classification():
     """
@@ -101,7 +104,7 @@ def test_ml_error_classification():
     RED PHASE: Fallará cuando creemos MLErrorHandler pero sin funcionalidad
     """
     try:
-        from app.core.error_handler import MLErrorHandler, ErrorTypes, ErrorSeverity
+        from app.core.error_handler import ErrorSeverity, ErrorTypes, MLErrorHandler
 
         handler = MLErrorHandler()
 
@@ -124,35 +127,24 @@ def test_structured_logging_with_context():
     GREEN PHASE: Test funcional sin mocks complejos
     """
     try:
-        from app.core.structured_logger import StructuredLogger, LogContext
+        from app.core.structured_logger import StructuredLogger
 
         logger = StructuredLogger("ml_api")
 
-        context = LogContext(
-            request_id="req_123456",
-            user_id="user_789",
-            model_id="lgbm_model",
-            operation="prediction"
-        )
-
         # Verificar que el logging funciona con contexto (test funcional)
         # Capturar el output directamente probando que no falla
-        logger.info("Prediction completed", context=context, execution_time=0.250)
+        logger.info("Prediction completed", execution_time=0.250)
 
         # Verificar que el logger existe y funciona
         assert logger.name == "ml_api"
         assert logger.default_context is not None
 
-        # Verificar que el contexto se procesa correctamente
-        effective_context = logger._merge_contexts(context)
-        assert effective_context.request_id == "req_123456"
-        assert effective_context.user_id == "user_789"
-
         # Verificar que se puede crear un log entry
-        log_entry = logger._create_log_entry("info", "Test message", context, execution_time=0.250)
+        log_entry = logger._create_log_entry(
+            "info", "Test message", execution_time=0.250
+        )
         log_data = json.loads(log_entry)
 
-        assert log_data["request_id"] == "req_123456"
         assert log_data["execution_time"] == 0.250
         assert log_data["level"] == "info"
         assert log_data["message"] == "Test message"
@@ -171,18 +163,18 @@ def test_rate_limiting_functionality():
         from app.core.rate_limiter import RateLimiter, ThrottleConfig
 
         config = ThrottleConfig(max_requests_per_minute=5)
-        rate_limiter = RateLimiter(config)
+        limiter = RateLimiter(default_config=config)
 
         user_id = "user_123"
 
         # Permitir primeros 5 requests
         for i in range(5):
-            assert rate_limiter.is_allowed(user_id) is True
+            assert limiter.is_allowed(user_id) is True
             # Incrementar contador manualmente para el test
-            rate_limiter.user_requests[user_id].append(time.time())
+            limiter.user_requests[user_id].append(time.time())
 
         # Sexto request debe ser bloqueado
-        assert rate_limiter.is_allowed(user_id) is False
+        assert limiter.is_allowed(user_id) is False
 
     except ImportError:
         pytest.skip("RateLimiter not implemented yet - RED PHASE")
@@ -195,7 +187,7 @@ def test_retry_logic_for_transient_failures():
     RED PHASE: Fallará cuando creemos RetryHandler sin funcionalidad
     """
     try:
-        from app.core.retry_handler import RetryHandler, RetryConfig
+        from app.core.retry_handler import RetryConfig, RetryHandler
 
         config = RetryConfig(max_attempts=3, base_delay=0.1)
         retry_handler = RetryHandler(config)

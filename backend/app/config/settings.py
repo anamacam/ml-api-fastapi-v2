@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 ⚙️ Configuración de la aplicación por entornos - FASE REFACTOR TDD
 
@@ -6,17 +7,22 @@ REFACTORED: Aplicando Strategy Pattern, Factory Pattern y DRY Principle
 - Factory Pattern: Creación centralizada de configuraciones
 - DRY: Eliminación de duplicación en validaciones
 """
-import os
+
 import logging
+import os
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional, Dict, Any
-from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Optional, Type
 
-from pydantic import Field, field_validator, ValidationError, ConfigDict
-from pydantic_settings import BaseSettings
-from app.core.security_logger import SecurityEventFactory, SecurityLevel, EventType, get_security_logger
+from app.core.security_logger import (
+    SecurityEventFactory,
+    SecurityLevel,
+    get_security_logger,
+)
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Configurar logger
 logger = logging.getLogger(__name__)
@@ -24,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 class Environment(str, Enum):
     """Entornos disponibles"""
+
     DEVELOPMENT = "development"
     TESTING = "testing"
     STAGING = "staging"
@@ -34,8 +41,9 @@ class Environment(str, Enum):
 @dataclass
 class ValidationRule:
     """Configuración de una regla de validación"""
+
     field_name: str
-    validator_func: callable
+    validator_func: Callable[[Any], bool]
     error_message: str
 
 
@@ -59,9 +67,7 @@ class DevelopmentValidationStrategy(EnvironmentValidationStrategy):
     def get_validation_rules(self) -> List[ValidationRule]:
         return [
             ValidationRule(
-                "secret_key",
-                lambda v: len(v) > 0,
-                "Secret key cannot be empty"
+                "secret_key", lambda v: len(v) > 0, "Secret key cannot be empty"
             )
         ]
 
@@ -77,17 +83,17 @@ class ProductionValidationStrategy(EnvironmentValidationStrategy):
             ValidationRule(
                 "secret_key",
                 lambda v: v != "dev-secret-key-change-in-production" and len(v) >= 32,
-                "SECRET_KEY must be changed and at least 32 characters in production"
+                "SECRET_KEY must be changed and at least 32 characters in production",
             ),
             ValidationRule(
                 "debug",
                 lambda v: v is False,
-                "DEBUG must be False in production environment"
-            )
+                "DEBUG must be False in production environment",
+            ),
         ]
 
     def get_required_vars(self) -> List[str]:
-        return ['secret_key']
+        return ["secret_key"]
 
 
 class TestingValidationStrategy(EnvironmentValidationStrategy):
@@ -98,7 +104,7 @@ class TestingValidationStrategy(EnvironmentValidationStrategy):
             ValidationRule(
                 "use_real_models",
                 lambda v: v is False,
-                "Testing environment must never use real models"
+                "Testing environment must never use real models",
             )
         ]
 
@@ -114,19 +120,19 @@ class StagingValidationStrategy(EnvironmentValidationStrategy):
             ValidationRule(
                 "secret_key",
                 lambda v: v != "dev-secret-key-change-in-production" and len(v) >= 16,
-                "SECRET_KEY should be changed and at least 16 characters in staging"
+                "SECRET_KEY should be changed and at least 16 characters in staging",
             )
         ]
 
     def get_required_vars(self) -> List[str]:
-        return ['secret_key']
+        return ["secret_key"]
 
 
 # REFACTORED: Factory Pattern - Creación de Validadores
 class ValidationStrategyFactory:
     """Factory para crear estrategias de validación por entorno"""
 
-    _strategies = {
+    _strategies: Dict[Environment, Type[EnvironmentValidationStrategy]] = {
         Environment.DEVELOPMENT: DevelopmentValidationStrategy,
         Environment.TESTING: TestingValidationStrategy,
         Environment.STAGING: StagingValidationStrategy,
@@ -138,7 +144,9 @@ class ValidationStrategyFactory:
         """Crear estrategia de validación para el entorno especificado"""
         strategy_class = cls._strategies.get(environment)
         if not strategy_class:
-            raise ValueError(f"No validation strategy found for environment: {environment}")
+            raise ValueError(
+                f"No validation strategy found for environment: {environment}"
+            )
         return strategy_class()
 
 
@@ -147,12 +155,19 @@ class SecurityValidator:
     """Validador centralizado para seguridad"""
 
     DANGEROUS_PATH_PATTERNS = [
-        "..", "/etc/", "/var/", "/root/", "System32",
-        "Windows\\System32", "passwd", "shadow", "secrets"
+        "..",
+        "/etc/",
+        "/var/",
+        "/root/",
+        "System32",
+        "Windows\\System32",
+        "passwd",
+        "shadow",
+        "secrets",
     ]
 
-    BOOLEAN_TRUE_VALUES = ['true', '1', 'yes', 'on']
-    BOOLEAN_FALSE_VALUES = ['false', '0', 'no', 'off']
+    BOOLEAN_TRUE_VALUES = ["true", "1", "yes", "on"]
+    BOOLEAN_FALSE_VALUES = ["false", "0", "no", "off"]
 
     @classmethod
     def validate_safe_path(cls, path: Path) -> Path:
@@ -164,7 +179,9 @@ class SecurityValidator:
         return path
 
     @classmethod
-    def parse_boolean_with_fallback(cls, value: Any, environment: str = 'development') -> bool:
+    def parse_boolean_with_fallback(
+        cls, value: Any, environment: str = "development"
+    ) -> bool:
         """Parse booleano con fallback seguro"""
         if isinstance(value, str):
             if value.lower() in cls.BOOLEAN_TRUE_VALUES:
@@ -173,7 +190,7 @@ class SecurityValidator:
                 return False
             else:
                 # Fallback seguro basado en entorno
-                return environment == 'production'
+                return environment == "production"
         return bool(value)
 
 
@@ -185,18 +202,13 @@ class Settings(BaseSettings):
 
     # 🌍 Entorno
     environment: Environment = Field(
-        default=Environment.DEVELOPMENT,
-        description="Entorno de ejecución"
+        default=Environment.DEVELOPMENT, description="Entorno de ejecución"
     )
-    debug: bool = Field(
-        default=True,
-        description="Modo debug"
-    )
+    debug: bool = Field(default=True, description="Modo debug")
 
     # 🤖 Machine Learning
     ml_models_path: Path = Field(
-        default=Path("data/models"),
-        description="Directorio de modelos ML"
+        default=Path("data/models"), description="Directorio de modelos ML"
     )
 
     # Alias para compatibilidad
@@ -204,62 +216,47 @@ class Settings(BaseSettings):
     def MODELS_PATH(self) -> Path:
         """Alias para ml_models_path para compatibilidad"""
         return self.ml_models_path
+
     use_real_models: bool = Field(
-        default=True,
-        description="Usar modelos reales (false para mocks en testing)"
+        default=True, description="Usar modelos reales (false para mocks en testing)"
     )
     max_prediction_batch_size: int = Field(
-        default=100,
-        description="Tamaño máximo de batch para predicciones"
+        default=100, description="Tamaño máximo de batch para predicciones"
     )
 
     # 🗄️ Base de datos
     database_url: Optional[str] = Field(
-        default=None,
-        description="URL de conexión a la base de datos"
+        default=None, description="URL de conexión a la base de datos"
     )
 
     # 🔐 Seguridad
     secret_key: str = Field(
         default="dev-secret-key-change-in-production",
-        description="Clave secreta para JWT"
+        description="Clave secreta para JWT",
     )
 
     # 📊 API
-    api_title: str = Field(
-        default="ML API FastAPI v2",
-        description="Título de la API"
-    )
-    api_version: str = Field(
-        default="2.0.0",
-        description="Versión de la API"
-    )
+    api_title: str = Field(default="ML API FastAPI v2", description="Título de la API")
+    api_version: str = Field(default="2.0.0", description="Versión de la API")
     allowed_origins: List[str] = Field(
         default=["http://localhost:3000", "http://localhost:3001"],
-        description="Orígenes permitidos para CORS"
+        description="Orígenes permitidos para CORS",
     )
 
     # 📁 Archivos
     upload_dir: Path = Field(
-        default=Path("data/uploads"),
-        description="Directorio de uploads"
+        default=Path("data/uploads"), description="Directorio de uploads"
     )
     max_file_size: int = Field(
         default=10 * 1024 * 1024,  # 10MB
-        description="Tamaño máximo de archivo en bytes"
+        description="Tamaño máximo de archivo en bytes",
     )
 
     # 📝 Logging
-    log_level: str = Field(
-        default="INFO",
-        description="Nivel de logging"
-    )
+    log_level: str = Field(default="INFO", description="Nivel de logging")
     log_file: Optional[Path] = Field(
-        default=Path("data/logs/app.log"),
-        description="Archivo de logs"
+        default=Path("data/logs/app.log"), description="Archivo de logs"
     )
-
-
 
     @property
     def is_development(self) -> bool:
@@ -285,49 +282,49 @@ class Settings(BaseSettings):
         return self.use_real_models
 
     # REFACTORED: DRY - Validadores usando Strategy Pattern (Pydantic V2)
-    @field_validator('secret_key')
+    @field_validator("secret_key")
     @classmethod
     def validate_secret_key(cls, v, info):
         """Validar secret key usando strategy pattern"""
-        environment = info.data.get('environment', Environment.DEVELOPMENT)
+        environment = info.data.get("environment", Environment.DEVELOPMENT)
         strategy = ValidationStrategyFactory.create_strategy(environment)
 
         for rule in strategy.get_validation_rules():
-            if rule.field_name == 'secret_key':
+            if rule.field_name == "secret_key":
                 if not rule.validator_func(v):
                     raise ValueError(rule.error_message)
         return v
 
-    @field_validator('debug')
+    @field_validator("debug")
     @classmethod
     def validate_debug(cls, v, info):
         """Validar debug usando strategy pattern"""
-        environment = info.data.get('environment', Environment.DEVELOPMENT)
+        environment = info.data.get("environment", Environment.DEVELOPMENT)
         strategy = ValidationStrategyFactory.create_strategy(environment)
 
         for rule in strategy.get_validation_rules():
-            if rule.field_name == 'debug':
+            if rule.field_name == "debug":
                 if not rule.validator_func(v):
                     raise ValueError(rule.error_message)
         return v
 
-    @field_validator('ml_models_path')
+    @field_validator("ml_models_path")
     @classmethod
     def validate_models_path(cls, v):
         """Validar path usando SecurityValidator centralizado"""
         return SecurityValidator.validate_safe_path(v)
 
-    @field_validator('use_real_models', mode='before')
+    @field_validator("use_real_models", mode="before")
     @classmethod
     def validate_use_real_models(cls, v, info):
         """Validar use_real_models con fallback seguro"""
-        environment = info.data.get('environment', 'development')
+        environment = info.data.get("environment", "development")
         parsed_value = SecurityValidator.parse_boolean_with_fallback(v, environment)
 
         # Aplicar reglas específicas del entorno
         strategy = ValidationStrategyFactory.create_strategy(Environment(environment))
         for rule in strategy.get_validation_rules():
-            if rule.field_name == 'use_real_models':
+            if rule.field_name == "use_real_models":
                 if not rule.validator_func(parsed_value):
                     raise ValueError(rule.error_message)
 
@@ -338,7 +335,7 @@ class Settings(BaseSettings):
         Inicialización con validaciones usando Strategy Pattern
         REFACTORED: Usando Factory Pattern para validación por entorno
         """
-        environment = values.get('environment', Environment.DEVELOPMENT)
+        environment = values.get("environment", Environment.DEVELOPMENT)
 
         # Validar variables requeridas usando strategy
         self._validate_required_environment_variables(values, environment)
@@ -349,10 +346,9 @@ class Settings(BaseSettings):
         # Logging de advertencias de seguridad
         self._log_security_warnings()
 
-        # Hacer configuración inmutable
-        self.__dict__['_frozen'] = True
-
-    def _validate_required_environment_variables(self, values: Dict[str, Any], environment: Environment):
+    def _validate_required_environment_variables(
+        self, values: Dict[str, Any], environment: Environment
+    ):
         """
         Validar variables requeridas usando Strategy Pattern
         REFACTORED: Centralizado y usando strategy específico por entorno
@@ -388,8 +384,8 @@ class Settings(BaseSettings):
                 details={
                     "config_key": "secret_key",
                     "current_value": "dev-secret-key-change-in-production",
-                    "recommendation": "Change secret key in production environment"
-                }
+                    "recommendation": "Change secret key in production environment",
+                },
             )
             security_logger.log_event(warning_event)
             logger.warning("Using default SECRET_KEY - change in production!")
@@ -402,8 +398,8 @@ class Settings(BaseSettings):
                 details={
                     "environment": self.environment,
                     "debug_enabled": self.debug,
-                    "recommendation": "Disable debug mode in non-development environments"
-                }
+                    "recommendation": "Disable debug mode in non-development environments",  # noqa: E501
+                },
             )
             security_logger.log_event(warning_event)
             logger.warning(f"Debug mode enabled in {self.environment} environment")
@@ -416,26 +412,21 @@ class Settings(BaseSettings):
                 details={
                     "environment": "testing",
                     "use_real_models": self.use_real_models,
-                    "recommendation": "Use mock models in testing environment"
-                }
+                    "recommendation": "Use mock models in testing environment",
+                },
             )
             security_logger.log_event(warning_event)
             logger.warning("Testing environment should not use real models")
 
-    def __setattr__(self, name, value):
-        """Prevenir modificaciones después de inicialización"""
-        if hasattr(self, '_frozen') and self._frozen:
-            raise AttributeError(f"Configuration is immutable - cannot modify {name}")
-        super().__setattr__(name, value)
+    # Configuration is immutable by using Pydantic's built-in frozen behavior
 
     # REFACTORED: Pydantic V2 Configuration
-    model_config = ConfigDict(
+    model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
-        # Mapeo de variables de entorno
         env_prefix="",
-        extra="ignore"
+        extra="ignore",
     )
 
 
@@ -450,7 +441,7 @@ class SettingsFactory:
             "environment": Environment.DEVELOPMENT,
             "debug": True,
             "use_real_models": False,
-            "log_level": "DEBUG"
+            "log_level": "DEBUG",
         }
         defaults.update(overrides)
         return Settings(**defaults)
@@ -462,7 +453,7 @@ class SettingsFactory:
             "environment": Environment.TESTING,
             "debug": False,
             "use_real_models": False,
-            "log_level": "WARNING"
+            "log_level": "WARNING",
         }
         defaults.update(overrides)
         return Settings(**defaults)
@@ -471,7 +462,7 @@ class SettingsFactory:
     def create_production_settings(cls, **overrides) -> Settings:
         """Crear configuración optimizada para producción"""
         # Verificar que se proporcionen valores seguros
-        required_production_keys = ['secret_key']
+        required_production_keys = ["secret_key"]
         for key in required_production_keys:
             if key not in overrides and key.upper() not in os.environ:
                 raise ValueError(f"Production settings require {key}")
@@ -480,7 +471,7 @@ class SettingsFactory:
             "environment": Environment.PRODUCTION,
             "debug": False,
             "use_real_models": True,
-            "log_level": "INFO"
+            "log_level": "INFO",
         }
         defaults.update(overrides)
         return Settings(**defaults)

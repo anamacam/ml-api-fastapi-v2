@@ -6,16 +6,9 @@ del servicio de predicciones, incluyendo validación de datos,
 procesamiento y generación de predicciones.
 """
 
-from typing import Any, Dict, List
-from unittest.mock import MagicMock, Mock, patch
-
-import numpy as np
 import pytest
-from app.services.prediction_service import (
-    PredictionRequest,
-    PredictionResponse,
-    PredictionService,
-)
+from app.models.api_models import ModelInfo, PredictionRequest, PredictionResponse
+from app.services.prediction_service import PredictionService
 
 
 class TestPredictionService:
@@ -33,7 +26,8 @@ class TestPredictionService:
             PredictionService: Instancia del servicio de predicciones
         """
         service = PredictionService()
-        service.model = mock_ml_model
+        # Mock el modelo en el diccionario de modelos
+        service.models["default_model"] = mock_ml_model
         return service
 
     @pytest.fixture
@@ -49,14 +43,15 @@ class TestPredictionService:
         """
         return PredictionRequest(
             features=sample_prediction_data["features"],
-            model_version=sample_prediction_data["model_version"],
-            user_id=sample_prediction_data["user_id"],
+            model_id=sample_prediction_data["model_id"],
+            include_validation_details=sample_prediction_data[
+                "include_validation_details"
+            ],
         )
 
     @pytest.mark.unit
-    def test_make_prediction_success(
-        self, prediction_service, valid_prediction_request
-    ):
+    @pytest.mark.asyncio
+    async def test_predict_success(self, prediction_service, valid_prediction_request):
         """
         Test que verifica una predicción exitosa.
 
@@ -66,289 +61,208 @@ class TestPredictionService:
         """
         # Arrange
         expected_prediction = [0.8, 0.2]
-        expected_probability = [[0.2, 0.8]]
-
-        prediction_service.model.predict.return_value = expected_prediction
-        prediction_service.model.predict_proba.return_value = expected_probability
+        mock_model = prediction_service.models["default_model"]
+        mock_model.predict.return_value = expected_prediction
 
         # Act
-        result = prediction_service.make_prediction(valid_prediction_request)
+        result = await prediction_service.predict(valid_prediction_request)
 
         # Assert
         assert isinstance(result, PredictionResponse)
         assert result.prediction == expected_prediction
-        assert result.probability == expected_probability[0]
-        assert result.confidence > 0
-        assert result.model_version == valid_prediction_request.model_version
-        assert result.prediction_id is not None
+        assert result.model_info is not None
+        assert result.model_info.model_id == valid_prediction_request.model_id
 
     @pytest.mark.unit
-    def test_make_prediction_with_feature_validation(self, prediction_service):
+    @pytest.mark.asyncio
+    async def test_predict_model_not_found(self, prediction_service):
         """
-        Test que verifica la validación de features en la predicción.
+        Test que verifica el comportamiento cuando el modelo no existe.
 
         Args:
             prediction_service: Servicio de predicciones
         """
         # Arrange
-        invalid_request = PredictionRequest(
-            features=[], model_version="v1.0.0", user_id=1  # Features vacías
-        )
-
-        # Act & Assert
-        with pytest.raises(ValueError, match="Features cannot be empty"):
-            prediction_service.make_prediction(invalid_request)
-
-    @pytest.mark.unit
-    def test_make_prediction_with_invalid_feature_types(self, prediction_service):
-        """
-        Test que verifica la validación de tipos de features.
-
-        Args:
-            prediction_service: Servicio de predicciones
-        """
-        # Arrange
-        invalid_request = PredictionRequest(
-            features=["invalid", "string", "features"],  # Tipos inválidos
-            model_version="v1.0.0",
-            user_id=1,
-        )
-
-        # Act & Assert
-        with pytest.raises(ValueError, match="All features must be numeric"):
-            prediction_service.make_prediction(invalid_request)
-
-    @pytest.mark.unit
-    def test_make_prediction_model_not_loaded(self):
-        """
-        Test que verifica el comportamiento cuando el modelo no está cargado.
-        """
-        # Arrange
-        service = PredictionService()
-        service.model = None
-
         request = PredictionRequest(
-            features=[1.0, 2.0, 3.0], model_version="v1.0.0", user_id=1
+            features={
+                "age": 30.0,
+                "income": 50000.0,
+                "category": "premium",
+                "score": 0.85,
+            },
+            model_id="non_existent_model",
         )
 
         # Act & Assert
-        with pytest.raises(RuntimeError, match="Model not loaded"):
-            service.make_prediction(request)
+        with pytest.raises(Exception):  # PredictionError
+            await prediction_service.predict(request)
 
     @pytest.mark.unit
-    def test_preprocess_features_success(self, prediction_service):
+    def test_load_model_success(self, prediction_service):
         """
-        Test que verifica el preprocesamiento exitoso de features.
+        Test que verifica la carga exitosa de un modelo.
 
         Args:
             prediction_service: Servicio de predicciones
         """
-        # Arrange
-        raw_features = [1.0, 2.0, 3.0, 4.0, 5.0]
-
         # Act
-        processed_features = prediction_service.preprocess_features(raw_features)
+        result = prediction_service.load_model("test_model.joblib")
 
         # Assert
-        assert isinstance(processed_features, np.ndarray)
-        assert processed_features.shape == (1, 5)  # 1 muestra, 5 features
-        assert np.array_equal(processed_features[0], raw_features)
+        assert result is True
+        assert prediction_service.model_loaded is True
+        assert prediction_service.current_model is not None
 
     @pytest.mark.unit
-    def test_preprocess_features_normalization(self, prediction_service):
+    def test_load_model_failure(self, prediction_service):
         """
-        Test que verifica la normalización de features durante el preprocesamiento.
+        Test que verifica el manejo de errores al cargar un modelo.
+
+        Args:
+            prediction_service: Servicio de predicciones
+        """
+        # Act
+        result = prediction_service.load_model("invalid_path")
+
+        # Assert
+        assert result is False
+
+    @pytest.mark.unit
+    def test_validate_model_compatibility(self, prediction_service):
+        """
+        Test que verifica la validación de compatibilidad de modelos.
 
         Args:
             prediction_service: Servicio de predicciones
         """
         # Arrange
-        raw_features = [100.0, 200.0, 300.0]
-        prediction_service.feature_scaler = MagicMock()
-        prediction_service.feature_scaler.transform.return_value = np.array(
-            [[0.1, 0.2, 0.3]]
+        valid_model_data = {"type": "sklearn", "version": "1.0.0"}
+        invalid_model_data = None
+
+        # Act & Assert
+        assert prediction_service.validate_model_compatibility(valid_model_data) is True
+        assert (
+            prediction_service.validate_model_compatibility(invalid_model_data) is False
         )
 
+    @pytest.mark.unit
+    def test_get_model_status(self, prediction_service):
+        """
+        Test que verifica la obtención del estado del modelo.
+
+        Args:
+            prediction_service: Servicio de predicciones
+        """
         # Act
-        processed_features = prediction_service.preprocess_features(raw_features)
+        status = prediction_service.get_model_status("default_model")
 
         # Assert
-        prediction_service.feature_scaler.transform.assert_called_once()
-        assert processed_features.shape == (1, 3)
+        assert isinstance(status, str)
+        assert status in ["active", "inactive", "error", "loading"]
 
     @pytest.mark.unit
-    def test_calculate_confidence_high_probability(self, prediction_service):
+    def test_cache_prediction_result(self, prediction_service):
         """
-        Test que verifica el cálculo de confianza con alta probabilidad.
+        Test que verifica el cacheo de resultados de predicción.
 
         Args:
             prediction_service: Servicio de predicciones
         """
         # Arrange
-        probabilities = [0.1, 0.9]  # Alta confianza en clase 1
+        prediction_id = "test_pred_123"
+        result = {"prediction": [0.8, 0.2], "confidence": 0.9}
 
         # Act
-        confidence = prediction_service.calculate_confidence(probabilities)
+        success = prediction_service.cache_prediction_result(prediction_id, result)
 
         # Assert
-        assert confidence == 0.9
+        assert success is True
+
+    @pytest.mark.unit
+    def test_get_cached_prediction(self, prediction_service):
+        """
+        Test que verifica la obtención de predicciones cacheadas.
+
+        Args:
+            prediction_service: Servicio de predicciones
+        """
+        # Arrange
+        prediction_id = "test_pred_456"
+        expected_result = {"prediction": [0.7, 0.3], "confidence": 0.8}
+        prediction_service.cache_prediction_result(prediction_id, expected_result)
+
+        # Act
+        cached_result = prediction_service.get_cached_prediction(prediction_id)
+
+        # Assert
+        assert cached_result == expected_result
+
+    @pytest.mark.unit
+    def test_get_prediction_confidence(self, prediction_service):
+        """
+        Test que verifica la obtención de confianza de predicción.
+
+        Args:
+            prediction_service: Servicio de predicciones
+        """
+        # Act
+        confidence = prediction_service.get_prediction_confidence("test_pred_789")
+
+        # Assert
         assert isinstance(confidence, float)
+        assert 0.0 <= confidence <= 1.0
 
     @pytest.mark.unit
-    def test_calculate_confidence_low_probability(self, prediction_service):
+    @pytest.mark.asyncio
+    async def test_health_check(self, prediction_service):
         """
-        Test que verifica el cálculo de confianza con baja probabilidad.
-
-        Args:
-            prediction_service: Servicio de predicciones
-        """
-        # Arrange
-        probabilities = [0.5, 0.5]  # Baja confianza
-
-        # Act
-        confidence = prediction_service.calculate_confidence(probabilities)
-
-        # Assert
-        assert confidence == 0.5
-        assert isinstance(confidence, float)
-
-    @pytest.mark.unit
-    def test_validate_features_success(self, prediction_service):
-        """
-        Test que verifica la validación exitosa de features.
-
-        Args:
-            prediction_service: Servicio de predicciones
-        """
-        # Arrange
-        valid_features = [1.0, 2.0, 3.0, 4.0, 5.0]
-
-        # Act & Assert
-        # No debería lanzar excepción
-        prediction_service.validate_features(valid_features)
-
-    @pytest.mark.unit
-    def test_validate_features_empty_list(self, prediction_service):
-        """
-        Test que verifica la validación con lista vacía de features.
-
-        Args:
-            prediction_service: Servicio de predicciones
-        """
-        # Arrange
-        empty_features = []
-
-        # Act & Assert
-        with pytest.raises(ValueError, match="Features cannot be empty"):
-            prediction_service.validate_features(empty_features)
-
-    @pytest.mark.unit
-    def test_validate_features_non_numeric(self, prediction_service):
-        """
-        Test que verifica la validación con features no numéricas.
-
-        Args:
-            prediction_service: Servicio de predicciones
-        """
-        # Arrange
-        non_numeric_features = [1.0, "string", 3.0]
-
-        # Act & Assert
-        with pytest.raises(ValueError, match="All features must be numeric"):
-            prediction_service.validate_features(non_numeric_features)
-
-    @pytest.mark.unit
-    def test_validate_features_none_values(self, prediction_service):
-        """
-        Test que verifica la validación con valores None.
-
-        Args:
-            prediction_service: Servicio de predicciones
-        """
-        # Arrange
-        features_with_none = [1.0, None, 3.0]
-
-        # Act & Assert
-        with pytest.raises(ValueError, match="Features cannot contain None values"):
-            prediction_service.validate_features(features_with_none)
-
-    @pytest.mark.unit
-    def test_generate_prediction_id(self, prediction_service):
-        """
-        Test que verifica la generación de ID de predicción.
+        Test que verifica el health check del servicio.
 
         Args:
             prediction_service: Servicio de predicciones
         """
         # Act
-        prediction_id = prediction_service.generate_prediction_id()
+        health_status = await prediction_service.health_check()
 
         # Assert
-        assert isinstance(prediction_id, str)
-        assert len(prediction_id) >= 8  # Al menos 8 caracteres
-        assert prediction_id.startswith("pred_")
+        assert isinstance(health_status, dict)
+        assert "status" in health_status
+        assert "models_loaded" in health_status
+        assert "preprocessors_loaded" in health_status
+        assert "timestamp" in health_status
+        assert "details" in health_status
 
     @pytest.mark.unit
-    def test_generate_prediction_id_uniqueness(self, prediction_service):
+    @pytest.mark.asyncio
+    async def test_list_available_models(self, prediction_service):
         """
-        Test que verifica que los IDs de predicción son únicos.
+        Test que verifica el listado de modelos disponibles.
 
         Args:
             prediction_service: Servicio de predicciones
         """
         # Act
-        id1 = prediction_service.generate_prediction_id()
-        id2 = prediction_service.generate_prediction_id()
+        models = await prediction_service.list_available_models()
 
         # Assert
-        assert id1 != id2
+        assert isinstance(models, list)
+        # Puede estar vacío si no hay modelos cargados
 
     @pytest.mark.unit
-    @patch("app.services.prediction_service.datetime")
-    def test_make_prediction_with_timestamp(
-        self, mock_datetime, prediction_service, valid_prediction_request
-    ):
+    @pytest.mark.asyncio
+    async def test_get_model_info(self, prediction_service):
         """
-        Test que verifica que las predicciones incluyen timestamp.
-
-        Args:
-            mock_datetime: Mock del módulo datetime
-            prediction_service: Servicio de predicciones
-            valid_prediction_request: Request válida de predicción
-        """
-        # Arrange
-        fixed_timestamp = "2024-12-07T10:00:00Z"
-        mock_datetime.utcnow.return_value.isoformat.return_value = fixed_timestamp
-
-        # Act
-        result = prediction_service.make_prediction(valid_prediction_request)
-
-        # Assert
-        assert result.timestamp == fixed_timestamp
-
-    @pytest.mark.unit
-    def test_batch_prediction_success(self, prediction_service):
-        """
-        Test que verifica predicciones en lote.
+        Test que verifica la obtención de información del modelo.
 
         Args:
             prediction_service: Servicio de predicciones
         """
-        # Arrange
-        batch_requests = [
-            PredictionRequest(features=[1.0, 2.0], model_version="v1.0.0", user_id=1),
-            PredictionRequest(features=[3.0, 4.0], model_version="v1.0.0", user_id=2),
-        ]
-
-        prediction_service.model.predict.return_value = [0.8, 0.2]
-        prediction_service.model.predict_proba.return_value = [[0.2, 0.8], [0.7, 0.3]]
-
         # Act
-        results = prediction_service.make_batch_predictions(batch_requests)
+        model_info = await prediction_service.get_model_info("default_model")
 
         # Assert
-        assert len(results) == 2
-        assert all(isinstance(result, PredictionResponse) for result in results)
+        assert isinstance(model_info, dict)
+        # Puede estar vacío si no hay información del modelo
 
 
 @pytest.mark.unit
@@ -361,13 +275,23 @@ class TestPredictionModels:
         """
         # Arrange & Act
         request = PredictionRequest(
-            features=[1.0, 2.0, 3.0], model_version="v1.0.0", user_id=123
+            features={
+                "age": 30.0,
+                "income": 50000.0,
+                "category": "premium",
+                "score": 0.85,
+            },
+            model_id="default_model",
         )
 
         # Assert
-        assert request.features == [1.0, 2.0, 3.0]
-        assert request.model_version == "v1.0.0"
-        assert request.user_id == 123
+        assert request.features == {
+            "age": 30.0,
+            "income": 50000.0,
+            "category": "premium",
+            "score": 0.85,
+        }
+        assert request.model_id == "default_model"
 
     def test_prediction_request_validation(self):
         """
@@ -375,28 +299,29 @@ class TestPredictionModels:
         """
         # Act & Assert
         with pytest.raises(ValueError):
-            PredictionRequest(
-                features=[], model_version="v1.0.0", user_id=123  # Features vacías
+            # Usar un enfoque que falle la validación sin causar errores de linter
+            import json
+
+            invalid_data = json.loads(
+                '{"features": "not_a_dict", "model_id": "default_model"}'
             )
+            PredictionRequest(**invalid_data)
 
     def test_prediction_response_creation(self):
         """
         Test que verifica la creación de PredictionResponse.
         """
         # Arrange & Act
+        model_info = ModelInfo(
+            model_id="default_model", status="active", type="ml_model", version="1.0.0"
+        )
+
         response = PredictionResponse(
-            prediction=[0.8, 0.2],
-            probability=[0.2, 0.8],
-            confidence=0.8,
-            model_version="v1.0.0",
-            prediction_id="pred_123456",
-            timestamp="2024-12-07T10:00:00Z",
+            prediction=[0.8, 0.2], model_info=model_info, request_id="req_123456"
         )
 
         # Assert
         assert response.prediction == [0.8, 0.2]
-        assert response.probability == [0.2, 0.8]
-        assert response.confidence == 0.8
-        assert response.model_version == "v1.0.0"
-        assert response.prediction_id == "pred_123456"
-        assert response.timestamp == "2024-12-07T10:00:00Z"
+        assert response.model_info.model_id == "default_model"
+        assert response.request_id == "req_123456"
+        assert response.timestamp is not None

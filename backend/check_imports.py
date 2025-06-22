@@ -1,36 +1,37 @@
-#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Script para verificar que todas las importaciones del proyecto funcionen correctamente
 """
-import sys
 import importlib
+import sys
 from pathlib import Path
+
 
 def check_imports():
     """Verificar todas las importaciones críticas del proyecto"""
 
     # Lista de módulos críticos a verificar
     critical_modules = [
-        'numpy',
-        'pandas',
-        'pydantic',
-        'pydantic_settings',
-        'fastapi',
-        'uvicorn',
-        'sqlalchemy',
-        'alembic',
-        'psycopg2',
-        'redis',
-        'scikit-learn',
-        'joblib',
-        'structlog',
-        'prometheus_client',
-        'cryptography',
-        'bcrypt',
-        'httpx',
-        'aiofiles',
-        'pyyaml',
-        'toml'
+        "numpy",
+        "pandas",
+        "pydantic",
+        "pydantic_settings",
+        "fastapi",
+        "uvicorn",
+        "sqlalchemy",
+        "alembic",
+        "psycopg2",
+        "redis",
+        "scikit-learn",
+        "joblib",
+        "structlog",
+        "prometheus_client",
+        "cryptography",
+        "bcrypt",
+        "httpx",
+        "aiofiles",
+        "pyyaml",
+        "toml",
     ]
 
     print("🔍 Verificando importaciones del proyecto...")
@@ -63,18 +64,19 @@ def check_imports():
         print("\n🎉 ¡Todas las importaciones funcionan correctamente!")
         return True
 
+
 def check_project_imports():
     """Verificar importaciones específicas del proyecto"""
 
     print("\n🔍 Verificando importaciones del proyecto...")
 
     project_modules = [
-        'app.config.settings',
-        'app.core.database',
-        'app.core.security',
-        'app.models.api_models',
-        'app.services.prediction_service',
-        'app.utils.data_validators'
+        "app.config.settings",
+        "app.core.database",
+        "app.core.security",
+        "app.models.api_models",
+        "app.services.prediction_service",
+        "app.utils.data_validators",
     ]
 
     failed_project_imports = []
@@ -88,11 +90,15 @@ def check_project_imports():
             failed_project_imports.append(module)
 
     if failed_project_imports:
-        print(f"\n❌ Módulos del proyecto que fallaron: {', '.join(failed_project_imports)}")
+        print(
+            "\\n❌ Módulos del proyecto que fallaron: "
+            f"{', '.join(failed_project_imports)}"
+        )
         return False
     else:
         print("\n🎉 ¡Todas las importaciones del proyecto funcionan!")
         return True
+
 
 if __name__ == "__main__":
     print("🚀 Iniciando verificación de importaciones...")

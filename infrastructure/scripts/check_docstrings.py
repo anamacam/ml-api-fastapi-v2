@@ -17,19 +17,20 @@ Características:
 """
 
 import ast
-import os
-import sys
-import re
 import json
-from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
-from dataclasses import dataclass, asdict
+import os
+import re
+import sys
+from dataclasses import asdict, dataclass
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 
 @dataclass
 class DocstringIssue:
     """Representa un problema encontrado en un docstring"""
+
     file_path: str
     line_number: int
     object_type: str  # 'function', 'class', 'method'
@@ -43,6 +44,7 @@ class DocstringIssue:
 @dataclass
 class DocstringReport:
     """Reporte completo de verificación de docstrings"""
+
     timestamp: str
     total_objects: int
     objects_with_docstrings: int
@@ -77,8 +79,11 @@ class DocstringChecker:
             python_files.extend(infra_path.rglob("*.py"))
 
         # Filtrar archivos del venv y cache
-        python_files = [f for f in python_files
-                       if "venv" not in str(f) and "__pycache__" not in str(f)]
+        python_files = [
+            f
+            for f in python_files
+            if "venv" not in str(f) and "__pycache__" not in str(f)
+        ]
 
         print(f"  📁 Encontrados {len(python_files)} archivos Python")
 
@@ -90,7 +95,7 @@ class DocstringChecker:
     def _check_file(self, file_path: Path):
         """Verificar docstrings en un archivo específico"""
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read()
 
             if not content.strip():
@@ -99,20 +104,24 @@ class DocstringChecker:
             tree = ast.parse(content)
 
             for node in ast.walk(tree):
-                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                if isinstance(
+                    node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+                ):
                     self._check_node_docstring(node, file_path)
 
         except SyntaxError as e:
-            self.issues.append(DocstringIssue(
-                file_path=str(file_path.relative_to(self.project_root)),
-                line_number=getattr(e, 'lineno', 1),
-                object_type='file',
-                object_name=file_path.name,
-                issue_type='syntax_error',
-                severity='error',
-                description=f"Error de sintaxis: {e.msg}",
-                suggestion="Corregir la sintaxis del archivo"
-            ))
+            self.issues.append(
+                DocstringIssue(
+                    file_path=str(file_path.relative_to(self.project_root)),
+                    line_number=getattr(e, "lineno", 1),
+                    object_type="file",
+                    object_name=file_path.name,
+                    issue_type="syntax_error",
+                    severity="error",
+                    description=f"Error de sintaxis: {e.msg}",
+                    suggestion="Corregir la sintaxis del archivo",
+                )
+            )
         except Exception as e:
             print(f"    ⚠️  Error procesando {file_path}: {e}")
 
@@ -120,7 +129,7 @@ class DocstringChecker:
         """Verificar docstring de un nodo específico (función/clase)"""
         self.total_objects += 1
 
-        object_type = 'class' if isinstance(node, ast.ClassDef) else 'function'
+        object_type = "class" if isinstance(node, ast.ClassDef) else "function"
         object_name = node.name
         line_number = node.lineno
         file_rel_path = str(file_path.relative_to(self.project_root))
@@ -130,128 +139,162 @@ class DocstringChecker:
 
         if docstring is None:
             # Verificar si es método privado/dunder (menos estricto)
-            if object_name.startswith('_'):
-                severity = 'warning' if object_name.startswith('__') else 'info'
-                issue_type = 'missing_docstring_private'
+            if object_name.startswith("_"):
+                severity = "warning" if object_name.startswith("__") else "info"
+                issue_type = "missing_docstring_private"
             else:
-                severity = 'error'
-                issue_type = 'missing_docstring'
+                severity = "error"
+                issue_type = "missing_docstring"
 
             suggestion = self._generate_docstring_suggestion(node, object_type)
 
-            self.issues.append(DocstringIssue(
-                file_path=file_rel_path,
-                line_number=line_number,
-                object_type=object_type,
-                object_name=object_name,
-                issue_type=issue_type,
-                severity=severity,
-                description=f"Falta docstring para {object_type} '{object_name}'",
-                suggestion=suggestion
-            ))
+            self.issues.append(
+                DocstringIssue(
+                    file_path=file_rel_path,
+                    line_number=line_number,
+                    object_type=object_type,
+                    object_name=object_name,
+                    issue_type=issue_type,
+                    severity=severity,
+                    description=f"Falta docstring para {object_type} '{object_name}'",
+                    suggestion=suggestion,
+                )
+            )
         else:
             self.objects_with_docstrings += 1
             # Verificar calidad del docstring
-            self._check_docstring_quality(docstring, node, file_rel_path, line_number, object_type, object_name)
+            self._check_docstring_quality(
+                docstring, node, file_rel_path, line_number, object_type, object_name
+            )
 
-    def _check_docstring_quality(self, docstring: str, node: ast.AST, file_path: str,
-                                line_number: int, object_type: str, object_name: str):
+    def _check_docstring_quality(
+        self,
+        docstring: str,
+        node: ast.AST,
+        file_path: str,
+        line_number: int,
+        object_type: str,
+        object_name: str,
+    ):
         """Verificar calidad y formato del docstring"""
 
         # 1. Verificar línea de resumen
-        lines = docstring.strip().split('\n')
+        lines = docstring.strip().split("\n")
         if not lines or not lines[0].strip():
-            self.issues.append(DocstringIssue(
-                file_path=file_path,
-                line_number=line_number,
-                object_type=object_type,
-                object_name=object_name,
-                issue_type='empty_summary',
-                severity='error',
-                description="Docstring no tiene línea de resumen",
-                suggestion="Agregar una línea de resumen descriptiva al inicio"
-            ))
+            self.issues.append(
+                DocstringIssue(
+                    file_path=file_path,
+                    line_number=line_number,
+                    object_type=object_type,
+                    object_name=object_name,
+                    issue_type="empty_summary",
+                    severity="error",
+                    description="Docstring no tiene línea de resumen",
+                    suggestion="Agregar una línea de resumen descriptiva al inicio",
+                )
+            )
 
         # 2. Verificar longitud de línea de resumen
         elif len(lines[0]) > 80:
-            self.issues.append(DocstringIssue(
-                file_path=file_path,
-                line_number=line_number,
-                object_type=object_type,
-                object_name=object_name,
-                issue_type='summary_too_long',
-                severity='warning',
-                description=f"Línea de resumen muy larga ({len(lines[0])} caracteres)",
-                suggestion="Mantener la línea de resumen bajo 80 caracteres"
-            ))
+            self.issues.append(
+                DocstringIssue(
+                    file_path=file_path,
+                    line_number=line_number,
+                    object_type=object_type,
+                    object_name=object_name,
+                    issue_type="summary_too_long",
+                    severity="warning",
+                    description=f"Línea de resumen muy larga ({len(lines[0])} caracteres)",
+                    suggestion="Mantener la línea de resumen bajo 80 caracteres",
+                )
+            )
 
         # 3. Verificar que termine con punto
-        if not lines[0].rstrip().endswith('.'):
-            self.issues.append(DocstringIssue(
-                file_path=file_path,
-                line_number=line_number,
-                object_type=object_type,
-                object_name=object_name,
-                issue_type='summary_no_period',
-                severity='info',
-                description="Línea de resumen no termina con punto",
-                suggestion="Agregar punto al final de la línea de resumen"
-            ))
+        if not lines[0].rstrip().endswith("."):
+            self.issues.append(
+                DocstringIssue(
+                    file_path=file_path,
+                    line_number=line_number,
+                    object_type=object_type,
+                    object_name=object_name,
+                    issue_type="summary_no_period",
+                    severity="info",
+                    description="Línea de resumen no termina con punto",
+                    suggestion="Agregar punto al final de la línea de resumen",
+                )
+            )
 
         # 4. Para funciones con parámetros, verificar documentación
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            self._check_function_docstring(docstring, node, file_path, line_number, object_name)
+            self._check_function_docstring(
+                docstring, node, file_path, line_number, object_name
+            )
 
-    def _check_function_docstring(self, docstring: str, node: ast.FunctionDef,
-                                 file_path: str, line_number: int, object_name: str):
+    def _check_function_docstring(
+        self,
+        docstring: str,
+        node: ast.FunctionDef,
+        file_path: str,
+        line_number: int,
+        object_name: str,
+    ):
         """Verificar docstring específico de función"""
 
         # Obtener parámetros (excluyendo 'self' y 'cls')
-        params = [arg.arg for arg in node.args.args
-                 if arg.arg not in ('self', 'cls')]
+        params = [arg.arg for arg in node.args.args if arg.arg not in ("self", "cls")]
 
         # Verificar si la función retorna algo
         has_return = self._has_return_statement(node)
 
-        if params and len(docstring.split('\n')) < 3:
-            self.issues.append(DocstringIssue(
-                file_path=file_path,
-                line_number=line_number,
-                object_type='function',
-                object_name=object_name,
-                issue_type='missing_parameters_doc',
-                severity='warning',
-                description=f"Función con parámetros ({', '.join(params)}) necesita documentación detallada",
-                suggestion="Agregar secciones Parameters y Returns según Google Style"
-            ))
+        if params and len(docstring.split("\n")) < 3:
+            self.issues.append(
+                DocstringIssue(
+                    file_path=file_path,
+                    line_number=line_number,
+                    object_type="function",
+                    object_name=object_name,
+                    issue_type="missing_parameters_doc",
+                    severity="warning",
+                    description=f"Función con parámetros ({', '.join(params)}) necesita documentación detallada",
+                    suggestion="Agregar secciones Parameters y Returns según Google Style",
+                )
+            )
 
         # Verificar secciones estándar para funciones complejas
         if len(params) > 2 or has_return:
             docstring_lower = docstring.lower()
 
-            if 'parameters' not in docstring_lower and 'args' not in docstring_lower and 'param' not in docstring_lower:
-                self.issues.append(DocstringIssue(
-                    file_path=file_path,
-                    line_number=line_number,
-                    object_type='function',
-                    object_name=object_name,
-                    issue_type='missing_parameters_section',
-                    severity='info',
-                    description="Función compleja sin sección de parámetros",
-                    suggestion="Agregar sección 'Parameters:' o 'Args:'"
-                ))
+            if (
+                "parameters" not in docstring_lower
+                and "args" not in docstring_lower
+                and "param" not in docstring_lower
+            ):
+                self.issues.append(
+                    DocstringIssue(
+                        file_path=file_path,
+                        line_number=line_number,
+                        object_type="function",
+                        object_name=object_name,
+                        issue_type="missing_parameters_section",
+                        severity="info",
+                        description="Función compleja sin sección de parámetros",
+                        suggestion="Agregar sección 'Parameters:' o 'Args:'",
+                    )
+                )
 
-            if has_return and 'return' not in docstring_lower:
-                self.issues.append(DocstringIssue(
-                    file_path=file_path,
-                    line_number=line_number,
-                    object_type='function',
-                    object_name=object_name,
-                    issue_type='missing_returns_section',
-                    severity='info',
-                    description="Función con return sin documentar valor de retorno",
-                    suggestion="Agregar sección 'Returns:'"
-                ))
+            if has_return and "return" not in docstring_lower:
+                self.issues.append(
+                    DocstringIssue(
+                        file_path=file_path,
+                        line_number=line_number,
+                        object_type="function",
+                        object_name=object_name,
+                        issue_type="missing_returns_section",
+                        severity="info",
+                        description="Función con return sin documentar valor de retorno",
+                        suggestion="Agregar sección 'Returns:'",
+                    )
+                )
 
     def _has_return_statement(self, node: ast.FunctionDef) -> bool:
         """Verificar si la función tiene statements de return con valor"""
@@ -262,7 +305,7 @@ class DocstringChecker:
 
     def _generate_docstring_suggestion(self, node: ast.AST, object_type: str) -> str:
         """Generar sugerencia de docstring"""
-        if object_type == 'class':
+        if object_type == "class":
             return f'''"""
 {node.name.replace('_', ' ').title()}.
 
@@ -277,9 +320,10 @@ Example:
 """'''
         else:  # function
             params = []
-            if hasattr(node, 'args'):
-                params = [arg.arg for arg in node.args.args
-                         if arg.arg not in ('self', 'cls')]
+            if hasattr(node, "args"):
+                params = [
+                    arg.arg for arg in node.args.args if arg.arg not in ("self", "cls")
+                ]
 
             params_section = ""
             if params:
@@ -302,7 +346,7 @@ Example:
 
     def _generate_report(self) -> DocstringReport:
         """Generar reporte final"""
-        issues_by_severity = {'error': 0, 'warning': 0, 'info': 0}
+        issues_by_severity = {"error": 0, "warning": 0, "info": 0}
         for issue in self.issues:
             issues_by_severity[issue.severity] += 1
 
@@ -311,9 +355,9 @@ Example:
             compliance_score = 100.0
         else:
             # Penalizar errores más que warnings
-            error_penalty = issues_by_severity['error'] * 10
-            warning_penalty = issues_by_severity['warning'] * 5
-            info_penalty = issues_by_severity['info'] * 1
+            error_penalty = issues_by_severity["error"] * 10
+            warning_penalty = issues_by_severity["warning"] * 5
+            info_penalty = issues_by_severity["info"] * 1
 
             total_penalty = error_penalty + warning_penalty + info_penalty
             max_penalty = self.total_objects * 10  # Máximo si todo fueran errores
@@ -327,7 +371,7 @@ Example:
             total_issues=len(self.issues),
             issues_by_severity=issues_by_severity,
             issues=self.issues,
-            compliance_score=compliance_score
+            compliance_score=compliance_score,
         )
 
     def generate_console_report(self, report: DocstringReport) -> str:
@@ -364,11 +408,15 @@ Example:
                 output.append(f"📁 {file_path}")
 
                 for issue in issues[:5]:  # Limitar a 5 por archivo
-                    severity_icon = {'error': '🔴', 'warning': '🟡', 'info': '🔵'}[issue.severity]
-                    output.append(f"  {severity_icon} L{issue.line_number}: {issue.object_name} - {issue.description}")
+                    severity_icon = {"error": "🔴", "warning": "🟡", "info": "🔵"}[
+                        issue.severity
+                    ]
+                    output.append(
+                        f"  {severity_icon} L{issue.line_number}: {issue.object_name} - {issue.description}"
+                    )
 
                     if issue.suggestion and len(output) < 50:  # Limitar sugerencias
-                        suggestion_lines = issue.suggestion.split('\n')[:3]
+                        suggestion_lines = issue.suggestion.split("\n")[:3]
                         for line in suggestion_lines:
                             if line.strip():
                                 output.append(f"      💡 {line.strip()}")
@@ -391,8 +439,12 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Verificador de Docstrings")
-    parser.add_argument("--format", choices=["console", "json"], default="console",
-                       help="Formato de salida")
+    parser.add_argument(
+        "--format",
+        choices=["console", "json"],
+        default="console",
+        help="Formato de salida",
+    )
     parser.add_argument("--output", "-o", help="Archivo de salida")
 
     args = parser.parse_args()
@@ -407,7 +459,7 @@ def main():
             output = checker.generate_console_report(report)
 
         if args.output:
-            with open(args.output, 'w', encoding='utf-8') as f:
+            with open(args.output, "w", encoding="utf-8") as f:
                 f.write(output)
             print(f"📄 Reporte guardado en: {args.output}")
         else:

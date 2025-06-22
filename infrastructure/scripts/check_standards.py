@@ -13,12 +13,12 @@ Script unificado que verifica:
 Genera reportes consolidados y métricas de compliance.
 """
 
-import sys
 import json
-from pathlib import Path
+import sys
+from dataclasses import asdict, dataclass
 from datetime import datetime
-from dataclasses import dataclass, asdict
-from typing import Dict, Any
+from pathlib import Path
+from typing import Any, Dict
 
 # Importar nuestros verificadores
 try:
@@ -28,22 +28,30 @@ except ImportError:
     # Si no se pueden importar, definir clases básicas
     class DocstringChecker:
         def check_project(self):
-            return type('Report', (), {
-                'compliance_score': 100.0,
-                'total_issues': 0,
-                'issues_by_severity': {'error': 0, 'warning': 0, 'info': 0}
-            })()
+            return type(
+                "Report",
+                (),
+                {
+                    "compliance_score": 100.0,
+                    "total_issues": 0,
+                    "issues_by_severity": {"error": 0, "warning": 0, "info": 0},
+                },
+            )()
 
         def generate_console_report(self, report):
             return "📝 Verificador de docstrings no disponible"
 
     class MarkdownChecker:
         def check_project(self):
-            return type('Report', (), {
-                'compliance_score': 100.0,
-                'total_issues': 0,
-                'issues_by_severity': {'error': 0, 'warning': 0}
-            })()
+            return type(
+                "Report",
+                (),
+                {
+                    "compliance_score": 100.0,
+                    "total_issues": 0,
+                    "issues_by_severity": {"error": 0, "warning": 0},
+                },
+            )()
 
         def generate_console_report(self, report):
             return "📄 Verificador de Markdown no disponible"
@@ -52,6 +60,7 @@ except ImportError:
 @dataclass
 class ConsolidatedReport:
     """Reporte consolidado de todos los estándares."""
+
     timestamp: str
     docstring_score: float
     markdown_score: float
@@ -86,25 +95,27 @@ class StandardsChecker:
         # Generar reporte consolidado
         return self._generate_consolidated_report(docstring_report, markdown_report)
 
-    def _generate_consolidated_report(self, docstring_report, markdown_report) -> ConsolidatedReport:
+    def _generate_consolidated_report(
+        self, docstring_report, markdown_report
+    ) -> ConsolidatedReport:
         """Generar reporte consolidado."""
 
         # Calcular score general (promedio ponderado)
         docstring_weight = 0.6  # Docstrings más importantes
-        markdown_weight = 0.4   # Markdown importante pero menos crítico
+        markdown_weight = 0.4  # Markdown importante pero menos crítico
 
         overall_score = (
-            docstring_report.compliance_score * docstring_weight +
-            markdown_report.compliance_score * markdown_weight
+            docstring_report.compliance_score * docstring_weight
+            + markdown_report.compliance_score * markdown_weight
         )
 
         # Consolidar issues por categoría
         issues_by_category = {
-            'docstring_errors': docstring_report.issues_by_severity.get('error', 0),
-            'docstring_warnings': docstring_report.issues_by_severity.get('warning', 0),
-            'docstring_info': docstring_report.issues_by_severity.get('info', 0),
-            'markdown_errors': markdown_report.issues_by_severity.get('error', 0),
-            'markdown_warnings': markdown_report.issues_by_severity.get('warning', 0),
+            "docstring_errors": docstring_report.issues_by_severity.get("error", 0),
+            "docstring_warnings": docstring_report.issues_by_severity.get("warning", 0),
+            "docstring_info": docstring_report.issues_by_severity.get("info", 0),
+            "markdown_errors": markdown_report.issues_by_severity.get("error", 0),
+            "markdown_warnings": markdown_report.issues_by_severity.get("warning", 0),
         }
 
         total_issues = sum(issues_by_category.values())
@@ -114,12 +125,19 @@ class StandardsChecker:
 
         # Summary
         summary = {
-            'docstring_objects': getattr(docstring_report, 'total_objects', 0),
-            'docstring_with_docs': getattr(docstring_report, 'objects_with_docstrings', 0),
-            'markdown_files': getattr(markdown_report, 'total_files', 0),
-            'markdown_files_with_issues': getattr(markdown_report, 'files_with_issues', 0),
-            'critical_issues': issues_by_category['docstring_errors'] + issues_by_category['markdown_errors'],
-            'recommendations': self._generate_recommendations(docstring_report, markdown_report)
+            "docstring_objects": getattr(docstring_report, "total_objects", 0),
+            "docstring_with_docs": getattr(
+                docstring_report, "objects_with_docstrings", 0
+            ),
+            "markdown_files": getattr(markdown_report, "total_files", 0),
+            "markdown_files_with_issues": getattr(
+                markdown_report, "files_with_issues", 0
+            ),
+            "critical_issues": issues_by_category["docstring_errors"]
+            + issues_by_category["markdown_errors"],
+            "recommendations": self._generate_recommendations(
+                docstring_report, markdown_report
+            ),
         }
 
         return ConsolidatedReport(
@@ -130,27 +148,27 @@ class StandardsChecker:
             total_issues=total_issues,
             issues_by_category=issues_by_category,
             compliance_grade=compliance_grade,
-            summary=summary
+            summary=summary,
         )
 
     def _calculate_grade(self, score: float) -> str:
         """Calcular grado basado en el score."""
         if score >= 95:
-            return 'A+'
+            return "A+"
         elif score >= 90:
-            return 'A'
+            return "A"
         elif score >= 85:
-            return 'B+'
+            return "B+"
         elif score >= 80:
-            return 'B'
+            return "B"
         elif score >= 75:
-            return 'C+'
+            return "C+"
         elif score >= 70:
-            return 'C'
+            return "C"
         elif score >= 60:
-            return 'D'
+            return "D"
         else:
-            return 'F'
+            return "F"
 
     def _generate_recommendations(self, docstring_report, markdown_report) -> list:
         """Generar recomendaciones basadas en los reportes."""
@@ -161,7 +179,7 @@ class StandardsChecker:
             recommendations.append("Mejorar documentación de funciones y clases")
             recommendations.append("Agregar docstrings faltantes en métodos públicos")
 
-        if docstring_report.issues_by_severity.get('info', 0) > 10:
+        if docstring_report.issues_by_severity.get("info", 0) > 10:
             recommendations.append("Corregir formato de docstrings (puntos finales)")
 
         # Recomendaciones para Markdown
@@ -169,15 +187,17 @@ class StandardsChecker:
             recommendations.append("Corregir formato de archivos Markdown")
             recommendations.append("Usar sintaxis de enlaces apropiada")
 
-        if getattr(markdown_report, 'total_files', 0) > 0:
-            if getattr(markdown_report, 'files_with_issues', 0) > 0:
+        if getattr(markdown_report, "total_files", 0) > 0:
+            if getattr(markdown_report, "files_with_issues", 0) > 0:
                 recommendations.append("Especificar lenguajes en bloques de código")
 
         # Recomendaciones generales
         if len(recommendations) == 0:
             recommendations.append("¡Excelente! Mantener estándares actuales")
         else:
-            recommendations.append("Configurar pre-commit hooks para verificación automática")
+            recommendations.append(
+                "Configurar pre-commit hooks para verificación automática"
+            )
 
         return recommendations[:5]  # Limitar a 5 recomendaciones
 
@@ -188,7 +208,9 @@ class StandardsChecker:
         output.append("🔍 REPORTE CONSOLIDADO DE ESTÁNDARES")
         output.append("=" * 50)
         output.append(f"📅 Timestamp: {report.timestamp}")
-        output.append(f"🎯 Score General: {report.overall_score:.1f}% (Grado: {report.compliance_grade})")
+        output.append(
+            f"🎯 Score General: {report.overall_score:.1f}% (Grado: {report.compliance_grade})"
+        )
         output.append("")
 
         output.append("📊 SCORES POR CATEGORÍA")
@@ -200,9 +222,15 @@ class StandardsChecker:
         output.append("📋 RESUMEN DE ISSUES")
         output.append("-" * 30)
         output.append(f"🔴 Errores críticos: {report.summary['critical_issues']}")
-        output.append(f"🟡 Warnings docstrings: {report.issues_by_category['docstring_warnings']}")
-        output.append(f"🔵 Info docstrings: {report.issues_by_category['docstring_info']}")
-        output.append(f"🟡 Warnings Markdown: {report.issues_by_category['markdown_warnings']}")
+        output.append(
+            f"🟡 Warnings docstrings: {report.issues_by_category['docstring_warnings']}"
+        )
+        output.append(
+            f"🔵 Info docstrings: {report.issues_by_category['docstring_info']}"
+        )
+        output.append(
+            f"🟡 Warnings Markdown: {report.issues_by_category['markdown_warnings']}"
+        )
         output.append(f"📊 Total issues: {report.total_issues}")
         output.append("")
 
@@ -211,23 +239,25 @@ class StandardsChecker:
         output.append(f"📝 Objetos Python: {report.summary['docstring_objects']}")
         output.append(f"✅ Con docstrings: {report.summary['docstring_with_docs']}")
         output.append(f"📄 Archivos Markdown: {report.summary['markdown_files']}")
-        output.append(f"⚠️  MD con issues: {report.summary['markdown_files_with_issues']}")
+        output.append(
+            f"⚠️  MD con issues: {report.summary['markdown_files_with_issues']}"
+        )
         output.append("")
 
         output.append("💡 RECOMENDACIONES")
         output.append("-" * 30)
-        for i, rec in enumerate(report.summary['recommendations'], 1):
+        for i, rec in enumerate(report.summary["recommendations"], 1):
             output.append(f"{i}. {rec}")
         output.append("")
 
         # Estado general
-        if report.compliance_grade in ['A+', 'A']:
+        if report.compliance_grade in ["A+", "A"]:
             status = "🎉 EXCELENTE"
             message = "Estándares de documentación excepcionales"
-        elif report.compliance_grade in ['B+', 'B']:
+        elif report.compliance_grade in ["B+", "B"]:
             status = "✅ BUENO"
             message = "Estándares sólidos con oportunidades de mejora"
-        elif report.compliance_grade in ['C+', 'C']:
+        elif report.compliance_grade in ["C+", "C"]:
             status = "⚠️  ACEPTABLE"
             message = "Necesita mejoras en documentación"
         else:
@@ -249,11 +279,18 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Verificador Integrado de Estándares")
-    parser.add_argument("--format", choices=["console", "json"], default="console",
-                       help="Formato de salida")
+    parser.add_argument(
+        "--format",
+        choices=["console", "json"],
+        default="console",
+        help="Formato de salida",
+    )
     parser.add_argument("--output", "-o", help="Archivo de salida")
-    parser.add_argument("--detailed", action="store_true",
-                       help="Mostrar reportes detallados de cada verificador")
+    parser.add_argument(
+        "--detailed",
+        action="store_true",
+        help="Mostrar reportes detallados de cada verificador",
+    )
 
     args = parser.parse_args()
 
@@ -267,7 +304,7 @@ def main():
             output = checker.generate_console_report(report)
 
         if args.output:
-            with open(args.output, 'w', encoding='utf-8') as f:
+            with open(args.output, "w", encoding="utf-8") as f:
                 f.write(output)
             print(f"\n📄 Reporte guardado en: {args.output}")
         else:
@@ -275,22 +312,22 @@ def main():
 
         # Mostrar reportes detallados si se solicita
         if args.detailed and args.format == "console":
-            print("\n" + "="*60)
+            print("\n" + "=" * 60)
             print("📝 REPORTE DETALLADO DE DOCSTRINGS")
-            print("="*60)
+            print("=" * 60)
             docstring_report = checker.docstring_checker.check_project()
             print(checker.docstring_checker.generate_console_report(docstring_report))
 
-            print("\n" + "="*60)
+            print("\n" + "=" * 60)
             print("📄 REPORTE DETALLADO DE MARKDOWN")
-            print("="*60)
+            print("=" * 60)
             markdown_report = checker.markdown_checker.check_project()
             print(checker.markdown_checker.generate_console_report(markdown_report))
 
         # Exit code basado en grado
-        if report.compliance_grade in ['A+', 'A']:
+        if report.compliance_grade in ["A+", "A"]:
             sys.exit(0)
-        elif report.compliance_grade in ['B+', 'B']:
+        elif report.compliance_grade in ["B+", "B"]:
             sys.exit(1)
         else:
             sys.exit(2)

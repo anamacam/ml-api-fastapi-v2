@@ -1,20 +1,23 @@
+# -*- coding: utf-8 -*-
 """
 🏥 Sistema de Monitoreo de Salud y Métricas
+from typing import Any, Dict, List, Optional, Union
 
 Implementación TDD - FASE GREEN
 """
 
-import time
 import statistics
+import time
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Union
+from datetime import datetime
 from enum import Enum
+from typing import Any, Dict, List, Optional, Union
 
 
 class HealthStatus(Enum):
     """Estados de salud del sistema"""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
@@ -23,6 +26,7 @@ class HealthStatus(Enum):
 
 class AnomalySeverity(Enum):
     """Severidad de anomalías detectadas"""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -32,6 +36,7 @@ class AnomalySeverity(Enum):
 @dataclass
 class Anomaly:
     """Anomalía detectada en métricas"""
+
     metric_name: str
     value: float
     threshold: float
@@ -44,6 +49,7 @@ class Anomaly:
 @dataclass
 class SystemMetrics:
     """Métricas actuales del sistema"""
+
     avg_prediction_latency: float = 0.0
     model_load_times: Dict[str, float] = field(default_factory=dict)
     error_count_by_type: Dict[str, int] = field(default_factory=dict)
@@ -70,6 +76,7 @@ class SystemMetrics:
 @dataclass
 class ComponentStatus:
     """Estado de un componente del sistema"""
+
     status: HealthStatus
     last_check: datetime = field(default_factory=datetime.now)
     message: Optional[str] = None
@@ -79,6 +86,7 @@ class ComponentStatus:
 @dataclass
 class DetailedHealth:
     """Estado de salud detallado del sistema"""
+
     overall_status: HealthStatus
     models: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     database: Dict[str, Any] = field(default_factory=dict)
@@ -103,35 +111,29 @@ class HealthMonitor:
         self.start_time = time.time()
 
         # Métricas de latencia
-        self.latency_measurements = deque(maxlen=window_size)
+        self.latency_measurements: deque[float] = deque(maxlen=window_size)
 
         # Tracking de modelos
-        self.model_load_times = {}
-        self.model_statuses = {}
+        self.model_load_times: Dict[str, float] = {}
+        self.model_statuses: Dict[str, HealthStatus] = {}
 
         # Tracking de errores
-        self.error_counts = defaultdict(int)
+        self.error_counts: defaultdict[str, int] = defaultdict(int)
         self.total_requests = 0
         self.successful_requests = 0
 
         # Estados de componentes
         self.database_status = HealthStatus.HEALTHY
-        self.external_services = {}
+        self.external_services: Dict[str, HealthStatus] = {}
 
         # Umbrales para detección de anomalías
-        self.thresholds = {
+        self.thresholds: Dict[str, Dict[str, float]] = {
             "prediction_latency": {
                 "warning": 1.0,  # 1 segundo
-                "critical": 5.0  # 5 segundos
+                "critical": 5.0,  # 5 segundos
             },
-            "error_rate": {
-                "warning": 0.05,  # 5%
-                "critical": 0.15  # 15%
-            },
-            "memory_usage": {
-                "warning": 1024,  # 1GB
-                "critical": 2048  # 2GB
-            }
+            "error_rate": {"warning": 0.05, "critical": 0.15},  # 5%  # 15%
+            "memory_usage": {"warning": 1024, "critical": 2048},  # 1GB  # 2GB
         }
 
     def record_prediction_latency(self, latency_seconds: float):
@@ -187,7 +189,9 @@ class HealthMonitor:
             status = HealthStatus(status)
         self.database_status = status
 
-    def set_external_service_status(self, service_name: str, status: Union[str, HealthStatus]):
+    def set_external_service_status(
+        self, service_name: str, status: Union[str, HealthStatus]
+    ):
         """Establecer estado de servicio externo"""
         if isinstance(status, str):
             status = HealthStatus(status)
@@ -195,7 +199,7 @@ class HealthMonitor:
 
     def _adjust_health_score(self, delta: float):
         """Ajustar puntaje de salud del sistema"""
-        current_score = getattr(self, '_health_score', 1.0)
+        current_score = getattr(self, "_health_score", 1.0)
         self._health_score = max(0.0, min(1.0, current_score + delta))
 
     def get_current_metrics(self) -> SystemMetrics:
@@ -211,7 +215,7 @@ class HealthMonitor:
             avg_latency = statistics.mean(self.latency_measurements)
 
         # Calcular health score
-        health_score = getattr(self, '_health_score', 1.0)
+        health_score = getattr(self, "_health_score", 1.0)
 
         # Calcular uptime
         uptime = time.time() - self.start_time
@@ -223,7 +227,7 @@ class HealthMonitor:
             total_requests=self.total_requests,
             successful_requests=self.successful_requests,
             health_score=health_score,
-            uptime_seconds=uptime
+            uptime_seconds=uptime,
         )
 
     def detect_anomalies(self) -> List[Anomaly]:
@@ -237,40 +241,54 @@ class HealthMonitor:
         metrics = self.get_current_metrics()
 
         # Verificar latencia de predicción
-        if metrics.avg_prediction_latency > self.thresholds["prediction_latency"]["critical"]:
-            anomalies.append(Anomaly(
-                metric_name="prediction_latency",
-                value=metrics.avg_prediction_latency,
-                threshold=self.thresholds["prediction_latency"]["critical"],
-                threshold_exceeded=True,
-                severity="critical"
-            ))
-        elif metrics.avg_prediction_latency > self.thresholds["prediction_latency"]["warning"]:
-            anomalies.append(Anomaly(
-                metric_name="prediction_latency",
-                value=metrics.avg_prediction_latency,
-                threshold=self.thresholds["prediction_latency"]["warning"],
-                threshold_exceeded=True,
-                severity="warning"
-            ))
+        if (
+            metrics.avg_prediction_latency
+            > self.thresholds["prediction_latency"]["critical"]  # noqa: W503
+        ):
+            anomalies.append(
+                Anomaly(
+                    metric_name="prediction_latency",
+                    value=metrics.avg_prediction_latency,
+                    threshold=self.thresholds["prediction_latency"]["critical"],
+                    threshold_exceeded=True,
+                    severity="critical",
+                )
+            )
+        elif (
+            metrics.avg_prediction_latency
+            > self.thresholds["prediction_latency"]["warning"]  # noqa: W503
+        ):
+            anomalies.append(
+                Anomaly(
+                    metric_name="prediction_latency",
+                    value=metrics.avg_prediction_latency,
+                    threshold=self.thresholds["prediction_latency"]["warning"],
+                    threshold_exceeded=True,
+                    severity="warning",
+                )
+            )
 
         # Verificar tasa de error
         if metrics.error_rate > self.thresholds["error_rate"]["critical"]:
-            anomalies.append(Anomaly(
-                metric_name="error_rate",
-                value=metrics.error_rate,
-                threshold=self.thresholds["error_rate"]["critical"],
-                threshold_exceeded=True,
-                severity="critical"
-            ))
+            anomalies.append(
+                Anomaly(
+                    metric_name="error_rate",
+                    value=metrics.error_rate,
+                    threshold=self.thresholds["error_rate"]["critical"],
+                    threshold_exceeded=True,
+                    severity="critical",
+                )
+            )
         elif metrics.error_rate > self.thresholds["error_rate"]["warning"]:
-            anomalies.append(Anomaly(
-                metric_name="error_rate",
-                value=metrics.error_rate,
-                threshold=self.thresholds["error_rate"]["warning"],
-                threshold_exceeded=True,
-                severity="warning"
-            ))
+            anomalies.append(
+                Anomaly(
+                    metric_name="error_rate",
+                    value=metrics.error_rate,
+                    threshold=self.thresholds["error_rate"]["warning"],
+                    threshold_exceeded=True,
+                    severity="warning",
+                )
+            )
 
         return anomalies
 
@@ -290,7 +308,7 @@ class HealthMonitor:
             models_status[model_id] = {
                 "status": status.value,
                 "load_time": self.model_load_times.get(model_id, 0),
-                "last_check": datetime.now().isoformat()
+                "last_check": datetime.now().isoformat(),
             }
 
             if status != HealthStatus.HEALTHY:
@@ -301,7 +319,7 @@ class HealthMonitor:
         # Evaluar base de datos
         database_info = {
             "status": self.database_status.value,
-            "last_check": datetime.now().isoformat()
+            "last_check": datetime.now().isoformat(),
         }
 
         if self.database_status != HealthStatus.HEALTHY:
@@ -313,7 +331,7 @@ class HealthMonitor:
         for service, status in self.external_services.items():
             external_services_info[service] = {
                 "status": status.value,
-                "last_check": datetime.now().isoformat()
+                "last_check": datetime.now().isoformat(),
             }
 
             if status != HealthStatus.HEALTHY:
@@ -333,7 +351,7 @@ class HealthMonitor:
             models=models_status,
             database=database_info,
             external_services=external_services_info,
-            issues=issues
+            issues=issues,
         )
 
     def reset_metrics(self):

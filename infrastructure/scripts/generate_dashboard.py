@@ -11,78 +11,79 @@ Genera dashboard HTML interactivo con:
 """
 
 import json
-import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 
 class DashboardGenerator:
     """Generador de dashboard de progreso."""
-    
+
     def __init__(self, project_root: str = "."):
         self.project_root = Path(project_root)
         self.reports_dir = self.project_root / "reports"
         self.reports_dir.mkdir(exist_ok=True)
-    
+
     def generate_dashboard(self):
         """Generar dashboard completo."""
         print("📊 Generando dashboard de progreso...")
-        
+
         # Cargar datos
         progress_data = self._load_progress_data()
         current_report = self._load_current_report()
-        
+
         # Generar HTML
         html_content = self._generate_html(progress_data, current_report)
-        
+
         # Guardar dashboard
         dashboard_file = self.reports_dir / "dashboard.html"
-        with open(dashboard_file, 'w', encoding='utf-8') as f:
+        with open(dashboard_file, "w", encoding="utf-8") as f:
             f.write(html_content)
-        
+
         print(f"✅ Dashboard generado: {dashboard_file}")
         return dashboard_file
-    
+
     def _load_progress_data(self) -> Dict[str, Any]:
         """Cargar datos de progreso."""
         progress_file = self.reports_dir / "progress_summary.json"
-        
+
         if progress_file.exists():
-            with open(progress_file, 'r', encoding='utf-8') as f:
+            with open(progress_file, "r", encoding="utf-8") as f:
                 return json.load(f)
-        
+
         return {
-            'current_score': 73.8,
-            'improvement': 'Sin datos',
-            'trend': 'stable',
-            'recommendations': []
+            "current_score": 73.8,
+            "improvement": "Sin datos",
+            "trend": "stable",
+            "recommendations": [],
         }
-    
+
     def _load_current_report(self) -> Dict[str, Any]:
         """Cargar reporte actual."""
         report_file = self.reports_dir / "current_debt.json"
-        
+
         if report_file.exists():
-            with open(report_file, 'r', encoding='utf-8') as f:
+            with open(report_file, "r", encoding="utf-8") as f:
                 return json.load(f)
-        
-        return {'metrics': []}
-    
+
+        return {"metrics": []}
+
     def _load_history(self) -> List[Dict[str, Any]]:
         """Cargar historial para gráficos."""
         history_file = self.reports_dir / "quality_history.json"
-        
+
         if history_file.exists():
-            with open(history_file, 'r', encoding='utf-8') as f:
+            with open(history_file, "r", encoding="utf-8") as f:
                 return json.load(f)
-        
+
         return []
-    
-    def _generate_html(self, progress_data: Dict[str, Any], current_report: Dict[str, Any]) -> str:
+
+    def _generate_html(
+        self, progress_data: Dict[str, Any], current_report: Dict[str, Any]
+    ) -> str:
         """Generar HTML completo del dashboard."""
         history = self._load_history()
-        
+
         return f"""<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -114,7 +115,7 @@ class DashboardGenerator:
                 <h3>📈 Evolución del Score</h3>
                 <canvas id="scoreChart"></canvas>
             </div>
-            
+
             <div class="chart-container">
                 <h3>🎯 Métricas Detalladas</h3>
                 <canvas id="metricsChart"></canvas>
@@ -138,9 +139,20 @@ class DashboardGenerator:
     </script>
 </body>
 </html>"""
-    
+
     def _get_css_styles(self) -> str:
         """Obtener estilos CSS."""
+        base_styles = self._get_base_css()
+        layout_styles = self._get_layout_css()
+        component_styles = self._get_component_css()
+        responsive_styles = self._get_responsive_css()
+
+        return (
+            f"{base_styles}\n{layout_styles}\n{component_styles}\n{responsive_styles}"
+        )
+
+    def _get_base_css(self) -> str:
+        """Estilos base y reset."""
         return """
         * {
             margin: 0;
@@ -154,13 +166,35 @@ class DashboardGenerator:
             min-height: 100vh;
             color: #333;
         }
+        """
 
+    def _get_layout_css(self) -> str:
+        """Estilos de layout principal."""
+        return """
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
 
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .charts-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        """
+
+    def _get_component_css(self) -> str:
+        """Estilos de componentes."""
+        return """
         header {
             text-align: center;
             margin-bottom: 30px;
@@ -178,24 +212,6 @@ class DashboardGenerator:
             -webkit-text-fill-color: transparent;
         }
 
-        .subtitle {
-            font-size: 1.2em;
-            color: #666;
-            margin-bottom: 10px;
-        }
-
-        .timestamp {
-            font-size: 0.9em;
-            color: #888;
-        }
-
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-
         .metric-card {
             background: rgba(255, 255, 255, 0.95);
             padding: 25px;
@@ -209,94 +225,30 @@ class DashboardGenerator:
             transform: translateY(-5px);
         }
 
-        .metric-title {
-            font-size: 1.1em;
-            color: #666;
-            margin-bottom: 10px;
-        }
-
-        .metric-value {
-            font-size: 2.5em;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-
-        .metric-change {
-            font-size: 0.9em;
-            padding: 5px 10px;
-            border-radius: 20px;
-            display: inline-block;
-        }
-
-        .positive { background: #d4edda; color: #155724; }
-        .negative { background: #f8d7da; color: #721c24; }
-        .neutral { background: #e2e3e5; color: #383d41; }
-
         .score-excellent { color: #28a745; }
         .score-good { color: #17a2b8; }
         .score-warning { color: #ffc107; }
         .score-critical { color: #dc3545; }
+        """
 
-        .charts-section {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-
-        .chart-container {
-            background: rgba(255, 255, 255, 0.95);
-            padding: 25px;
-            border-radius: 15px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        }
-
-        .chart-container h3 {
-            margin-bottom: 20px;
-            color: #333;
-        }
-
-        .recommendations-section {
-            background: rgba(255, 255, 255, 0.95);
-            padding: 25px;
-            border-radius: 15px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            margin-bottom: 30px;
-        }
-
-        .recommendations-list {
-            display: grid;
-            gap: 15px;
-        }
-
-        .recommendation-item {
-            padding: 15px;
-            background: #f8f9fa;
-            border-left: 4px solid #667eea;
-            border-radius: 5px;
-        }
-
-        footer {
-            text-align: center;
-            color: rgba(255, 255, 255, 0.8);
-            margin-top: 30px;
-        }
-
+    def _get_responsive_css(self) -> str:
+        """Estilos responsivos."""
+        return """
         @media (max-width: 768px) {
             .charts-section {
                 grid-template-columns: 1fr;
             }
-            
+
             .metrics-grid {
                 grid-template-columns: 1fr;
             }
         }
         """
-    
+
     def _generate_score_card(self, progress_data: Dict[str, Any]) -> str:
         """Generar tarjeta de score principal."""
-        score = progress_data.get('current_score', 73.8)
-        
+        score = progress_data.get("current_score", 73.8)
+
         if score >= 85:
             score_class = "score-excellent"
             icon = "🎉"
@@ -309,7 +261,7 @@ class DashboardGenerator:
         else:
             score_class = "score-critical"
             icon = "🚨"
-        
+
         return f"""
         <div class="metric-card">
             <div class="metric-title">{icon} Score de Calidad</div>
@@ -317,21 +269,21 @@ class DashboardGenerator:
             <div class="metric-change neutral">de 100 puntos</div>
         </div>
         """
-    
+
     def _generate_progress_card(self, progress_data: Dict[str, Any]) -> str:
         """Generar tarjeta de progreso."""
-        improvement = progress_data.get('improvement', 'Sin datos')
-        
-        if '+' in improvement:
+        improvement = progress_data.get("improvement", "Sin datos")
+
+        if "+" in improvement:
             change_class = "positive"
             icon = "📈"
-        elif '-' in improvement:
+        elif "-" in improvement:
             change_class = "negative"
             icon = "📉"
         else:
             change_class = "neutral"
             icon = "➡️"
-        
+
         return f"""
         <div class="metric-card">
             <div class="metric-title">{icon} Progreso</div>
@@ -339,26 +291,22 @@ class DashboardGenerator:
             <div class="metric-change {change_class}">{improvement}</div>
         </div>
         """
-    
+
     def _generate_trend_card(self, progress_data: Dict[str, Any]) -> str:
         """Generar tarjeta de tendencia."""
-        trend = progress_data.get('trend', 'stable')
-        
-        trend_icons = {
-            'improving': '🚀',
-            'stable': '📊',
-            'declining': '📉'
-        }
-        
+        trend = progress_data.get("trend", "stable")
+
+        trend_icons = {"improving": "🚀", "stable": "📊", "declining": "📉"}
+
         trend_labels = {
-            'improving': 'Mejorando',
-            'stable': 'Estable',
-            'declining': 'Disminuyendo'
+            "improving": "Mejorando",
+            "stable": "Estable",
+            "declining": "Disminuyendo",
         }
-        
-        icon = trend_icons.get(trend, '📊')
-        label = trend_labels.get(trend, 'Estable')
-        
+
+        icon = trend_icons.get(trend, "📊")
+        label = trend_labels.get(trend, "Estable")
+
         return f"""
         <div class="metric-card">
             <div class="metric-title">{icon} Tendencia</div>
@@ -366,11 +314,11 @@ class DashboardGenerator:
             <div class="metric-change neutral">Últimos 5 puntos</div>
         </div>
         """
-    
+
     def _generate_milestone_card(self, progress_data: Dict[str, Any]) -> str:
         """Generar tarjeta de milestone."""
-        next_milestone = progress_data.get('next_milestone', 'Alcanzar 75 puntos')
-        
+        next_milestone = progress_data.get("next_milestone", "Alcanzar 75 puntos")
+
         return f"""
         <div class="metric-card">
             <div class="metric-title">🎯 Próximo Objetivo</div>
@@ -378,28 +326,30 @@ class DashboardGenerator:
             <div class="metric-change neutral">Siguiente meta</div>
         </div>
         """
-    
+
     def _generate_recommendations_html(self, recommendations: List[str]) -> str:
         """Generar HTML de recomendaciones."""
         if not recommendations:
             return '<div class="recommendation-item">🎉 ¡Todo perfecto! Sin recomendaciones.</div>'
-        
+
         html = ""
         for rec in recommendations:
             html += f'<div class="recommendation-item">{rec}</div>'
-        
+
         return html
-    
-    def _generate_javascript(self, history: List[Dict[str, Any]], current_report: Dict[str, Any]) -> str:
+
+    def _generate_javascript(
+        self, history: List[Dict[str, Any]], current_report: Dict[str, Any]
+    ) -> str:
         """Generar JavaScript para los gráficos."""
         # Preparar datos para gráficos
         if history:
-            dates = [point['timestamp'][:10] for point in history]  # Solo fecha
-            scores = [point['total_score'] for point in history]
+            dates = [point["timestamp"][:10] for point in history]  # Solo fecha
+            scores = [point["total_score"] for point in history]
         else:
-            dates = [datetime.now().strftime('%Y-%m-%d')]
+            dates = [datetime.now().strftime("%Y-%m-%d")]
             scores = [73.8]
-        
+
         return f"""
         // Gráfico de evolución del score
         const scoreCtx = document.getElementById('scoreChart').getContext('2d');
@@ -469,4 +419,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()

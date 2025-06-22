@@ -13,7 +13,7 @@ git commit -m "feat: nueva funcionalidad"
 ```
 - ✅ **Checks rápidos** (5-10 segundos)
 - ✅ **Bloquea commits rotos** (errores de sintaxis, complejidad extrema)
-- ✅ **Formateo con Black** 
+- ✅ **Formateo con Black**
 - ✅ **Linting con Flake8**
 - ✅ **Tracking básico de progreso**
 
@@ -180,9 +180,9 @@ git push
 
 ## 🎯 ¡SISTEMA ACTIVADO!
 
-**Tu score actual: 73.8/100** 📊  
-**Meta inmediata: 75+ puntos** 🎯  
-**Próximo milestone: 80+ puntos** 🚀  
+**Tu score actual: 73.8/100** 📊
+**Meta inmediata: 75+ puntos** 🎯
+**Próximo milestone: 80+ puntos** 🚀
 
 ### 🎉 **¡Cada commit ahora mejora automáticamente tu calidad!**
 
@@ -191,4 +191,4 @@ git push
 - 🎯 **Progresivo** (mejoras graduales)
 - 🎉 **Motivador** (celebraciones y gamificación)
 - 📊 **Visual** (dashboard y métricas)
-- 🚀 **Automático** (cero esfuerzo adicional) 
+- 🚀 **Automático** (cero esfuerzo adicional)

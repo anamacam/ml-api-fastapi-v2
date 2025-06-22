@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 🗄️ DATABASE MODULE - TDD CICLO 6 [REFACTORED]
 Fase: REFACTOR - Código optimizado y mejorado
@@ -13,44 +14,47 @@ Módulo enterprise de base de datos con:
 - Optimizaciones específicas para VPS
 """
 
-import os
 import asyncio
-import time
 import logging
-import psutil
-from typing import Optional, Dict, Any, List, TypeVar, Generic, Type, Union
+import os
+import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from enum import Enum
 from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
 
-from sqlalchemy import create_engine, text, select, func
+import psutil
+from sqlalchemy import func, select, text
+from sqlalchemy.exc import DisconnectionError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import (
-    create_async_engine,
     AsyncEngine,
     AsyncSession,
-    async_sessionmaker
+    async_sessionmaker,
+    create_async_engine,
 )
-from sqlalchemy.orm import declarative_base, sessionmaker, DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import QueuePool, StaticPool
-from sqlalchemy.exc import SQLAlchemyError, DisconnectionError, TimeoutError
 
 # Configurar logger específico para el módulo de base de datos
 logger = logging.getLogger(__name__)
+
 
 # Base para modelos SQLAlchemy
 class Base(DeclarativeBase):
     pass
 
+
 # Type hints para Generic Repository
 ModelType = TypeVar("ModelType", bound=Base)
 
 # Variable global para el gestor de base de datos
-_database_manager: Optional['DatabaseManager'] = None
+_database_manager: Optional["DatabaseManager"] = None
 
 
 class DatabaseDriver(str, Enum):
     """Drivers de base de datos soportados"""
+
     SQLITE = "sqlite"
     POSTGRESQL = "postgresql"
     MYSQL = "mysql"
@@ -58,6 +62,7 @@ class DatabaseDriver(str, Enum):
 
 class HealthStatus(str, Enum):
     """Estados de salud de la base de datos"""
+
     HEALTHY = "healthy"
     UNHEALTHY = "unhealthy"
     DEGRADED = "degraded"
@@ -83,6 +88,7 @@ class DatabaseConfig:
         query_timeout: Timeout para queries individuales
         connection_retries: Intentos de reconexión automática
     """
+
     database_url: str = "sqlite+aiosqlite:///:memory:"
     echo: bool = False
     pool_size: int = 10
@@ -108,7 +114,9 @@ class DatabaseConfig:
         if self.pool_timeout < 1:
             raise ValueError("pool_timeout debe ser mayor a 0")
         if self.pool_recycle < 300:  # Mínimo 5 minutos
-            logger.warning(f"pool_recycle muy bajo ({self.pool_recycle}s), recomendado >= 300s")
+            logger.warning(
+                f"pool_recycle muy bajo ({self.pool_recycle}s), recomendado >= 300s"
+            )
         if self.query_timeout < 10:
             raise ValueError("query_timeout debe ser al menos 10 segundos")
         if self.connection_retries < 0 or self.connection_retries > 10:
@@ -134,7 +142,7 @@ class DatabaseConfig:
             raise ValueError(f"Driver no soportado en URL: {self.database_url}")
 
     @classmethod
-    def from_env(cls) -> 'DatabaseConfig':
+    def from_env(cls) -> "DatabaseConfig":
         """
         Crear configuración desde variables de entorno con validación
 
@@ -153,7 +161,7 @@ class DatabaseConfig:
                 pool_timeout=int(os.getenv("DB_POOL_TIMEOUT", "30")),
                 pool_recycle=int(os.getenv("DB_POOL_RECYCLE", "3600")),
                 query_timeout=int(os.getenv("DB_QUERY_TIMEOUT", "60")),
-                connection_retries=int(os.getenv("DB_CONNECTION_RETRIES", "3"))
+                connection_retries=int(os.getenv("DB_CONNECTION_RETRIES", "3")),
             )
         except ValueError as e:
             raise ValueError(f"Error en configuración de entorno: {e}")
@@ -169,7 +177,7 @@ class DatabaseConfig:
             "pool_recycle": self.pool_recycle,
             "pool_pre_ping": self.pool_pre_ping,
             "query_timeout": self.query_timeout,
-            "connection_retries": self.connection_retries
+            "connection_retries": self.connection_retries,
         }
 
 
@@ -201,7 +209,7 @@ class VPSDatabaseConfig(DatabaseConfig):
         optimal_pool_size = min(
             cpu_count * 2,  # 2 conexiones por CPU
             int(memory_gb * 2),  # 2 conexiones por GB de RAM
-            20  # Máximo 20 conexiones
+            20,  # Máximo 20 conexiones
         )
         self.pool_size = min(self.pool_size, optimal_pool_size)
 
@@ -221,11 +229,20 @@ class VPSDatabaseConfig(DatabaseConfig):
         # Ajustar pool_recycle para conexiones remotas
         self.pool_recycle = min(self.pool_recycle, 1800)  # Máximo 30 minutos
 
-        logger.info(f"Configuración VPS optimizada: CPU={cpu_count}, RAM={memory_gb:.1f}GB, "
-                   f"pool_size={self.pool_size}, max_overflow={self.max_overflow}")
+        logger.info(
+            "Configuración VPS optimizada: CPU=%s, RAM=%.1fGB, "
+            "pool_size=%s, max_overflow=%s",
+            cpu_count,
+            memory_gb,
+            self.pool_size,
+            self.max_overflow,
+        )
 
     def get_connection_args(self) -> Dict[str, Any]:
-        """Devuelve argumentos de conexión optimizados solo para drivers compatibles (PostgreSQL/MySQL)."""
+        """
+        Devuelve argumentos de conexión optimizados para drivers
+        compatibles (PostgreSQL/MySQL).
+        """
         driver = self.database_url.split(":")[0]
         if driver.startswith("postgresql") or driver.startswith("mysql"):
             return {
@@ -254,14 +271,18 @@ class DatabaseManager:
         session_factory (async_sessionmaker): Fábrica de sesiones
         is_test (bool): Flag para entorno de pruebas
     """
-    engine: Optional[AsyncEngine] = None
-    session_factory: Optional[async_sessionmaker[AsyncSession]] = None
 
-    def __init__(self, config: Union[DatabaseConfig, VPSDatabaseConfig], is_test: bool = False):
+    def __init__(
+        self, config: Union[DatabaseConfig, VPSDatabaseConfig], is_test: bool = False
+    ):
         if not isinstance(config, (DatabaseConfig, VPSDatabaseConfig)):
-            raise TypeError("config debe ser una instancia de DatabaseConfig o VPSDatabaseConfig")
-        self.config = config
-        self.is_test = is_test
+            raise TypeError(
+                "config debe ser una instancia de DatabaseConfig o VPSDatabaseConfig"
+            )
+        self.config: Union[DatabaseConfig, VPSDatabaseConfig] = config
+        self.is_test: bool = is_test
+        self.engine: Optional[AsyncEngine] = None
+        self.session_factory: Optional[async_sessionmaker[AsyncSession]] = None
         self._is_initialized = False
         self._connection_metrics: Dict[str, Any] = {}
         self._last_health_check: Optional[Dict[str, Any]] = None
@@ -293,14 +314,16 @@ class DatabaseManager:
             engine_args["poolclass"] = StaticPool
             engine_args["connect_args"] = {"check_same_thread": False}
         else:
-            engine_args.update({
-                "poolclass": QueuePool,
-                "pool_size": self.config.pool_size,
-                "max_overflow": self.config.max_overflow,
-                "pool_timeout": self.config.pool_timeout,
-                "pool_recycle": self.config.pool_recycle,
-                "pool_pre_ping": self.config.pool_pre_ping,
-            })
+            engine_args.update(
+                {
+                    "poolclass": QueuePool,
+                    "pool_size": self.config.pool_size,
+                    "max_overflow": self.config.max_overflow,
+                    "pool_timeout": self.config.pool_timeout,
+                    "pool_recycle": self.config.pool_recycle,
+                    "pool_pre_ping": self.config.pool_pre_ping,
+                }
+            )
             if isinstance(self.config, VPSDatabaseConfig):
                 engine_args["connect_args"] = self.config.get_connection_args()
             elif self.config.connect_args:
@@ -309,28 +332,41 @@ class DatabaseManager:
         last_exception: Optional[Exception] = None
         for attempt in range(self.config.connection_retries + 1):
             try:
-                self.engine = create_async_engine(self.config.database_url, **engine_args)
+                self.engine = create_async_engine(
+                    self.config.database_url, **engine_args
+                )
                 await self._test_connection()
                 self.session_factory = async_sessionmaker(
                     bind=self.engine,
                     class_=AsyncSession,
                     expire_on_commit=False,
-                    autoflush=False
+                    autoflush=False,
                 )
-                logger.info("Motor de base de datos y fábrica de sesiones creados exitosamente.")
+                logger.info(
+                    "Motor de base de datos y fábrica de sesiones creados exitosamente."
+                )
                 return
             except (SQLAlchemyError, DisconnectionError) as e:
                 logger.error(f"Error creando engine: {e}", exc_info=True)
                 last_exception = e
                 if attempt < self.config.connection_retries:
                     wait_time = 2 ** (attempt + 1)
-                    logger.warning(f"Intento {attempt + 1} fallido: {e}. Reintentando en {wait_time}s...")
+                    logger.warning(
+                        "Intento %s fallido: %s. Reintentando en %ss...",
+                        attempt + 1,
+                        e,
+                        wait_time,
+                    )
                     await asyncio.sleep(wait_time)
 
-        logger.error(f"Todos los intentos de conexión fallaron: {last_exception}", exc_info=True)
+        logger.error(
+            f"Todos los intentos de conexión fallaron: {last_exception}", exc_info=True
+        )
         if last_exception:
             raise last_exception
-        raise SQLAlchemyError("No se pudo conectar a la base de datos después de múltiples reintentos.")
+        raise SQLAlchemyError(
+            "No se pudo conectar a la base de datos después de múltiples reintentos."
+        )
 
     async def _test_connection(self) -> None:
         """Verificar la conexión con la base de datos"""
@@ -341,7 +377,9 @@ class DatabaseManager:
                 await connection.execute(text("SELECT 1"))
             logger.info("Conexión con la base de datos verificada exitosamente.")
         except Exception as e:
-            logger.error(f"Fallo en la verificación de conexión a la base de datos: {e}")
+            logger.error(
+                f"Fallo en la verificación de conexión a la base de datos: {e}"
+            )
             raise
 
     @asynccontextmanager
@@ -376,14 +414,24 @@ class DatabaseManager:
         if not self.engine:
             return {"error": "Engine no inicializado"}
 
-        pool = self.engine.pool
-        self._connection_metrics = {
-            "pool_class": pool.__class__.__name__,
-            "pool_size": pool.size(),
-            "connections_in_pool": pool.checkedin(),
-            "connections_checked_out": pool.checkedout(),
-            "current_overflow": pool.overflow(),
-        }
+        try:
+            pool = self.engine.pool
+            self._connection_metrics = {
+                "pool_class": pool.__class__.__name__,
+                "pool_size": getattr(pool, "size", lambda: 0)(),
+                "connections_in_pool": getattr(pool, "checkedin", lambda: 0)(),
+                "connections_checked_out": getattr(pool, "checkedout", lambda: 0)(),
+                "current_overflow": getattr(pool, "overflow", lambda: 0)(),
+            }
+        except AttributeError:
+            # Fallback si los métodos no están disponibles
+            self._connection_metrics = {
+                "pool_class": "unknown",
+                "pool_size": 0,
+                "connections_in_pool": 0,
+                "connections_checked_out": 0,
+                "current_overflow": 0,
+            }
         return self._connection_metrics
 
     async def close(self) -> None:
@@ -431,7 +479,9 @@ class BaseRepository(Generic[ModelType]):
         Returns:
             ModelType: La instancia del modelo creado.
         """
-        self.logger.debug(f"Creando una nueva instancia de {self.model.__name__} con datos: {data}")
+        self.logger.debug(
+            f"Creando una nueva instancia de {self.model.__name__} con datos: {data}"
+        )
         self._validate_create_data(data)
 
         db_obj = self.model(**data)
@@ -439,7 +489,9 @@ class BaseRepository(Generic[ModelType]):
         await self.session.flush()
         await self.session.refresh(db_obj)
 
-        self.logger.info(f"{self.model.__name__} creado con ID: {db_obj.id}")
+        self.logger.info(
+            f"{self.model.__name__} creado con ID: {getattr(db_obj, 'id', 'N/A')}"
+        )
         return db_obj
 
     async def get_by_id(self, entity_id: Union[int, str]) -> Optional[ModelType]:
@@ -453,7 +505,13 @@ class BaseRepository(Generic[ModelType]):
             Optional[ModelType]: El registro encontrado o None.
         """
         self.logger.debug(f"Buscando {self.model.__name__} con ID: {entity_id}")
-        query = select(self.model).where(self.model.id == entity_id)
+        # Usar getattr para acceder al atributo id de forma segura
+        id_attr = getattr(self.model, "id", None)
+        if id_attr is None:
+            raise AttributeError(
+                f"Model {self.model.__name__} doesn't have an 'id' attribute"
+            )
+        query = select(self.model).where(id_attr == entity_id)
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
@@ -468,12 +526,16 @@ class BaseRepository(Generic[ModelType]):
         Returns:
             List[ModelType]: Lista de registros
         """
-        self.logger.debug(f"Obteniendo todos los {self.model.__name__} con skip={skip}, limit={limit}")
+        self.logger.debug(
+            f"Obteniendo todos los {self.model.__name__} con skip={skip}, limit={limit}"
+        )
         query = select(self.model).offset(skip).limit(limit)
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
-    async def update(self, entity_id: Union[int, str], data: Dict[str, Any]) -> Optional[ModelType]:
+    async def update(
+        self, entity_id: Union[int, str], data: Dict[str, Any]
+    ) -> Optional[ModelType]:
         """
         Actualizar un registro por su ID
 
@@ -484,7 +546,9 @@ class BaseRepository(Generic[ModelType]):
         Returns:
             Optional[ModelType]: Registro actualizado o None si no existe
         """
-        self.logger.debug(f"Actualizando {self.model.__name__} con ID {entity_id} con datos: {data}")
+        self.logger.debug(
+            f"Actualizando {self.model.__name__} con ID {entity_id} con datos: {data}"
+        )
         self._validate_update_data(data)
 
         db_obj = await self.get_by_id(entity_id)
@@ -563,7 +627,7 @@ class DatabaseHealthChecker:
         if not self.db_manager:
             return {
                 "status": "unhealthy",
-                "error": "DatabaseManager no está inicializado"
+                "error": "DatabaseManager no está inicializado",
             }
 
         try:
@@ -573,34 +637,43 @@ class DatabaseHealthChecker:
                 await session.execute(text("SELECT 1"))
                 query_time = time.time() - start_time
 
-                # Obtener métricas del pool
-                pool = self.db_manager.engine.pool
-                pool_metrics = {
-                    "size": pool.size(),
-                    "checkedin": pool.checkedin(),
-                    "checkedout": pool.checkedout(),
-                    "overflow": pool.overflow()
-                }
+                # Obtener métricas del pool con manejo seguro
+                pool_metrics = {}
+                if self.db_manager.engine and hasattr(self.db_manager.engine, "pool"):
+                    pool = self.db_manager.engine.pool
+                    pool_metrics = {
+                        "size": getattr(pool, "size", lambda: 0)(),
+                        "checkedin": getattr(pool, "checkedin", lambda: 0)(),
+                        "checkedout": getattr(pool, "checkedout", lambda: 0)(),
+                        "overflow": getattr(pool, "overflow", lambda: 0)(),
+                    }
+                else:
+                    pool_metrics = {
+                        "size": 0,
+                        "checkedin": 0,
+                        "checkedout": 0,
+                        "overflow": 0,
+                    }
 
                 return {
                     "status": "healthy",
                     "details": {
                         "connection": "ok",
                         "query": "ok",
-                        "pool": pool_metrics
+                        "pool": pool_metrics,
                     },
                     "metrics": {
                         "response_time": (time.time() - start_time) * 1000,
-                        "query_time": query_time * 1000
+                        "query_time": query_time * 1000,
                     },
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": datetime.now().isoformat(),
                 }
 
         except Exception as e:
             return {
                 "status": "unhealthy",
                 "error": str(e),
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
 
     async def run_performance_test(self, num_queries: int = 10) -> Dict[str, Any]:
@@ -641,7 +714,9 @@ class DatabaseHealthChecker:
             "avg_response_time_ms": round(avg_time, 2),
             "min_response_time_ms": round(min_time, 2),
             "max_response_time_ms": round(max_time, 2),
-            "success_rate": round((len(times) / num_queries) * 100, 2) if num_queries > 0 else 0
+            "success_rate": (
+                round((len(times) / num_queries) * 100, 2) if num_queries > 0 else 0
+            ),
         }
 
         self.logger.info(f"Test de rendimiento completado: {results}")
@@ -665,10 +740,11 @@ async def close_database() -> None:
 
 def get_database_manager() -> Optional[DatabaseManager]:
     """
-    Obtener instancia global del gestor de base de datos
+    Obtiene la instancia global del gestor de base de datos.
 
     Returns:
-        Optional[DatabaseManager]: Gestor de base de datos o None si no está inicializado
+        Optional[DatabaseManager]: Gestor de base de datos o None
+        si no está inicializado.
     """
     return _database_manager
 
@@ -682,7 +758,9 @@ async def get_async_session():
     """
     manager = get_database_manager()
     if not manager or not manager.session_factory:
-        raise RuntimeError("DatabaseManager no está inicializado. Llama a init_database() al inicio.")
+        raise RuntimeError(
+            "DatabaseManager no está inicializado. Llama a init_database() al inicio."
+        )
 
     async with manager.session_factory() as session:
         try:
@@ -711,7 +789,9 @@ async def get_db_health() -> Dict[str, Any]:
     return await checker.check_detailed_health()
 
 
-def create_repository(model: Type[ModelType], session: AsyncSession) -> BaseRepository[ModelType]:
+def create_repository(
+    model: Type[ModelType], session: AsyncSession
+) -> BaseRepository[ModelType]:
     """
     Factory function para crear repositorios type-safe
 

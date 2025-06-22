@@ -1,20 +1,23 @@
+# -*- coding: utf-8 -*-
 """
 🔄 Sistema de Retry Logic para Operaciones Críticas
+from typing import Callable
 
 Implementación TDD - FASE GREEN
 """
 
 import asyncio
+import logging
 import random
 import time
-import logging
 from dataclasses import dataclass
-from typing import Callable, Optional, Any, Type, Tuple, Union
 from enum import Enum
+from typing import Any, Callable, Optional
 
 
 class BackoffStrategy(Enum):
     """Estrategias de backoff"""
+
     FIXED = "fixed"
     LINEAR = "linear"
     EXPONENTIAL = "exponential"
@@ -24,6 +27,7 @@ class BackoffStrategy(Enum):
 @dataclass
 class RetryConfig:
     """Configuración para retry logic"""
+
     max_attempts: int = 3
     base_delay: float = 1.0
     max_delay: float = 60.0
@@ -36,6 +40,7 @@ class RetryConfig:
 
 class CircuitBreakerState(Enum):
     """Estados del circuit breaker"""
+
     CLOSED = "closed"
     OPEN = "open"
     HALF_OPEN = "half_open"
@@ -48,7 +53,7 @@ class CircuitBreaker:
         self.failure_threshold = failure_threshold
         self.reset_timeout = reset_timeout
         self.failure_count = 0
-        self.last_failure_time = None
+        self.last_failure_time: Optional[float] = None
         self.state = CircuitBreakerState.CLOSED
 
     @property
@@ -56,7 +61,9 @@ class CircuitBreaker:
         """Verificar si el circuit breaker está abierto"""
         if self.state == CircuitBreakerState.OPEN:
             # Verificar si es tiempo de intentar half-open
-            if (time.time() - self.last_failure_time) > self.reset_timeout:
+            if self.last_failure_time is not None and (
+                time.time() - self.last_failure_time > self.reset_timeout
+            ):
                 self.state = CircuitBreakerState.HALF_OPEN
                 return False
             return True
@@ -90,7 +97,6 @@ class RetryHandler:
     # Errores que se consideran permanentes (no se reintenta)
     PERMANENT_ERRORS = (
         ValueError,
-        TypeError,
         AttributeError,
         KeyError,
         ImportError,
@@ -113,8 +119,7 @@ class RetryHandler:
         self.circuit_breaker = None
         if config.circuit_breaker_enabled:
             self.circuit_breaker = CircuitBreaker(
-                config.failure_threshold,
-                config.reset_timeout
+                config.failure_threshold, config.reset_timeout
             )
 
     def get_last_attempt_count(self) -> int:
@@ -231,7 +236,10 @@ class RetryHandler:
                 time.sleep(delay)
 
         # Si llegamos aquí, todos los intentos fallaron
-        raise last_error
+        if last_error is not None:
+            raise last_error
+        else:
+            raise Exception("All retry attempts failed")
 
     async def execute_async(self, func: Callable, *args, **kwargs) -> Any:
         """
@@ -282,7 +290,9 @@ class RetryHandler:
 
                 # Si es el último intento, no esperar
                 if attempt == self.config.max_attempts:
-                    self.logger.error(f"All {self.config.max_attempts} async attempts failed")
+                    self.logger.error(
+                        f"All {self.config.max_attempts} async attempts failed"
+                    )
                     break
 
                 # Calcular delay y esperar
@@ -293,7 +303,10 @@ class RetryHandler:
                 await asyncio.sleep(delay)
 
         # Si llegamos aquí, todos los intentos fallaron
-        raise last_error
+        if last_error is not None:
+            raise last_error
+        else:
+            raise Exception("All async retry attempts failed")
 
     def reset_circuit_breaker(self):
         """Resetear circuit breaker manualmente"""

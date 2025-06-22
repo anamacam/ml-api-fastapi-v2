@@ -363,6 +363,60 @@ jobs:
 - 📚 [Pytest Documentation](https://docs.pytest.org/)
 - 🔧 [Factory Boy Guide](https://factoryboy.readthedocs.io/)
 
+## 🎨 Calidad de Código
+
+Este proyecto mantiene altos estándares de calidad mediante herramientas automatizadas y procesos de revisión:
+
+### 🔍 **Herramientas de Linting:**
+
+| Herramienta | Propósito | Configuración |
+|-------------|-----------|---------------|
+| **flake8** | Linting Python | `.flake8` |
+| **black** | Formateo código | `pyproject.toml` |
+| **isort** | Ordenar imports | `pyproject.toml` |
+| **mypy** | Type checking | `mypy.ini` |
+| **pre-commit** | Hooks automáticos | `.pre-commit-config.yaml` |
+
+### 📋 **Configuración de Linting:**
+
+El proyecto utiliza una configuración personalizada de `flake8` que:
+
+- **Excluye directorios irrelevantes** (entornos virtuales, `node_modules`, etc.)
+- **Ignora errores no críticos** para enfocarse en problemas importantes
+- **Permite complejidad moderada** en funciones de análisis
+- **Documenta deuda técnica** aceptada temporalmente
+
+📖 **Ver documentación completa:** [`docs/LINTING_CONFIGURATION.md`](docs/LINTING_CONFIGURATION.md)
+
+### 🚀 **Comandos de Calidad:**
+
+```bash
+# Verificar calidad completa
+pre-commit run --all-files
+
+# Linting específico
+flake8 .
+
+# Formateo automático
+black .
+isort .
+
+# Type checking
+mypy .
+
+# Análisis de deuda técnica
+python infrastructure/scripts/tech_debt_analyzer.py
+```
+
+### 📊 **Métricas de Calidad:**
+
+| Métrica | Objetivo | Actual | Estado |
+|---------|----------|--------|--------|
+| **Flake8 Errors** | 0 | 0 | ✅ Cumplido |
+| **Type Coverage** | >80% | N/A | ⚪ Pendiente |
+| **Code Complexity** | <10 | <18 | 🟡 Aceptable |
+| **Documentation** | >90% | N/A | ⚪ Pendiente |
+
 ## 🚀 Inicio Rápido
 
 ### 1️⃣ **Clonar y Setup:**

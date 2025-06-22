@@ -1,11 +1,9 @@
-"""
-TDD para validación de entrada de predicciones ML.
+"""Tests TDD para validación de predicciones."""
 
-Tests que definen cómo debe comportarse la validación de datos
-de entrada para modelos de machine learning.
-"""
+import os
 
-import pytest
+# Configurar entorno de testing
+os.environ["ENV"] = "testing"
 
 
 def test_validate_prediction_input_rejects_empty_data():
@@ -34,8 +32,8 @@ def test_validate_prediction_input_rejects_invalid_features():
     # Features con tipos incorrectos
     invalid_features = {
         "age": "not_a_number",  # String instead of number
-        "income": [],           # List instead of number
-        "category": 123         # Number instead of string
+        "income": [],  # List instead of number
+        "category": 123,  # Number instead of string
     }
 
     result = validate_prediction_input(invalid_features)
@@ -56,7 +54,7 @@ def test_validate_prediction_input_accepts_valid_features():
         "age": 25,
         "income": 50000.0,
         "category": "premium",
-        "score": 0.85
+        "score": 0.85,
     }
 
     result = validate_prediction_input(valid_features)
@@ -94,10 +92,10 @@ def test_validate_prediction_input_validates_numeric_ranges():
 
     # Features con valores fuera de rango
     out_of_range_features = {
-        "age": -5,           # Edad negativa
-        "income": -1000,     # Ingreso negativo
+        "age": -5,  # Edad negativa
+        "income": -1000,  # Ingreso negativo
         "category": "premium",
-        "score": 1.5         # Score > 1.0
+        "score": 1.5,  # Score > 1.0
     }
 
     result = validate_prediction_input(out_of_range_features)
@@ -126,10 +124,10 @@ def test_validate_prediction_input_validates_age_upper_limit():
 
     # Edad muy alta (límite 150)
     features = {
-        "age": 200,          # Edad > 150
+        "age": 200,  # Edad > 150
         "income": 50000.0,
         "category": "premium",
-        "score": 0.85
+        "score": 0.85,
     }
 
     result = validate_prediction_input(features)

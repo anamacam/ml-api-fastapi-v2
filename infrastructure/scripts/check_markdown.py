@@ -17,19 +17,20 @@ Características:
 - Reportes detallados
 """
 
-import os
-import sys
 import json
+import os
 import subprocess
-from pathlib import Path
-from typing import List, Dict, Any, Optional
-from dataclasses import dataclass, asdict
+import sys
+from dataclasses import asdict, dataclass
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
 class MarkdownIssue:
     """Representa un problema encontrado en un archivo Markdown."""
+
     file_path: str
     line_number: int
     rule_id: str
@@ -42,6 +43,7 @@ class MarkdownIssue:
 @dataclass
 class MarkdownReport:
     """Reporte completo de verificación de Markdown."""
+
     timestamp: str
     total_files: int
     files_with_issues: int
@@ -63,53 +65,53 @@ class MarkdownChecker:
 
         # Reglas y sus descripciones
         self.rule_descriptions = {
-            'MD001': 'Heading levels should only increment by one level at a time',
-            'MD003': 'Heading style should be consistent',
-            'MD004': 'Unordered list style should be consistent',
-            'MD005': 'Inconsistent indentation for list items at the same level',
-            'MD007': 'Unordered list indentation should be consistent',
-            'MD009': 'Trailing spaces are not allowed',
-            'MD010': 'Hard tabs are not allowed',
-            'MD011': 'Reversed link syntax',
-            'MD012': 'Multiple consecutive blank lines are not allowed',
-            'MD013': 'Line length should not exceed specified limit',
-            'MD014': 'Dollar signs used before commands without showing output',
-            'MD018': 'No space after hash on atx style heading',
-            'MD019': 'Multiple spaces after hash on atx style heading',
-            'MD020': 'No space inside hashes on closed atx style heading',
-            'MD021': 'Multiple spaces inside hashes on closed atx style heading',
-            'MD022': 'Headings should be surrounded by blank lines',
-            'MD023': 'Headings must start at the beginning of the line',
-            'MD024': 'Multiple headings with the same content',
-            'MD025': 'Multiple top level headings in the same document',
-            'MD026': 'Trailing punctuation in heading',
-            'MD027': 'Multiple spaces after blockquote symbol',
-            'MD028': 'Blank line inside blockquote',
-            'MD029': 'Ordered list item prefix should be consistent',
-            'MD030': 'Spaces after list markers should be consistent',
-            'MD031': 'Fenced code blocks should be surrounded by blank lines',
-            'MD032': 'Lists should be surrounded by blank lines',
-            'MD033': 'Inline HTML is not allowed',
-            'MD034': 'Bare URL used instead of link syntax',
-            'MD035': 'Horizontal rule style should be consistent',
-            'MD036': 'Emphasis used instead of a heading',
-            'MD037': 'Spaces inside emphasis markers',
-            'MD038': 'Spaces inside code span elements',
-            'MD039': 'Spaces inside link text',
-            'MD040': 'Fenced code blocks should have a language specified',
-            'MD041': 'First line in file should be a top level heading',
-            'MD042': 'No empty links',
-            'MD043': 'Required heading structure',
-            'MD044': 'Proper names should have the correct capitalization',
-            'MD045': 'Images should have alternate text (alt text)',
-            'MD046': 'Code block style should be consistent',
-            'MD047': 'Files should end with a single newline character',
-            'MD048': 'Code fence style should be consistent',
-            'MD049': 'Emphasis style should be consistent',
-            'MD050': 'Strong style should be consistent',
-            'MD051': 'Link fragments should be valid',
-            'MD052': 'Reference links and images should use a label that is defined',
-            'MD053': 'Link and image reference definitions should be needed'
+            "MD001": "Heading levels should only increment by one level at a time",
+            "MD003": "Heading style should be consistent",
+            "MD004": "Unordered list style should be consistent",
+            "MD005": "Inconsistent indentation for list items at the same level",
+            "MD007": "Unordered list indentation should be consistent",
+            "MD009": "Trailing spaces are not allowed",
+            "MD010": "Hard tabs are not allowed",
+            "MD011": "Reversed link syntax",
+            "MD012": "Multiple consecutive blank lines are not allowed",
+            "MD013": "Line length should not exceed specified limit",
+            "MD014": "Dollar signs used before commands without showing output",
+            "MD018": "No space after hash on atx style heading",
+            "MD019": "Multiple spaces after hash on atx style heading",
+            "MD020": "No space inside hashes on closed atx style heading",
+            "MD021": "Multiple spaces inside hashes on closed atx style heading",
+            "MD022": "Headings should be surrounded by blank lines",
+            "MD023": "Headings must start at the beginning of the line",
+            "MD024": "Multiple headings with the same content",
+            "MD025": "Multiple top level headings in the same document",
+            "MD026": "Trailing punctuation in heading",
+            "MD027": "Multiple spaces after blockquote symbol",
+            "MD028": "Blank line inside blockquote",
+            "MD029": "Ordered list item prefix should be consistent",
+            "MD030": "Spaces after list markers should be consistent",
+            "MD031": "Fenced code blocks should be surrounded by blank lines",
+            "MD032": "Lists should be surrounded by blank lines",
+            "MD033": "Inline HTML is not allowed",
+            "MD034": "Bare URL used instead of link syntax",
+            "MD035": "Horizontal rule style should be consistent",
+            "MD036": "Emphasis used instead of a heading",
+            "MD037": "Spaces inside emphasis markers",
+            "MD038": "Spaces inside code span elements",
+            "MD039": "Spaces inside link text",
+            "MD040": "Fenced code blocks should have a language specified",
+            "MD041": "First line in file should be a top level heading",
+            "MD042": "No empty links",
+            "MD043": "Required heading structure",
+            "MD044": "Proper names should have the correct capitalization",
+            "MD045": "Images should have alternate text (alt text)",
+            "MD046": "Code block style should be consistent",
+            "MD047": "Files should end with a single newline character",
+            "MD048": "Code fence style should be consistent",
+            "MD049": "Emphasis style should be consistent",
+            "MD050": "Strong style should be consistent",
+            "MD051": "Link fragments should be valid",
+            "MD052": "Reference links and images should use a label that is defined",
+            "MD053": "Link and image reference definitions should be needed",
         }
 
     def check_project(self) -> MarkdownReport:
@@ -120,8 +122,9 @@ class MarkdownChecker:
         md_files = list(self.project_root.rglob("*.md"))
 
         # Filtrar archivos del venv y node_modules
-        md_files = [f for f in md_files
-                   if "venv" not in str(f) and "node_modules" not in str(f)]
+        md_files = [
+            f for f in md_files if "venv" not in str(f) and "node_modules" not in str(f)
+        ]
 
         self.total_files = len(md_files)
         print(f"  📁 Encontrados {self.total_files} archivos Markdown")
@@ -146,10 +149,7 @@ class MarkdownChecker:
 
             # Ejecutar markdownlint
             result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                cwd=self.project_root
+                cmd, capture_output=True, text=True, cwd=self.project_root
             )
 
             if result.returncode == 0:
@@ -171,8 +171,11 @@ class MarkdownChecker:
         except FileNotFoundError:
             print("  ⚠️  markdownlint no está instalado. Instalando...")
             try:
-                subprocess.run(["npm", "install", "-g", "markdownlint-cli"],
-                             check=True, capture_output=True)
+                subprocess.run(
+                    ["npm", "install", "-g", "markdownlint-cli"],
+                    check=True,
+                    capture_output=True,
+                )
                 print("  ✅ markdownlint instalado. Reintentando...")
                 self._run_markdownlint(md_files)
             except subprocess.CalledProcessError:
@@ -185,25 +188,30 @@ class MarkdownChecker:
         files_with_issues = set()
 
         for file_result in results:
-            file_path = file_result.get('fileName', '')
+            file_path = file_result.get("fileName", "")
             rel_path = str(Path(file_path).relative_to(self.project_root))
 
-            for issue in file_result.get('issues', []):
+            for issue in file_result.get("issues", []):
                 files_with_issues.add(rel_path)
 
-                rule_names = issue.get('ruleNames', [])
-                rule_id = rule_names[0] if rule_names else 'Unknown'
+                rule_names = issue.get("ruleNames", [])
+                rule_id = rule_names[0] if rule_names else "Unknown"
                 rule_name = rule_names[1] if len(rule_names) > 1 else rule_id
 
-                self.issues.append(MarkdownIssue(
-                    file_path=rel_path,
-                    line_number=issue.get('lineNumber', 0),
-                    rule_id=rule_id,
-                    rule_name=rule_name,
-                    severity='error',  # markdownlint solo reporta errores
-                    description=issue.get('ruleDescription', self.rule_descriptions.get(rule_id, 'Unknown rule')),
-                    suggestion=self._get_rule_suggestion(rule_id)
-                ))
+                self.issues.append(
+                    MarkdownIssue(
+                        file_path=rel_path,
+                        line_number=issue.get("lineNumber", 0),
+                        rule_id=rule_id,
+                        rule_name=rule_name,
+                        severity="error",  # markdownlint solo reporta errores
+                        description=issue.get(
+                            "ruleDescription",
+                            self.rule_descriptions.get(rule_id, "Unknown rule"),
+                        ),
+                        suggestion=self._get_rule_suggestion(rule_id),
+                    )
+                )
 
         self.files_with_issues = len(files_with_issues)
 
@@ -211,12 +219,12 @@ class MarkdownChecker:
         """Parsear salida de texto de markdownlint."""
         files_with_issues = set()
 
-        for line in output.strip().split('\n'):
+        for line in output.strip().split("\n"):
             if not line.strip():
                 continue
 
             # Formato: file:line rule/alias description
-            parts = line.split(':', 2)
+            parts = line.split(":", 2)
             if len(parts) < 3:
                 continue
 
@@ -228,8 +236,8 @@ class MarkdownChecker:
 
             # Extraer regla y descripción
             rule_desc = parts[2].strip()
-            rule_parts = rule_desc.split(' ', 1)
-            rule_id = rule_parts[0] if rule_parts else 'Unknown'
+            rule_parts = rule_desc.split(" ", 1)
+            rule_id = rule_parts[0] if rule_parts else "Unknown"
             description = rule_parts[1] if len(rule_parts) > 1 else rule_desc
 
             try:
@@ -239,44 +247,46 @@ class MarkdownChecker:
 
             files_with_issues.add(rel_path)
 
-            self.issues.append(MarkdownIssue(
-                file_path=rel_path,
-                line_number=line_number,
-                rule_id=rule_id,
-                rule_name=rule_id,
-                severity='error',
-                description=description,
-                suggestion=self._get_rule_suggestion(rule_id)
-            ))
+            self.issues.append(
+                MarkdownIssue(
+                    file_path=rel_path,
+                    line_number=line_number,
+                    rule_id=rule_id,
+                    rule_name=rule_id,
+                    severity="error",
+                    description=description,
+                    suggestion=self._get_rule_suggestion(rule_id),
+                )
+            )
 
         self.files_with_issues = len(files_with_issues)
 
     def _get_rule_suggestion(self, rule_id: str) -> Optional[str]:
         """Obtener sugerencia para una regla específica."""
         suggestions = {
-            'MD034': 'Usar formato de enlace: [texto](URL) en lugar de URL directa',
-            'MD036': 'Usar encabezados (# ## ###) en lugar de texto en negrita para títulos',
-            'MD040': 'Especificar lenguaje en bloques de código: ```python o ```bash',
-            'MD013': 'Dividir líneas largas o ajustar configuración de longitud',
-            'MD033': 'Evitar HTML inline, usar sintaxis Markdown equivalente',
-            'MD041': 'Comenzar documento con encabezado de nivel 1 (#)',
-            'MD022': 'Agregar líneas en blanco antes y después de encabezados',
-            'MD032': 'Agregar líneas en blanco antes y después de listas',
-            'MD031': 'Agregar líneas en blanco antes y después de bloques de código'
+            "MD034": "Usar formato de enlace: [texto](URL) en lugar de URL directa",
+            "MD036": "Usar encabezados (# ## ###) en lugar de texto en negrita para títulos",
+            "MD040": "Especificar lenguaje en bloques de código: ```python o ```bash",
+            "MD013": "Dividir líneas largas o ajustar configuración de longitud",
+            "MD033": "Evitar HTML inline, usar sintaxis Markdown equivalente",
+            "MD041": "Comenzar documento con encabezado de nivel 1 (#)",
+            "MD022": "Agregar líneas en blanco antes y después de encabezados",
+            "MD032": "Agregar líneas en blanco antes y después de listas",
+            "MD031": "Agregar líneas en blanco antes y después de bloques de código",
         }
         return suggestions.get(rule_id)
 
     def _check_file_structure(self, file_path: Path):
         """Verificar estructura adicional del archivo."""
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read()
 
-            lines = content.split('\n')
+            lines = content.split("\n")
             rel_path = str(file_path.relative_to(self.project_root))
 
             # Verificar que README tenga estructura básica
-            if file_path.name.lower() == 'readme.md':
+            if file_path.name.lower() == "readme.md":
                 self._check_readme_structure(lines, rel_path)
 
             # Verificar enlaces internos (básico)
@@ -293,54 +303,67 @@ class MarkdownChecker:
 
         for line in lines:
             line_lower = line.lower()
-            if any(word in line_lower for word in ['descripción', 'description', 'about']):
+            if any(
+                word in line_lower for word in ["descripción", "description", "about"]
+            ):
                 has_description = True
-            elif any(word in line_lower for word in ['instalación', 'installation', 'setup', 'inicio']):
+            elif any(
+                word in line_lower
+                for word in ["instalación", "installation", "setup", "inicio"]
+            ):
                 has_installation = True
-            elif any(word in line_lower for word in ['uso', 'usage', 'getting started']):
+            elif any(
+                word in line_lower for word in ["uso", "usage", "getting started"]
+            ):
                 has_usage = True
 
         if not has_description:
-            self.issues.append(MarkdownIssue(
-                file_path=file_path,
-                line_number=1,
-                rule_id='CUSTOM001',
-                rule_name='missing-description',
-                severity='warning',
-                description='README debería incluir sección de descripción',
-                suggestion='Agregar sección que describa el propósito del proyecto'
-            ))
+            self.issues.append(
+                MarkdownIssue(
+                    file_path=file_path,
+                    line_number=1,
+                    rule_id="CUSTOM001",
+                    rule_name="missing-description",
+                    severity="warning",
+                    description="README debería incluir sección de descripción",
+                    suggestion="Agregar sección que describa el propósito del proyecto",
+                )
+            )
 
-    def _check_internal_links(self, lines: List[str], file_path: str, current_file: Path):
+    def _check_internal_links(
+        self, lines: List[str], file_path: str, current_file: Path
+    ):
         """Verificar enlaces internos básicos."""
         import re
 
-        link_pattern = r'\[([^\]]+)\]\(([^)]+)\)'
+        link_pattern = r"\[([^\]]+)\]\(([^)]+)\)"
 
         for i, line in enumerate(lines, 1):
             matches = re.findall(link_pattern, line)
 
             for text, url in matches:
                 # Solo verificar enlaces relativos
-                if url.startswith(('http://', 'https://', 'mailto:', '#')):
+                if url.startswith(("http://", "https://", "mailto:", "#")):
                     continue
 
                 # Verificar si el archivo existe
                 target_path = current_file.parent / url
                 if not target_path.exists():
-                    self.issues.append(MarkdownIssue(
-                        file_path=file_path,
-                        line_number=i,
-                        rule_id='CUSTOM002',
-                        rule_name='broken-internal-link',
-                        severity='warning',
-                        description=f'Enlace interno roto: {url}',
-                        suggestion='Verificar que el archivo/ruta existe'
-                    ))
+                    self.issues.append(
+                        MarkdownIssue(
+                            file_path=file_path,
+                            line_number=i,
+                            rule_id="CUSTOM002",
+                            rule_name="broken-internal-link",
+                            severity="warning",
+                            description=f"Enlace interno roto: {url}",
+                            suggestion="Verificar que el archivo/ruta existe",
+                        )
+                    )
 
     def _generate_report(self) -> MarkdownReport:
         """Generar reporte final."""
-        issues_by_severity = {'error': 0, 'warning': 0}
+        issues_by_severity = {"error": 0, "warning": 0}
         issues_by_rule = {}
 
         for issue in self.issues:
@@ -352,8 +375,8 @@ class MarkdownChecker:
             compliance_score = 100.0
         else:
             # Penalizar errores más que warnings
-            error_penalty = issues_by_severity['error'] * 5
-            warning_penalty = issues_by_severity['warning'] * 2
+            error_penalty = issues_by_severity["error"] * 5
+            warning_penalty = issues_by_severity["warning"] * 2
 
             total_penalty = error_penalty + warning_penalty
             max_penalty = self.total_files * 20  # Máximo si todo fueran errores
@@ -368,7 +391,7 @@ class MarkdownChecker:
             issues_by_severity=issues_by_severity,
             issues_by_rule=issues_by_rule,
             issues=self.issues,
-            compliance_score=compliance_score
+            compliance_score=compliance_score,
         )
 
     def generate_console_report(self, report: MarkdownReport) -> str:
@@ -392,8 +415,9 @@ class MarkdownChecker:
         if report.issues_by_rule:
             output.append("📊 TOP REGLAS VIOLADAS")
             output.append("-" * 30)
-            sorted_rules = sorted(report.issues_by_rule.items(),
-                                key=lambda x: x[1], reverse=True)
+            sorted_rules = sorted(
+                report.issues_by_rule.items(), key=lambda x: x[1], reverse=True
+            )
             for rule, count in sorted_rules[:5]:
                 output.append(f"  {rule}: {count} issues")
             output.append("")
@@ -413,8 +437,10 @@ class MarkdownChecker:
                 output.append(f"📁 {file_path}")
 
                 for issue in issues[:5]:  # Limitar a 5 por archivo
-                    severity_icon = {'error': '🔴', 'warning': '🟡'}[issue.severity]
-                    output.append(f"  {severity_icon} L{issue.line_number}: {issue.rule_id} - {issue.description}")
+                    severity_icon = {"error": "🔴", "warning": "🟡"}[issue.severity]
+                    output.append(
+                        f"  {severity_icon} L{issue.line_number}: {issue.rule_id} - {issue.description}"
+                    )
 
                     if issue.suggestion:
                         output.append(f"      💡 {issue.suggestion}")
@@ -437,8 +463,12 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Verificador de Estándares Markdown")
-    parser.add_argument("--format", choices=["console", "json"], default="console",
-                       help="Formato de salida")
+    parser.add_argument(
+        "--format",
+        choices=["console", "json"],
+        default="console",
+        help="Formato de salida",
+    )
     parser.add_argument("--output", "-o", help="Archivo de salida")
 
     args = parser.parse_args()
@@ -453,7 +483,7 @@ def main():
             output = checker.generate_console_report(report)
 
         if args.output:
-            with open(args.output, 'w', encoding='utf-8') as f:
+            with open(args.output, "w", encoding="utf-8") as f:
                 f.write(output)
             print(f"📄 Reporte guardado en: {args.output}")
         else:

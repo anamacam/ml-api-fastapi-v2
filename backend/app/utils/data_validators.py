@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 🔍 Sistema de Validación de Datos Avanzado
 
@@ -17,22 +18,25 @@ Patrones aplicados:
 """
 
 import re
-import json
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union, Callable, TypeVar, Generic
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
-from datetime import datetime, date
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
 
-from ..utils.exceptions import DataValidationError
-from ..core.security_logger import SecurityEventFactory, SecurityLevel, get_security_logger
+from ..core.security_logger import (
+    SecurityEventFactory,
+    SecurityLevel,
+    get_security_logger,
+)
 
 
 class ValidationSeverity(Enum):
     """Niveles de severidad para validaciones"""
+
     INFO = "info"
     WARNING = "warning"
     ERROR = "error"
@@ -42,6 +46,7 @@ class ValidationSeverity(Enum):
 @dataclass
 class ValidationResult:
     """Resultado de una validación"""
+
     is_valid: bool
     field_name: str
     value: Any
@@ -59,7 +64,7 @@ class ValidationResult:
             "severity": self.severity.value,
             "message": self.message,
             "details": self.details,
-            "timestamp": self.timestamp.isoformat()
+            "timestamp": self.timestamp.isoformat(),
         }
 
 
@@ -70,7 +75,9 @@ class Validator(ABC):
     Aplica Strategy Pattern para diferentes tipos de validación.
     """
 
-    def __init__(self, field_name: str, severity: ValidationSeverity = ValidationSeverity.ERROR):
+    def __init__(
+        self, field_name: str, severity: ValidationSeverity = ValidationSeverity.ERROR
+    ):
         self.field_name = field_name
         self.severity = severity
 
@@ -87,7 +94,12 @@ class Validator(ABC):
 class TypeValidator(Validator):
     """Validador de tipos de datos"""
 
-    def __init__(self, field_name: str, expected_type: type, severity: ValidationSeverity = ValidationSeverity.ERROR):
+    def __init__(
+        self,
+        field_name: str,
+        expected_type: type,
+        severity: ValidationSeverity = ValidationSeverity.ERROR,
+    ):
         super().__init__(field_name, severity)
         self.expected_type = expected_type
 
@@ -102,15 +114,23 @@ class TypeValidator(Validator):
             value=value,
             severity=self.severity,
             message=message if not is_valid else "Type validation passed",
-            details={"expected_type": self.expected_type.__name__, "actual_type": type(value).__name__}
+            details={
+                "expected_type": self.expected_type.__name__,
+                "actual_type": type(value).__name__,
+            },
         )
 
 
 class RangeValidator(Validator):
     """Validador de rangos numéricos"""
 
-    def __init__(self, field_name: str, min_value: Optional[float] = None,
-                 max_value: Optional[float] = None, severity: ValidationSeverity = ValidationSeverity.ERROR):
+    def __init__(
+        self,
+        field_name: str,
+        min_value: Optional[float] = None,
+        max_value: Optional[float] = None,
+        severity: ValidationSeverity = ValidationSeverity.ERROR,
+    ):
         super().__init__(field_name, severity)
         self.min_value = min_value
         self.max_value = max_value
@@ -125,8 +145,8 @@ class RangeValidator(Validator):
                 field_name=self.field_name,
                 value=value,
                 severity=self.severity,
-                message=f"Value must be numeric",
-                details={"value": value}
+                message="Value must be numeric",
+                details={"value": value},
             )
 
         errors = []
@@ -149,18 +169,23 @@ class RangeValidator(Validator):
                 "min_value": self.min_value,
                 "max_value": self.max_value,
                 "actual_value": num_value,
-                "errors": errors
-            }
+                "errors": errors,
+            },
         )
 
 
 class StringValidator(Validator):
     """Validador de cadenas de texto"""
 
-    def __init__(self, field_name: str, min_length: Optional[int] = None,
-                 max_length: Optional[int] = None, pattern: Optional[str] = None,
-                 allowed_values: Optional[List[str]] = None,
-                 severity: ValidationSeverity = ValidationSeverity.ERROR):
+    def __init__(
+        self,
+        field_name: str,
+        min_length: Optional[int] = None,
+        max_length: Optional[int] = None,
+        pattern: Optional[str] = None,
+        allowed_values: Optional[List[str]] = None,
+        severity: ValidationSeverity = ValidationSeverity.ERROR,
+    ):
         super().__init__(field_name, severity)
         self.min_length = min_length
         self.max_length = max_length
@@ -176,17 +201,21 @@ class StringValidator(Validator):
                 value=value,
                 severity=self.severity,
                 message="Value must be a string",
-                details={"expected_type": "str", "actual_type": type(value).__name__}
+                details={"expected_type": "str", "actual_type": type(value).__name__},
             )
 
         errors = []
 
         # Validar longitud
         if self.min_length is not None and len(value) < self.min_length:
-            errors.append(f"String length {len(value)} is below minimum {self.min_length}")
+            errors.append(
+                f"String length {len(value)} is below minimum {self.min_length}"
+            )
 
         if self.max_length is not None and len(value) > self.max_length:
-            errors.append(f"String length {len(value)} is above maximum {self.max_length}")
+            errors.append(
+                f"String length {len(value)} is above maximum {self.max_length}"
+            )
 
         # Validar patrón regex
         if self.pattern and not re.match(self.pattern, value):
@@ -194,7 +223,9 @@ class StringValidator(Validator):
 
         # Validar valores permitidos
         if self.allowed_values and value not in self.allowed_values:
-            errors.append(f"Value '{value}' is not in allowed values: {self.allowed_values}")
+            errors.append(
+                f"Value '{value}' is not in allowed values: {self.allowed_values}"
+            )
 
         is_valid = len(errors) == 0
         message = "; ".join(errors) if errors else "String validation passed"
@@ -211,15 +242,19 @@ class StringValidator(Validator):
                 "pattern": self.pattern,
                 "allowed_values": self.allowed_values,
                 "actual_length": len(value),
-                "errors": errors
-            }
+                "errors": errors,
+            },
         )
 
 
 class SecurityValidator(Validator):
     """Validador de seguridad para prevenir inyecciones y ataques"""
 
-    def __init__(self, field_name: str, severity: ValidationSeverity = ValidationSeverity.CRITICAL):
+    def __init__(
+        self,
+        field_name: str,
+        severity: ValidationSeverity = ValidationSeverity.CRITICAL,
+    ):
         super().__init__(field_name, severity)
         self.dangerous_patterns = [
             r"<script.*?>.*?</script>",  # XSS
@@ -245,7 +280,7 @@ class SecurityValidator(Validator):
                 value=value,
                 severity=self.severity,
                 message="Security validation passed (non-string value)",
-                details={"value_type": type(value).__name__}
+                details={"value_type": type(value).__name__},
             )
 
         threats_detected = []
@@ -256,7 +291,7 @@ class SecurityValidator(Validator):
                 threats_detected.append(pattern)
 
         # Verificar caracteres sospechosos
-        suspicious_chars = ['<', '>', '"', "'", '&', ';', '|', '`', '$', '(', ')']
+        suspicious_chars = ["<", ">", '"', "'", "&", ";", "|", "`", "$", "(", ")"]
         if any(char in value for char in suspicious_chars):
             threats_detected.append("suspicious_characters")
 
@@ -270,12 +305,16 @@ class SecurityValidator(Validator):
                 details={
                     "field_name": self.field_name,
                     "threats_detected": threats_detected,
-                    "value_preview": value[:100]  # Solo primeros 100 caracteres
-                }
+                    "value_preview": value[:100],  # Solo primeros 100 caracteres
+                },
             )
             self.security_logger.log_event(threat_event)
 
-        message = f"Security threats detected: {threats_detected}" if threats_detected else "Security validation passed"
+        message = (
+            f"Security threats detected: {threats_detected}"
+            if threats_detected
+            else "Security validation passed"
+        )
 
         return ValidationResult(
             is_valid=is_valid,
@@ -286,16 +325,20 @@ class SecurityValidator(Validator):
             details={
                 "threats_detected": threats_detected,
                 "value_length": len(value),
-                "security_checked": True
-            }
+                "security_checked": True,
+            },
         )
 
 
 class DataTypeValidator(Validator):
     """Validador específico para tipos de datos ML"""
 
-    def __init__(self, field_name: str, expected_dtype: str,
-                 severity: ValidationSeverity = ValidationSeverity.ERROR):
+    def __init__(
+        self,
+        field_name: str,
+        expected_dtype: str,
+        severity: ValidationSeverity = ValidationSeverity.ERROR,
+    ):
         super().__init__(field_name, severity)
         self.expected_dtype = expected_dtype
 
@@ -316,8 +359,11 @@ class DataTypeValidator(Validator):
                     field_name=self.field_name,
                     value=value,
                     severity=self.severity,
-                    message="Value must be a list, tuple, numpy array, or pandas series",
-                    details={"expected_type": "array-like", "actual_type": type(value).__name__}
+                    message="Value must be a list, tuple, numpy array, or pandas series",  # noqa: E501
+                    details={
+                        "expected_type": "array-like",
+                        "actual_type": type(value).__name__,
+                    },
                 )
 
             is_valid = actual_dtype == self.expected_dtype
@@ -332,8 +378,8 @@ class DataTypeValidator(Validator):
                 details={
                     "expected_dtype": self.expected_dtype,
                     "actual_dtype": actual_dtype,
-                    "shape": arr.shape if 'arr' in locals() else None
-                }
+                    "shape": arr.shape if "arr" in locals() else None,
+                },
             )
 
         except Exception as e:
@@ -343,7 +389,7 @@ class DataTypeValidator(Validator):
                 value=value,
                 severity=self.severity,
                 message=f"Error validating data type: {str(e)}",
-                details={"error": str(e)}
+                details={"error": str(e)},
             )
 
 
@@ -367,7 +413,10 @@ class ValidationChain:
                 results.append(result)
 
                 # Si es crítico y falló, detener la cadena
-                if result.severity == ValidationSeverity.CRITICAL and not result.is_valid:
+                if (
+                    result.severity == ValidationSeverity.CRITICAL
+                    and not result.is_valid  # noqa: W503
+                ):
                     break
 
         return results
@@ -391,7 +440,7 @@ class ValidationFactory:
             field_name=field_name,
             pattern=r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
             min_length=5,
-            max_length=254
+            max_length=254,
         )
 
     @staticmethod
@@ -399,16 +448,21 @@ class ValidationFactory:
         """Crear validador de contraseña"""
         return StringValidator(
             field_name=field_name,
-            pattern=r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$",
+            pattern=r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$",  # noqa: E501
             min_length=8,
-            max_length=128
+            max_length=128,
         )
 
     @staticmethod
-    def create_numeric_validator(field_name: str, min_value: Optional[float] = None,
-                                max_value: Optional[float] = None) -> RangeValidator:
+    def create_numeric_validator(
+        field_name: str,
+        min_value: Optional[float] = None,
+        max_value: Optional[float] = None,
+    ) -> RangeValidator:
         """Crear validador numérico"""
-        return RangeValidator(field_name=field_name, min_value=min_value, max_value=max_value)
+        return RangeValidator(
+            field_name=field_name, min_value=min_value, max_value=max_value
+        )
 
     @staticmethod
     def create_security_validator(field_name: str) -> SecurityValidator:
@@ -462,8 +516,8 @@ class DataValidator:
                 details={
                     "chain_name": chain_name,
                     "error": str(e),
-                    "data_keys": list(data.keys()) if data else []
-                }
+                    "data_keys": list(data.keys()) if data else [],
+                },
             )
             self.security_logger.log_event(error_event)
             raise
@@ -476,7 +530,9 @@ class DataValidator:
         if chain_name not in self.validation_chains:
             raise ValueError(f"Validation chain '{chain_name}' not found")
 
-    def _execute_validations(self, data: Dict[str, Any], chain_name: str) -> List[ValidationResult]:
+    def _execute_validations(
+        self, data: Dict[str, Any], chain_name: str
+    ) -> List[ValidationResult]:
         """Ejecutar validaciones"""
         chain = self.validation_chains[chain_name]
         return chain.validate(data)
@@ -484,7 +540,11 @@ class DataValidator:
     def _post_validate(self, results: List[ValidationResult]) -> None:
         """Post-validación de resultados"""
         # Verificar si hay errores críticos
-        critical_errors = [r for r in results if r.severity == ValidationSeverity.CRITICAL and not r.is_valid]
+        critical_errors = [
+            r
+            for r in results
+            if r.severity == ValidationSeverity.CRITICAL and not r.is_valid
+        ]
         if critical_errors:
             # Log critical validation failures
             for error in critical_errors:
@@ -494,8 +554,8 @@ class DataValidator:
                     details={
                         "field_name": error.field_name,
                         "message": error.message,
-                        "details": error.details
-                    }
+                        "details": error.details,
+                    },
                 )
                 self.security_logger.log_event(threat_event)
 
@@ -515,12 +575,16 @@ class DataValidator:
                 "total_validations": total_validations,
                 "passed_validations": passed_validations,
                 "failed_validations": failed_validations,
-                "success_rate": passed_validations / total_validations if total_validations > 0 else 0
+                "success_rate": (
+                    passed_validations / total_validations
+                    if total_validations > 0
+                    else 0
+                ),
             },
             "by_severity": by_severity,
             "all_results": [r.to_dict() for r in results],
             "is_valid": failed_validations == 0,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
 
     def validate_prediction_input(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -556,32 +620,41 @@ def _setup_default_validation_chains(validator: DataValidator) -> None:
     """Configurar cadenas de validación por defecto"""
 
     # Cadena para datos de predicción
-    prediction_chain = ValidationChain([
-        TypeValidator("model_id", str),
-        SecurityValidator("model_id"),
-        TypeValidator("input_data", list),
-        SecurityValidator("input_data")
-    ])
+    prediction_chain = ValidationChain(
+        [
+            TypeValidator("model_id", str),
+            SecurityValidator("model_id"),
+            TypeValidator("input_data", list),
+            SecurityValidator("input_data"),
+        ]
+    )
     validator.add_validation_chain("prediction_input", prediction_chain)
 
     # Cadena para carga de modelos
-    model_upload_chain = ValidationChain([
-        TypeValidator("model_name", str),
-        StringValidator("model_name", min_length=1, max_length=100),
-        SecurityValidator("model_name"),
-        TypeValidator("model_type", str),
-        StringValidator("model_type", allowed_values=["classification", "regression", "clustering"])
-    ])
+    model_upload_chain = ValidationChain(
+        [
+            TypeValidator("model_name", str),
+            StringValidator("model_name", min_length=1, max_length=100),
+            SecurityValidator("model_name"),
+            TypeValidator("model_type", str),
+            StringValidator(
+                "model_type",
+                allowed_values=["classification", "regression", "clustering"],
+            ),
+        ]
+    )
     validator.add_validation_chain("model_upload", model_upload_chain)
 
     # Cadena para datos de usuario
-    user_data_chain = ValidationChain([
-        TypeValidator("username", str),
-        StringValidator("username", min_length=3, max_length=50),
-        SecurityValidator("username"),
-        ValidationFactory.create_email_validator("email"),
-        SecurityValidator("email"),
-        ValidationFactory.create_password_validator("password"),
-        SecurityValidator("password")
-    ])
+    user_data_chain = ValidationChain(
+        [
+            TypeValidator("username", str),
+            StringValidator("username", min_length=3, max_length=50),
+            SecurityValidator("username"),
+            ValidationFactory.create_email_validator("email"),
+            SecurityValidator("email"),
+            ValidationFactory.create_password_validator("password"),
+            SecurityValidator("password"),
+        ]
+    )
     validator.add_validation_chain("user_data", user_data_chain)

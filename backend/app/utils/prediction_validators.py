@@ -1,5 +1,6 @@
+# -*- coding: utf-8 -*-
 """
-Validadores para entrada de predicciones ML - FASE REFACTOR TDD Ciclo 3.
+Prediction Validators - Validadores para predicciones ML.
 
 REFACTORED: Aplicando Template Method Pattern y Chain of Responsibility
 - Template Method Pattern: Estructura común para validaciones de endpoints
@@ -7,18 +8,20 @@ REFACTORED: Aplicando Template Method Pattern y Chain of Responsibility
 - DRY: Eliminación de duplicación en validaciones repetitivas
 """
 
-from typing import Dict, Any, List, Union, Optional
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
 # Configuración del logger
 logger = logging.getLogger(__name__)
 
+
 # REFACTORED: Usando Enum en lugar de strings para tipos de error
 class ValidationErrorType(Enum):
     """Tipos de errores de validación centralizados."""
+
     EMPTY_DATA = "empty"
     INVALID_TYPES = "invalid_types"
     MISSING_FIELDS = "missing_fields"
@@ -30,26 +33,27 @@ class ValidationErrorType(Enum):
 @dataclass
 class ValidationConfig:
     """Configuración centralizada de validación."""
+
     required_fields: List[str]
     field_types: Dict[str, tuple]
     numeric_ranges: Dict[str, tuple]
 
     @classmethod
-    def get_prediction_config(cls) -> 'ValidationConfig':
+    def get_prediction_config(cls) -> "ValidationConfig":
         """Factory method para configuración de predicciones."""
         return cls(
             required_fields=["age", "income", "category", "score"],
             field_types={
                 "age": (int, float),
                 "income": (int, float),
-                "category": str,
-                "score": (int, float)
+                "category": (str,),
+                "score": (int, float),
             },
             numeric_ranges={
                 "age": (0, 150),
-                "income": (0, float('inf')),
-                "score": (0.0, 1.0)
-            }
+                "income": (0, float("inf")),
+                "score": (0.0, 1.0),
+            },
         )
 
 
@@ -114,10 +118,7 @@ class BaseValidator(ABC):
     def _handle_unexpected_error(self, error: Exception) -> Dict[str, Any]:
         """REFACTORED: Manejo de errores centralizado."""
         logger.error(f"Unexpected error in {self.__class__.__name__}: {error}")
-        return {
-            "valid": False,
-            "error": f"Validation error: {str(error)}"
-        }
+        return {"valid": False, "error": f"Validation error: {str(error)}"}
 
 
 # REFACTORED: Chain of Responsibility - Manejadores de Error
@@ -125,14 +126,16 @@ class ValidationErrorHandler(ABC):
     """Chain of Responsibility: Base para manejo escalado de errores."""
 
     def __init__(self):
-        self._next_handler: Optional['ValidationErrorHandler'] = None
+        self._next_handler: Optional["ValidationErrorHandler"] = None
 
-    def set_next(self, handler: 'ValidationErrorHandler') -> 'ValidationErrorHandler':
+    def set_next(self, handler: "ValidationErrorHandler") -> "ValidationErrorHandler":
         """Configurar siguiente handler en la cadena."""
         self._next_handler = handler
         return handler
 
-    def handle(self, error_type: ValidationErrorType, context: Dict[str, Any]) -> Dict[str, Any]:
+    def handle(
+        self, error_type: ValidationErrorType, context: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Template method para manejo de errores."""
         if self._can_handle(error_type):
             return self._do_handle(error_type, context)
@@ -147,16 +150,20 @@ class ValidationErrorHandler(ABC):
         pass
 
     @abstractmethod
-    def _do_handle(self, error_type: ValidationErrorType, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _do_handle(
+        self, error_type: ValidationErrorType, context: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Manejar el error específico."""
         pass
 
-    def _default_handle(self, error_type: ValidationErrorType, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _default_handle(
+        self, error_type: ValidationErrorType, context: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Handler por defecto para errores no manejados."""
         return {
             "valid": False,
             "error": f"Unhandled validation error: {error_type.value}",
-            "context": context
+            "context": context,
         }
 
 
@@ -166,11 +173,10 @@ class EmptyDataErrorHandler(ValidationErrorHandler):
     def _can_handle(self, error_type: ValidationErrorType) -> bool:
         return error_type == ValidationErrorType.EMPTY_DATA
 
-    def _do_handle(self, error_type: ValidationErrorType, context: Dict[str, Any]) -> Dict[str, Any]:
-        return {
-            "valid": False,
-            "error": "Data is empty or None"
-        }
+    def _do_handle(
+        self, error_type: ValidationErrorType, context: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        return {"valid": False, "error": "Data is empty or None"}
 
 
 class TypeErrorHandler(ValidationErrorHandler):
@@ -179,12 +185,14 @@ class TypeErrorHandler(ValidationErrorHandler):
     def _can_handle(self, error_type: ValidationErrorType) -> bool:
         return error_type == ValidationErrorType.INVALID_TYPES
 
-    def _do_handle(self, error_type: ValidationErrorType, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _do_handle(
+        self, error_type: ValidationErrorType, context: Dict[str, Any]
+    ) -> Dict[str, Any]:
         field = context.get("field")
         expected_types = context.get("expected_types")
         return {
             "valid": False,
-            "error": f"invalid_types: {field} must be {expected_types}"
+            "error": f"invalid_types: {field} must be {expected_types}",
         }
 
 
@@ -194,12 +202,14 @@ class MissingFieldsErrorHandler(ValidationErrorHandler):
     def _can_handle(self, error_type: ValidationErrorType) -> bool:
         return error_type == ValidationErrorType.MISSING_FIELDS
 
-    def _do_handle(self, error_type: ValidationErrorType, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _do_handle(
+        self, error_type: ValidationErrorType, context: Dict[str, Any]
+    ) -> Dict[str, Any]:
         missing_fields = context.get("missing_fields", [])
         return {
             "valid": False,
             "error": "missing_fields detected",
-            "missing_fields": missing_fields
+            "missing_fields": missing_fields,
         }
 
 
@@ -209,13 +219,15 @@ class RangeErrorHandler(ValidationErrorHandler):
     def _can_handle(self, error_type: ValidationErrorType) -> bool:
         return error_type == ValidationErrorType.OUT_OF_RANGE
 
-    def _do_handle(self, error_type: ValidationErrorType, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _do_handle(
+        self, error_type: ValidationErrorType, context: Dict[str, Any]
+    ) -> Dict[str, Any]:
         field = context.get("field")
         min_val = context.get("min_val")
         max_val = context.get("max_val")
         return {
             "valid": False,
-            "error": f"out_of_range: {field} must be between {min_val} and {max_val}"
+            "error": f"out_of_range: {field} must be between {min_val} and {max_val}",
         }
 
 
@@ -223,8 +235,11 @@ class RangeErrorHandler(ValidationErrorHandler):
 class PredictionInputValidator(BaseValidator):
     """Validador de entrada de predicciones usando Template Method Pattern."""
 
-    def __init__(self, config: ValidationConfig = None):
-        self.config = config or ValidationConfig.get_prediction_config()
+    def __init__(self, config: Optional[ValidationConfig] = None):
+        if config is None:
+            self.config = ValidationConfig.get_prediction_config()
+        else:
+            self.config = config
         # REFACTORED: Chain of Responsibility para manejo de errores
         self.error_handler = self._setup_error_chain()
 
@@ -236,13 +251,17 @@ class PredictionInputValidator(BaseValidator):
         range_handler = RangeErrorHandler()
 
         # Configurar cadena
-        empty_handler.set_next(type_handler).set_next(missing_handler).set_next(range_handler)
+        empty_handler.set_next(type_handler).set_next(missing_handler).set_next(
+            range_handler
+        )
         return empty_handler
 
     def _validate_format(self, data: Any) -> Dict[str, Any]:
         """Validar formato básico: no vacío."""
         if data is None or (isinstance(data, dict) and len(data) == 0):
-            return self.error_handler.handle(ValidationErrorType.EMPTY_DATA, {"data": data})
+            return self.error_handler.handle(
+                ValidationErrorType.EMPTY_DATA, {"data": data}
+            )
         return {"valid": True}
 
     def _validate_content(self, data: Any) -> Dict[str, Any]:
@@ -256,7 +275,7 @@ class PredictionInputValidator(BaseValidator):
                 if not isinstance(value, expected_types):
                     return self.error_handler.handle(
                         ValidationErrorType.INVALID_TYPES,
-                        {"field": field_name, "expected_types": expected_types}
+                        {"field": field_name, "expected_types": expected_types},
                     )
 
         return {"valid": True}
@@ -267,21 +286,24 @@ class PredictionInputValidator(BaseValidator):
             return {"valid": True}
 
         # Validar campos requeridos
-        missing_fields = [field for field in self.config.required_fields if field not in data]
+        missing_fields = [
+            field for field in self.config.required_fields if field not in data
+        ]
         if missing_fields:
             return self.error_handler.handle(
-                ValidationErrorType.MISSING_FIELDS,
-                {"missing_fields": missing_fields}
+                ValidationErrorType.MISSING_FIELDS, {"missing_fields": missing_fields}
             )
 
         # Validar rangos numéricos
         for field_name, (min_val, max_val) in self.config.numeric_ranges.items():
             if field_name in data:
                 value = data[field_name]
-                if isinstance(value, (int, float)) and (value < min_val or value > max_val):
+                if isinstance(value, (int, float)) and (
+                    value < min_val or value > max_val
+                ):
                     return self.error_handler.handle(
                         ValidationErrorType.OUT_OF_RANGE,
-                        {"field": field_name, "min_val": min_val, "max_val": max_val}
+                        {"field": field_name, "min_val": min_val, "max_val": max_val},
                     )
 
         return {"valid": True}
@@ -308,12 +330,13 @@ class ValidationFacade:
             "required_fields": config.required_fields,
             "field_types": {k: str(v) for k, v in config.field_types.items()},
             "numeric_ranges": config.numeric_ranges,
-            "version": "2.0.0-refactored"
+            "version": "2.0.0-refactored",
         }
 
 
 # REFACTORED: Interface de compatibilidad hacia atrás
 _validation_facade = ValidationFacade()
+
 
 def validate_prediction_input(data: Any) -> Dict[str, Any]:
     """
@@ -321,6 +344,7 @@ def validate_prediction_input(data: Any) -> Dict[str, Any]:
     REFACTORED: Delegación a facade elimina duplicación.
     """
     return _validation_facade.validate_prediction_input(data)
+
 
 def get_validation_schema() -> Dict[str, Any]:
     """

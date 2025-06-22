@@ -1,20 +1,23 @@
+# -*- coding: utf-8 -*-
 """
 🛡️ Sistema Avanzado de Manejo de Errores para ML
+from typing import Any, Dict, Type
 
 Implementación TDD - FASE REFACTOR
 Aplicando: Factory Pattern, Strategy Pattern, DRY Principle
 """
 
 import logging
-from enum import Enum
-from dataclasses import dataclass, field
-from typing import Optional, Dict, Any, Callable, Type
-from datetime import datetime
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, Optional, Tuple, Type
 
 
 class ErrorTypes(Enum):
     """Tipos de errores específicos de ML"""
+
     MODEL_LOAD_ERROR = "model_load_error"
     PREDICTION_ERROR = "prediction_error"
     VALIDATION_ERROR = "validation_error"
@@ -25,6 +28,7 @@ class ErrorTypes(Enum):
 
 class ErrorSeverity(Enum):
     """Niveles de severidad de errores"""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -34,6 +38,7 @@ class ErrorSeverity(Enum):
 @dataclass
 class ErrorPatternConfig:
     """Configuración para patrones de error - elimina duplicación"""
+
     error_type: ErrorTypes
     severity: ErrorSeverity
     is_retryable: bool
@@ -44,6 +49,7 @@ class ErrorPatternConfig:
 @dataclass
 class ClassifiedError:
     """Error clasificado con contexto"""
+
     error_type: ErrorTypes
     severity: ErrorSeverity
     should_retry: bool
@@ -78,36 +84,36 @@ class PatternBasedClassifier(ErrorClassificationStrategy):
                 severity=ErrorSeverity.HIGH,
                 is_retryable=False,
                 patterns=["model file not found", "no such file", "cannot load model"],
-                friendly_message="The requested model is temporarily unavailable."
+                friendly_message="The requested model is temporarily unavailable.",
             ),
             ErrorTypes.PREDICTION_ERROR: ErrorPatternConfig(
                 error_type=ErrorTypes.PREDICTION_ERROR,
                 severity=ErrorSeverity.MEDIUM,
                 is_retryable=False,
                 patterns=["array shapes", "dimension mismatch"],
-                friendly_message="The input data format doesn't match the expected model requirements."
+                friendly_message="The input data format doesn't match the expected model requirements.",  # noqa: E501
             ),
             ErrorTypes.VALIDATION_ERROR: ErrorPatternConfig(
                 error_type=ErrorTypes.VALIDATION_ERROR,
                 severity=ErrorSeverity.LOW,
                 is_retryable=False,
                 patterns=["invalid input", "missing required"],
-                friendly_message="Please check your input data format and try again."
+                friendly_message="Please check your input data format and try again.",
             ),
             ErrorTypes.NETWORK_ERROR: ErrorPatternConfig(
                 error_type=ErrorTypes.NETWORK_ERROR,
                 severity=ErrorSeverity.MEDIUM,
                 is_retryable=True,
                 patterns=["connection", "timeout"],
-                friendly_message="Network connectivity issue. Please try again in a moment."
+                friendly_message="Network connectivity issue. Please try again in a moment.",  # noqa: E501
             ),
             ErrorTypes.RATE_LIMIT_ERROR: ErrorPatternConfig(
                 error_type=ErrorTypes.RATE_LIMIT_ERROR,
                 severity=ErrorSeverity.MEDIUM,
                 is_retryable=True,
                 patterns=["rate limit"],
-                friendly_message="Too many requests. Please wait a moment before trying again."
-            )
+                friendly_message="Too many requests. Please wait a moment before trying again.",  # noqa: E501
+            ),
         }
 
         # Crear índice invertido para búsqueda eficiente
@@ -119,7 +125,9 @@ class PatternBasedClassifier(ErrorClassificationStrategy):
     def can_classify(self, error: Exception) -> bool:
         """Verificar si hay algún patrón que coincida"""
         error_message = str(error).lower()
-        return any(pattern in error_message for pattern in self.pattern_to_config.keys())
+        return any(
+            pattern in error_message for pattern in self.pattern_to_config.keys()
+        )
 
     def classify(self, error: Exception, context: str = "") -> ErrorPatternConfig:
         """Clasificar error usando patrones"""
@@ -144,22 +152,22 @@ class ExceptionTypeClassifier(ErrorClassificationStrategy):
                 severity=ErrorSeverity.MEDIUM,
                 is_retryable=True,
                 patterns=[],
-                friendly_message="Network connectivity issue. Please try again in a moment."
+                friendly_message="Network connectivity issue. Please try again in a moment.",  # noqa: E501
             ),
             TimeoutError: ErrorPatternConfig(
                 error_type=ErrorTypes.NETWORK_ERROR,
                 severity=ErrorSeverity.MEDIUM,
                 is_retryable=True,
                 patterns=[],
-                friendly_message="The request took too long to process. Please try again."
+                friendly_message="The request took too long to process. Please try again.",  # noqa: E501
             ),
             ValueError: ErrorPatternConfig(
                 error_type=ErrorTypes.VALIDATION_ERROR,
                 severity=ErrorSeverity.LOW,
                 is_retryable=False,
                 patterns=[],
-                friendly_message="Please check your input data format and try again."
-            )
+                friendly_message="Please check your input data format and try again.",
+            ),
         }
 
     def can_classify(self, error: Exception) -> bool:
@@ -184,7 +192,7 @@ class MLErrorHandler:
         # Strategy Pattern - múltiples estrategias de clasificación
         self.classification_strategies: list[ErrorClassificationStrategy] = [
             PatternBasedClassifier(),
-            ExceptionTypeClassifier()
+            ExceptionTypeClassifier(),
         ]
 
         # Configuración por defecto para errores no clasificados
@@ -193,7 +201,7 @@ class MLErrorHandler:
             severity=ErrorSeverity.MEDIUM,
             is_retryable=False,
             patterns=[],
-            friendly_message="The prediction service encountered an unexpected error. Please try again later."
+            friendly_message="The prediction service encountered an unexpected error. Please try again later.",  # noqa: E501
         )
 
     def classify_error(self, error: Exception, context: str = "") -> ClassifiedError:
@@ -214,7 +222,7 @@ class MLErrorHandler:
             should_retry=config.is_retryable,
             context=enriched_context,
             original_error=error,
-            user_message=config.friendly_message
+            user_message=config.friendly_message,
         )
 
         # Log para debugging
@@ -240,13 +248,15 @@ class MLErrorHandler:
         # Fallback a configuración por defecto
         return self.default_config
 
-    def _create_enriched_context(self, error: Exception, context: str) -> Dict[str, Any]:
+    def _create_enriched_context(
+        self, error: Exception, context: str
+    ) -> Dict[str, Any]:
         """Crear contexto enriquecido - método extraído para DRY"""
         return {
             "original_context": context,
             "error_class": error.__class__.__name__,
             "error_message": str(error),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
     def _log_classification(self, classified: ClassifiedError, context: str) -> None:
@@ -263,37 +273,59 @@ class MLExceptionFactory:
     """Factory para crear excepciones ML específicas - Factory Pattern"""
 
     @staticmethod
-    def create_model_load_error(message: str, model_path: str = None,
-                              model_type: str = None) -> 'ModelLoadError':
+    def create_model_load_error(
+        message: str,
+        model_path: Optional[str] = None,
+        model_type: Optional[str] = None,
+    ) -> "ModelLoadError":
         """Crear error de carga de modelo"""
         return ModelLoadError(message, model_path, model_type)
 
     @staticmethod
-    def create_prediction_error(message: str, model_id: str = None,
-                              input_shape: tuple = None, expected_shape: tuple = None,
-                              model_version: str = None) -> 'PredictionError':
+    def create_prediction_error(
+        message: str,
+        model_id: Optional[str] = None,
+        input_shape: Optional[Tuple] = None,
+        expected_shape: Optional[Tuple] = None,
+        model_version: Optional[str] = None,
+    ) -> "PredictionError":
         """Crear error de predicción"""
-        return PredictionError(message, model_id, input_shape, expected_shape, model_version)
+        return PredictionError(
+            message, model_id, input_shape, expected_shape, model_version
+        )
 
     @staticmethod
-    def create_validation_error(message: str, field_name: str = None,
-                              expected_type: str = None) -> 'ValidationError':
+    def create_validation_error(
+        message: str,
+        field_name: Optional[str] = None,
+        expected_type: Optional[str] = None,
+    ) -> "ValidationError":
         """Crear error de validación"""
         return ValidationError(message, field_name, expected_type)
 
     @staticmethod
-    def create_rate_limit_error(message: str, retry_after_seconds: int = None,
-                              limit_type: str = None, current_usage: int = None) -> 'RateLimitError':
+    def create_rate_limit_error(
+        message: str,
+        retry_after_seconds: Optional[int] = None,
+        limit_type: Optional[str] = None,
+        current_usage: Optional[int] = None,
+    ) -> "RateLimitError":
         """Crear error de rate limiting"""
         return RateLimitError(message, retry_after_seconds, limit_type, current_usage)
 
 
 # Excepciones específicas para diferentes tipos de errores ML - sin cambios en interfaz
 
+
 class ModelLoadError(Exception):
     """Error al cargar modelos ML"""
 
-    def __init__(self, message: str, model_path: str = None, model_type: str = None):
+    def __init__(
+        self,
+        message: str,
+        model_path: Optional[str] = None,
+        model_type: Optional[str] = None,
+    ):
         super().__init__(message)
         self.model_path = model_path
         self.model_type = model_type
@@ -302,8 +334,14 @@ class ModelLoadError(Exception):
 class PredictionError(Exception):
     """Error durante predicción ML"""
 
-    def __init__(self, message: str, model_id: str = None, input_shape: tuple = None,
-                 expected_shape: tuple = None, model_version: str = None):
+    def __init__(
+        self,
+        message: str,
+        model_id: Optional[str] = None,
+        input_shape: Optional[Tuple] = None,
+        expected_shape: Optional[Tuple] = None,
+        model_version: Optional[str] = None,
+    ):
         super().__init__(message)
         self.model_id = model_id
         self.input_shape = input_shape
@@ -315,7 +353,12 @@ class PredictionError(Exception):
 class ValidationError(Exception):
     """Error de validación de entrada"""
 
-    def __init__(self, message: str, field_name: str = None, expected_type: str = None):
+    def __init__(
+        self,
+        message: str,
+        field_name: Optional[str] = None,
+        expected_type: Optional[str] = None,
+    ):
         super().__init__(message)
         self.field_name = field_name
         self.expected_type = expected_type
@@ -324,8 +367,13 @@ class ValidationError(Exception):
 class RateLimitError(Exception):
     """Error de límite de rate limiting"""
 
-    def __init__(self, message: str, retry_after_seconds: int = None,
-                 limit_type: str = None, current_usage: int = None):
+    def __init__(
+        self,
+        message: str,
+        retry_after_seconds: Optional[int] = None,
+        limit_type: Optional[str] = None,
+        current_usage: Optional[int] = None,
+    ):
         super().__init__(message)
         self.retry_after_seconds = retry_after_seconds
         self.limit_type = limit_type
@@ -335,7 +383,12 @@ class RateLimitError(Exception):
 class SystemError(Exception):
     """Error del sistema general"""
 
-    def __init__(self, message: str, component: str = None, severity: str = "medium"):
+    def __init__(
+        self,
+        message: str,
+        component: Optional[str] = None,
+        severity: str = "medium",
+    ):
         super().__init__(message)
         self.component = component
         self.severity = severity

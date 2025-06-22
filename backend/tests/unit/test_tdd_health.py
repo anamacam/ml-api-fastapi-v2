@@ -1,8 +1,9 @@
-"""
-TDD para health check - Empezando con un test que falla.
-"""
+"""Tests TDD para health check."""
 
-import pytest
+import os
+
+# Configurar entorno de testing
+os.environ["ENV"] = "testing"
 
 
 def test_check_ml_model_loaded_returns_false_when_model_is_none():
@@ -89,7 +90,7 @@ def test_check_api_endpoints_returns_true_when_endpoints_exist():
     from app.utils.health import check_api_endpoints
 
     # Lista con endpoints
-    endpoints = ['/health', '/predict', '/models']
+    endpoints = ["/health", "/predict", "/models"]
     result = check_api_endpoints(endpoints)
 
     assert result is True

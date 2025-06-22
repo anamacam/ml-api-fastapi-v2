@@ -1,27 +1,378 @@
+# -*- coding: utf-8 -*-
 """
 Servicio Híbrido de Predicción - REFACTOR FINAL.
 
-Integra modelos reales existentes con la arquitectura TDD refactorizada.
-Mantiene compatibilidad con tests mientras usa modelos LightGBM y Random Forest reales.
+Integra modelos reales existentes con la arquitectura TDD
+refactorizada. Mantiene compatibilidad con tests mientras usa modelos
+LightGBM y Random Forest reales.
+
+MEJORA 4: Métricas de Performance para Fallback
+- Tiempo de respuesta de servicios primario y fallback
+- Contadores de éxito/fallo por servicio
+- Métricas de disponibilidad y latencia
+- Análisis de patrones de fallo
 """
 
-from typing import Dict, List, Any, Optional, Tuple
-import numpy as np
+import json
+import logging
+import time
+from collections import defaultdict, deque
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 # import pandas as pd  # Unused import
-import joblib
-import logging
-from pathlib import Path
-import json
-from datetime import datetime
-
-from app.utils.prediction_validators import validate_prediction_input
+import joblib  # type: ignore
+import numpy as np
 
 # from app.utils.ml_model_validators import validate_ml_model  # Unused
 from app.config.settings import get_settings
+from app.utils.prediction_validators import validate_prediction_input
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+
+class PerformanceMetrics:
+    """
+    Métricas de performance para el sistema de fallback.
+
+    Rastrea:
+    - Tiempos de respuesta por servicio
+    - Tasas de éxito/fallo
+    - Patrones de uso de fallback
+    - Disponibilidad de servicios
+
+    Examples:
+        >>> metrics = PerformanceMetrics()
+        >>> metrics.record_prediction_time("primary", 0.15, True)
+        >>> metrics.record_prediction_time("fallback", 0.05, True)
+        >>>
+        >>> # Obtener estadísticas
+        >>> stats = metrics.get_performance_stats()
+        >>> print(f"Primary avg time: "
+        ...       f"{stats['primary']['avg_response_time']}")
+        >>> print(f"Fallback usage rate: "
+        ...       f"{stats['fallback_usage_rate']}")
+    """
+
+    def __init__(self, max_history: int = 1000):
+        """
+        Inicializar métricas de performance.
+
+        Args:
+            max_history: Máximo número de registros a mantener
+                en memoria
+        """
+        self.max_history: int = max_history
+
+        # Métricas por servicio
+        self.service_metrics: Dict[str, Dict[str, Any]] = {
+            "primary": {
+                "response_times": deque(maxlen=max_history),
+                "success_count": 0,
+                "failure_count": 0,
+                "last_success": None,
+                "last_failure": None,
+                "total_requests": 0,
+            },
+            "fallback": {
+                "response_times": deque(maxlen=max_history),
+                "success_count": 0,
+                "failure_count": 0,
+                "last_success": None,
+                "last_failure": None,
+                "total_requests": 0,
+            },
+        }
+
+        # Métricas de fallback
+        self.fallback_metrics: Dict[str, Any] = {
+            "total_fallbacks": 0,
+            "fallback_reasons": defaultdict(int),
+            "fallback_times": deque(maxlen=max_history),
+            "consecutive_fallbacks": 0,
+            "max_consecutive_fallbacks": 0,
+            "last_fallback_time": None,
+        }
+
+        # Métricas de disponibilidad
+        self.availability_metrics: Dict[str, Any] = {
+            "primary_availability": 1.0,
+            "fallback_availability": 1.0,
+            "combined_availability": 1.0,
+            "uptime_start": datetime.now(),
+            "downtime_periods": [],
+        }
+
+        # Ventana de tiempo para cálculos (últimos 5 minutos)
+        self.time_window: timedelta = timedelta(minutes=5)
+
+    def record_prediction_time(
+        self,
+        service: str,
+        response_time: float,
+        success: bool,
+        failure_reason: Optional[str] = None,
+    ) -> None:
+        """
+        Registrar tiempo de predicción para un servicio.
+
+        Args:
+            service: "primary" o "fallback"
+            response_time: Tiempo de respuesta en segundos
+            success: Si la predicción fue exitosa
+            failure_reason: Razón del fallo si aplica
+
+        Examples:
+            >>> metrics.record_prediction_time("primary", 0.12, True)
+            >>> metrics.record_prediction_time("primary", 2.5, False, "timeout")
+        """
+        if service not in self.service_metrics:
+            return
+
+        metrics = self.service_metrics[service]
+        current_time = datetime.now()
+
+        # Registrar tiempo de respuesta
+        metrics["response_times"].append(
+            {"time": response_time, "timestamp": current_time, "success": success}
+        )
+
+        # Actualizar contadores
+        metrics["total_requests"] += 1
+        if success:
+            metrics["success_count"] += 1
+            metrics["last_success"] = current_time
+        else:
+            metrics["failure_count"] += 1
+            metrics["last_failure"] = current_time
+
+            # Si es el servicio primario que falla, registrar
+            # razón de fallback
+            if service == "primary" and failure_reason:
+                self.fallback_metrics["fallback_reasons"][failure_reason] += 1
+
+    def record_fallback_usage(self, reason: str, response_time: float) -> None:
+        """
+        Registrar uso del sistema de fallback.
+
+        Args:
+            reason: Razón por la que se usó fallback
+            response_time: Tiempo total incluyendo fallback
+
+        Examples:
+            >>> metrics.record_fallback_usage("primary_timeout", 0.25)
+            >>> metrics.record_fallback_usage("primary_error", 0.18)
+        """
+        current_time = datetime.now()
+
+        self.fallback_metrics["total_fallbacks"] += 1
+        self.fallback_metrics["fallback_reasons"][reason] += 1
+        self.fallback_metrics["fallback_times"].append(
+            {"time": response_time, "timestamp": current_time, "reason": reason}
+        )
+        self.fallback_metrics["last_fallback_time"] = current_time
+
+        # Rastrear fallbacks consecutivos
+        last_fallback_time = self.fallback_metrics.get("last_fallback_time")
+        if last_fallback_time and (
+            current_time - last_fallback_time < timedelta(minutes=1)
+        ):
+            self.fallback_metrics["consecutive_fallbacks"] += 1
+            if (
+                self.fallback_metrics["consecutive_fallbacks"]
+                > self.fallback_metrics["max_consecutive_fallbacks"]  # noqa: W503
+            ):
+                self.fallback_metrics[
+                    "max_consecutive_fallbacks"
+                ] = self.fallback_metrics["consecutive_fallbacks"]
+        else:
+            self.fallback_metrics["consecutive_fallbacks"] = 1
+
+    def calculate_availability(self, service: str) -> float:
+        """
+        Calcular disponibilidad del servicio en la ventana de tiempo.
+
+        Args:
+            service: "primary" o "fallback"
+
+        Returns:
+            float: Disponibilidad como porcentaje (0.0 - 1.0)
+
+        Examples:
+            >>> availability = metrics.calculate_availability("primary")
+            >>> print(f"Primary service availability: "
+        ...       f"{availability:.2%}")
+        """
+        if service not in self.service_metrics:
+            return 0.0
+
+        metrics = self.service_metrics[service]
+        if metrics["total_requests"] == 0:
+            return 1.0  # Sin requests, asumimos disponible
+
+        # Calcular en ventana de tiempo
+        current_time = datetime.now()
+        cutoff_time = current_time - self.time_window
+
+        # Filtrar requests en ventana de tiempo
+        recent_requests = [
+            entry
+            for entry in metrics["response_times"]
+            if entry.get("timestamp") and entry["timestamp"] > cutoff_time
+        ]
+
+        if not recent_requests:
+            return 1.0
+
+        successful_requests = sum(
+            1 for entry in recent_requests if entry.get("success")
+        )
+        total_recent_requests = len(recent_requests)
+
+        return (
+            successful_requests / total_recent_requests
+            if total_recent_requests > 0
+            else 1.0
+        )
+
+    def get_performance_stats(self) -> Dict[str, Any]:
+        """
+        Obtener estadísticas completas de performance.
+
+        Returns:
+            Dict con todas las métricas de performance
+
+        Examples:
+            >>> stats = metrics.get_performance_stats()
+            >>> print(f"Fallback usage rate: {stats['fallback_usage_rate']:.2%}")
+            >>> print(f"Primary avg response time: "
+            ...       f"{stats['primary']['avg_response_time']:.3f}s")
+        """
+        current_time = datetime.now()
+        cutoff_time = current_time - self.time_window
+
+        stats: Dict[str, Any] = {
+            "primary": self._get_service_stats("primary", cutoff_time),
+            "fallback": self._get_service_stats("fallback", cutoff_time),
+            "fallback_usage": self._get_fallback_stats(cutoff_time),
+            "availability": {
+                "primary": self.calculate_availability("primary"),
+                "fallback": self.calculate_availability("fallback"),
+                "combined": self._calculate_combined_availability(),
+            },
+            "metadata": {
+                "report_generated_at": current_time.isoformat(),
+                "time_window_minutes": self.time_window.total_seconds() / 60,
+            },
+        }
+        return stats
+
+    def _get_service_stats(self, service: str, cutoff_time: datetime) -> Dict[str, Any]:
+        """Obtener estadísticas para un servicio específico."""
+        metrics = self.service_metrics.get(service, {})
+        response_times_deque = metrics.get("response_times", deque())
+
+        recent_times = [
+            entry["time"]
+            for entry in response_times_deque
+            if entry.get("timestamp") and entry["timestamp"] > cutoff_time
+        ]
+
+        last_success = metrics.get("last_success")
+        last_failure = metrics.get("last_failure")
+
+        return {
+            "total_requests": metrics.get("total_requests", 0),
+            "success_count": metrics.get("success_count", 0),
+            "failure_count": metrics.get("failure_count", 0),
+            "avg_response_time": np.mean(recent_times) if recent_times else 0,
+            "last_success": last_success.isoformat() if last_success else None,
+            "last_failure": last_failure.isoformat() if last_failure else None,
+        }
+
+    def _get_fallback_stats(self, cutoff_time: datetime) -> Dict[str, Any]:
+        """Obtener estadísticas del sistema de fallback."""
+        total_requests_primary = self.service_metrics.get("primary", {}).get(
+            "total_requests", 0
+        )
+        total_fallbacks = self.fallback_metrics.get("total_fallbacks", 0)
+
+        fallback_times_deque = self.fallback_metrics.get("fallback_times", deque())
+        recent_fallback_times = [
+            entry["time"]
+            for entry in fallback_times_deque
+            if entry.get("timestamp") and entry["timestamp"] > cutoff_time
+        ]
+
+        last_fallback_time = self.fallback_metrics.get("last_fallback_time")
+
+        return {
+            "total_fallbacks": total_fallbacks,
+            "fallback_rate": (
+                total_fallbacks / total_requests_primary
+                if total_requests_primary > 0
+                else 0
+            ),
+            "avg_fallback_response_time": (
+                np.mean(recent_fallback_times) if recent_fallback_times else 0
+            ),
+            "reasons": dict(self.fallback_metrics.get("fallback_reasons", {})),
+            "consecutive_fallbacks": self.fallback_metrics.get(
+                "consecutive_fallbacks", 0
+            ),
+            "max_consecutive_fallbacks": self.fallback_metrics.get(
+                "max_consecutive_fallbacks", 0
+            ),
+            "last_fallback_time": (
+                last_fallback_time.isoformat() if last_fallback_time else None
+            ),
+        }
+
+    def _calculate_combined_availability(self) -> float:
+        """Calcular disponibilidad combinada del sistema."""
+        # Lógica de disponibilidad combinada (simplificada)
+        return self.calculate_availability("primary") + self.calculate_availability(
+            "fallback"
+        ) * (1 - self.calculate_availability("primary"))
+
+    def reset_metrics(self) -> None:
+        """Reiniciar todas las métricas a su estado inicial."""
+        # FIX: Re-inicializar explícitamente en lugar de llamar a __init__
+        self.service_metrics = {
+            "primary": {
+                "response_times": deque(maxlen=self.max_history),
+                "success_count": 0,
+                "failure_count": 0,
+                "last_success": None,
+                "last_failure": None,
+                "total_requests": 0,
+            },
+            "fallback": {
+                "response_times": deque(maxlen=self.max_history),
+                "success_count": 0,
+                "failure_count": 0,
+                "last_success": None,
+                "last_failure": None,
+                "total_requests": 0,
+            },
+        }
+        self.fallback_metrics = {
+            "total_fallbacks": 0,
+            "fallback_reasons": defaultdict(int),
+            "fallback_times": deque(maxlen=self.max_history),
+            "consecutive_fallbacks": 0,
+            "max_consecutive_fallbacks": 0,
+            "last_fallback_time": None,
+        }
+        self.availability_metrics = {
+            "primary_availability": 1.0,
+            "fallback_availability": 1.0,
+            "combined_availability": 1.0,
+            "uptime_start": datetime.now(),
+            "downtime_periods": [],
+        }
 
 
 class HybridPredictionService:
@@ -31,46 +382,74 @@ class HybridPredictionService:
     - Usa modelos LightGBM y Random Forest reales para producción
     - Mantiene mocks para testing y desarrollo
     - Compatibilidad total con tests TDD existentes
+    - MEJORA 4: Métricas de performance integradas
     """
 
     def __init__(self, use_real_models: Optional[bool] = None):
         """
-        Inicializar servicio híbrido.
+        Inicializar el servicio híbrido de predicción.
 
         Args:
-            use_real_models: Si usar modelos reales o mocks. Si None, usa configuración de entorno
+            use_real_models: Si usar modelos reales o mocks. Si es None,
+                detecta automáticamente.
         """
-        # Usar configuración por entorno si no se especifica explícitamente
-        if use_real_models is None:
-            self.use_real_models = getattr(
-                settings, "should_use_real_models", False
-            )
-        else:
-            self.use_real_models = use_real_models
-        self.real_models: Dict[str, Any] = {}
-        self.model_metadata: Dict[str, Dict[str, Any]] = {}
+        logger.info("🔧 Inicializando HybridPredictionService...")
 
-        # Mock models para compatibilidad con tests TDD
-        self.mock_models = {
+        # TDD CYCLE 7 - GREEN PHASE: Atributos requeridos por tests
+        self.primary_service: Dict[str, Any] = self._create_primary_service()
+        self.fallback_service: Dict[str, Any] = self._create_fallback_service()
+        self.fallback_enabled: bool = True
+        self.fallback_count: int = 0
+        self.last_fallback_reason: Optional[str] = None
+        self.fallback_times: List[float] = []  # Para métricas de fallback
+        self.fallback_threshold: float = 0.5
+        self.is_hybrid_ready: bool = False
+
+        # Configuración de modelos reales vs mocks
+        self.use_real_models: bool = self._determine_model_usage(use_real_models)
+        self.real_models: Dict[str, Any] = {}
+        self.mock_models: Dict[str, Any] = self._create_mock_models()
+
+        # Componentes adicionales
+        self.strategy: Dict[str, Any] = self._create_strategy()
+        self.health_checker: Dict[str, Any] = self._create_health_checker()
+        self.performance_metrics: PerformanceMetrics = PerformanceMetrics()
+
+        # Cargar modelos reales si está configurado
+        if self.use_real_models:
+            self._load_real_models()
+
+        self.is_hybrid_ready = True
+        logger.info("✅ HybridPredictionService inicializado correctamente")
+
+    def _determine_model_usage(self, use_real_models: Optional[bool]) -> bool:
+        """
+        Determinar si usar modelos reales o mocks.
+
+        Args:
+            use_real_models: Configuración explícita o None para
+                auto-detectar
+
+        Returns:
+            bool: True si usar modelos reales
+        """
+        if use_real_models is not None:
+            return use_real_models
+
+        # Auto-detectar basado en configuración de entorno
+        return getattr(settings, "should_use_real_models", False)
+
+    def _create_mock_models(self) -> Dict[str, Any]:
+        """
+        Crear modelos mock para testing.
+
+        Returns:
+            Dict[str, Any]: Diccionario de modelos mock
+        """
+        return {
             "default_model": {"status": "trained", "type": "sklearn"},
             "sensitive_model": {"status": "trained", "type": "sklearn"},
         }
-
-        # TDD CYCLE 7 - GREEN PHASE: Atributos requeridos por tests
-        self.primary_service = self._create_primary_service()
-        self.fallback_service = self._create_fallback_service()
-        self.strategy = self._create_strategy()
-        self.health_checker = self._create_health_checker()
-        self.is_hybrid_ready = False
-        self.fallback_threshold = 0.8
-
-        if self.use_real_models:
-            self._load_real_models()
-        else:
-            env = getattr(settings, "environment", "testing")
-            logger.info(f"🧪 Modo {env.upper()}: Usando modelos mock para TDD")
-
-        self.is_hybrid_ready = True
 
     def _load_real_models(self) -> None:
         """Cargar modelos reales desde disco."""
@@ -109,7 +488,7 @@ class HybridPredictionService:
                         self.real_models[model_name] = joblib.load(model_path)
                         size_kb = model_path.stat().st_size / 1024
                         logger.info(
-                            f"✅ Modelo cargado: {model_name} ({size_kb:.1f}KB)"
+                            f"✅ Modelo cargado: {model_name} ({size_kb: .1f}KB)"
                         )
                     except Exception as e:
                         logger.error(f"❌ Error cargando {model_name}: {e}")
@@ -167,25 +546,193 @@ class HybridPredictionService:
             request.features, request.model_id or "default_model"
         )
 
+    def _handle_primary_failure(self, reason: str) -> None:
+        """
+        MEJORA 3: Manejar fallo del servicio primario.
+
+        Args:
+            reason: Razón del fallo
+        """
+        self.fallback_count += 1
+        self.last_fallback_reason = reason
+        self.fallback_times.append(time.time())  # Almacenar timestamp como float
+
+        # Registrar en métricas de performance
+        self.performance_metrics.record_fallback_usage(reason, 0.0)
+
+        logger.warning(
+            f"Primary service failed: {reason}. Fallback count: {self.fallback_count}"
+        )
+
+    async def predict_hybrid(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        MEJORA 3: Predicción híbrida con manejo de fallos.
+
+        Args:
+            data: Datos de entrada
+
+        Returns:
+            Dict con resultado de predicción
+        """
+        start_time = time.time()
+
+        try:
+            # Intentar servicio primario
+            result = await self._predict_with_primary(data)
+
+            # Registrar métricas de éxito
+            response_time = time.time() - start_time
+            self.performance_metrics.record_prediction_time(
+                "primary", response_time, True
+            )
+
+            return {
+                "prediction": result,
+                "service_used": "primary",
+                "response_time": response_time,
+                "fallback_used": False,
+            }
+
+        except Exception as primary_error:
+            # Registrar fallo del primario
+            primary_time = time.time() - start_time
+            self.performance_metrics.record_prediction_time(
+                "primary", primary_time, False, str(primary_error)
+            )
+
+            if not self.fallback_enabled:
+                raise primary_error
+
+            try:
+                # Usar servicio de fallback
+                fallback_start = time.time()
+                result = await self._predict_with_fallback(data)
+
+                # Registrar métricas de fallback
+                fallback_time = time.time() - fallback_start
+                total_time = time.time() - start_time
+
+                self.performance_metrics.record_prediction_time(
+                    "fallback", fallback_time, True
+                )
+                self.performance_metrics.record_fallback_usage(
+                    str(primary_error), total_time
+                )
+
+                self._handle_primary_failure(str(primary_error))
+
+                return {
+                    "prediction": result,
+                    "service_used": "fallback",
+                    "response_time": total_time,
+                    "fallback_used": True,
+                    "primary_error": str(primary_error),
+                }
+
+            except Exception as fallback_error:
+                # Ambos servicios fallaron
+                fallback_time = time.time() - fallback_start
+                self.performance_metrics.record_prediction_time(
+                    "fallback", fallback_time, False, str(fallback_error)
+                )
+
+                raise Exception(
+                    f"Both services failed. Primary: {primary_error}, "
+                    f"Fallback: {fallback_error}"
+                )
+
+    async def _predict_with_primary(self, data: Dict[str, Any]) -> Any:
+        """Predicción con servicio primario."""
+        # Simular predicción primaria
+        if self.use_real_models and "default_model" in self.real_models:
+            return self._real_model_prediction(data, "default_model")
+        else:
+            return self._mock_prediction(data, "default_model")
+
+    async def _predict_with_fallback(self, data: Dict[str, Any]) -> Any:
+        """Predicción con servicio de fallback."""
+        # El fallback siempre usa mock para garantizar disponibilidad
+        return self._mock_prediction(data, "default_model")
+
+    def get_performance_report(self) -> Dict[str, Any]:
+        """
+        MEJORA 4: Obtener reporte completo de performance.
+
+        Returns:
+            Dict con métricas completas de performance
+
+        Examples:
+            >>> service = HybridPredictionService()
+            >>> report = service.get_performance_report()
+            >>> print(f"System availability: {report['availability']['combined']:.2%}")
+            >>> print(f"Fallback usage: {report['fallback_usage_rate']:.2%}")
+        """
+        base_stats = self.performance_metrics.get_performance_stats()
+
+        # Agregar métricas específicas del servicio híbrido
+        base_stats.update(
+            {
+                "hybrid_service_metrics": {
+                    "total_fallback_count": self.fallback_count,
+                    "last_fallback_reason": self.last_fallback_reason,
+                    "fallback_enabled": self.fallback_enabled,
+                    "fallback_threshold": self.fallback_threshold,
+                    "is_hybrid_ready": self.is_hybrid_ready,
+                    "use_real_models": self.use_real_models,
+                    "available_models": (
+                        list(self.real_models.keys())
+                        if self.use_real_models
+                        else list(self.mock_models.keys())
+                    ),
+                }
+            }
+        )
+
+        return base_stats
+
     def predict_with_fallback(self, request):
         """TDD CYCLE 7 - GREEN PHASE: Predicción con mecanismo de fallback"""
+        start_time = time.time()
+
         try:
             # Intentar servicio primario
             success, result = self.primary_service["predict"](request)
+
+            # Registrar métricas
+            response_time = time.time() - start_time
+            self.performance_metrics.record_prediction_time(
+                "primary", response_time, success
+            )
+
             if success:
                 result["used_fallback"] = False
                 result["primary_error"] = None
                 return result
             else:
                 raise Exception("Primary service failed")
+
         except Exception as e:
             # Usar fallback
             logger.warning(f"Primary service failed, using fallback: {e}")
+
+            fallback_start = time.time()
             fallback_result = self.fallback_service["predict"](request)
+            fallback_time = time.time() - fallback_start
+            total_time = time.time() - start_time
+
+            # Registrar métricas de fallback
+            self.performance_metrics.record_prediction_time(
+                "fallback", fallback_time, True
+            )
+            self.performance_metrics.record_fallback_usage(str(e), total_time)
+
+            self._handle_primary_failure(str(e))
+
             return {
                 "prediction": fallback_result,
                 "used_fallback": True,
                 "primary_error": str(e),
+                "response_time": total_time,
             }
 
     def validate_and_predict(
@@ -232,7 +779,7 @@ class HybridPredictionService:
                     "status": "trained",
                     "type": self._get_model_type(model_id),
                     "is_real_model": self.use_real_models
-                    and model_id in self.real_models,
+                    and model_id in self.real_models,  # noqa: W503
                 },
             }
 
@@ -317,7 +864,7 @@ class HybridPredictionService:
         # Mantener lógica mock original para tests
         if (
             model_id == "sensitive_model"
-            and features.get("category") == "unknown_category"
+            and features.get("category") == "unknown_category"  # noqa: W503
         ):
             raise Exception("Model cannot handle unknown category")
 
@@ -391,3 +938,38 @@ class HybridPredictionService:
             )
 
         return info
+
+    def get_service_priority(self) -> str:
+        """
+        TDD STUB: Get current service priority
+        RED: Returns default to make linter happy, test should fail on logic
+        """
+        return "primary"  # RED: Default return for TDD
+
+    def switch_primary_service(self, service_name: str) -> bool:
+        """
+        TDD STUB: Switch primary service
+        RED: Returns False by default for TDD failure
+        """
+        return False  # RED: Default return for TDD
+
+    def get_fallback_history(self) -> List[Dict[str, Any]]:
+        """
+        TDD STUB: Get fallback usage history
+        RED: Returns empty list by default for TDD failure
+        """
+        return []  # RED: Default return for TDD
+
+    def reset_performance_metrics(self) -> bool:
+        """
+        TDD STUB: Reset performance metrics
+        RED: Returns False by default for TDD failure
+        """
+        return False  # RED: Default return for TDD
+
+    def configure_fallback_threshold(self, threshold: float) -> bool:
+        """
+        TDD STUB: Configure fallback threshold
+        RED: Returns False by default for TDD failure
+        """
+        return False  # RED: Default return for TDD
