@@ -19,12 +19,16 @@ from app.models.api_models import (
     ModelUploadResponse,
     PredictionRequest,
     PredictionResponse,
-    ValidationDetails,
 )
 
 # Servicios
 from app.services.hybrid_prediction_service import HybridPredictionService
 from app.services.model_management_service import ModelManagementService
+from app.utils.error_handlers import (
+    build_validation_details,
+    handle_prediction_error,
+    handle_service_error,
+)
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -175,12 +179,13 @@ async def predict(
         success, result = service.validate_and_predict(request.features, model_id)
 
         if not success:
-            # El tipo de error ya viene clasificado por el servicio
-            raise _handle_prediction_error(result)
+            raise handle_prediction_error(result)
 
         return PredictionResponse(
             prediction=result["prediction"],
-            validation_details=_get_validation_details(request, result),
+            validation_details=build_validation_details(
+                bool(request.include_validation_details), result
+            ),
             model_info=ModelInfo(
                 model_id=result["model_info"]["model_id"],
                 status=result["model_info"]["status"],
@@ -189,12 +194,12 @@ async def predict(
         )
 
     except HTTPException:
-        raise  # Re-lanzar HTTPErrors manejadas por _handle_prediction_error
+        raise  # Re-lanzar HTTPErrors manejadas por handle_prediction_error
     except Exception as e:
         logger.error(
             f"Error inesperado en el endpoint de predicción: {e}", exc_info=True
         )
-        raise HTTPException(status_code=500, detail="Error interno del servidor.")
+        raise handle_service_error("predicción", e)
 
 
 @app.post(
@@ -229,9 +234,7 @@ async def upload_model(
         raise  # Re-lanzar la excepción HTTP específica sin modificar
     except Exception as e:
         logger.error(f"Error en la subida de modelo: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500, detail=f"Error interno al procesar el modelo: {e}"
-        )
+        raise handle_service_error("subida de modelo", e)
 
 
 @app.get("/api/v1/models", summary="Lista los modelos disponibles", tags=["Modelos"])
@@ -248,41 +251,4 @@ async def list_models(
         }
     except Exception as e:
         logger.error(f"Error al listar modelos: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500, detail="No se pudo obtener la lista de modelos."
-        )
-
-
-# 6. --- Funciones Auxiliares ---
-
-
-def _handle_prediction_error(error: Dict[str, Any]) -> HTTPException:
-    """
-    Traduce un error clasificado por el servicio a una HTTPException de FastAPI.
-    """
-    error_type = error.get("error_type")
-    if error_type == "input_validation":
-        return HTTPException(status_code=422, detail=error)
-    if error_type == "model_not_found":
-        return HTTPException(status_code=404, detail=error)
-    if error_type == "prediction_failed":
-        return HTTPException(status_code=500, detail=error)
-
-    # Fallback para errores no esperados
-    return HTTPException(status_code=500, detail="Error interno de predicción.")
-
-
-def _get_validation_details(
-    request: PredictionRequest, result: Dict[str, Any]
-) -> Optional[ValidationDetails]:
-    """
-    Construye el objeto de detalles de validación si fue solicitado.
-    """
-    if not request.include_validation_details:
-        return None
-
-    details = result.get("validation_details", {})
-    return ValidationDetails(
-        input_valid=details.get("input_valid", False),
-        model_valid=details.get("model_valid", False),
-    )
+        raise handle_service_error("listado de modelos", e)
