@@ -464,17 +464,11 @@ class TestVPSDatabaseConfig:
         config = VPSDatabaseConfig()
 
         # Verificar ajustes automáticos
-        assert (
-            config.pool_size <= 4
-        ), (
-            "El pool size no se optimizó correctamente "
-            "para el VPS"
+        assert config.pool_size <= 4, (
+            "El pool size no se optimizó correctamente " "para el VPS"
         )
-        assert (
-            config.max_overflow <= config.pool_size
-        ), (
-            "max_overflow debe ser menor o igual a "
-            "pool_size"
+        assert config.max_overflow <= config.pool_size, (
+            "max_overflow debe ser menor o igual a " "pool_size"
         )
         assert config.pool_timeout >= 60
         assert config.query_timeout >= 120
@@ -503,17 +497,11 @@ class TestVPSDatabaseConfig:
         )
 
         # Debe ajustar automáticamente a límites seguros
-        assert (
-            config.pool_size <= 4
-        ), (
-            "El pool size no se optimizó correctamente "
-            "para el VPS"
+        assert config.pool_size <= 4, (
+            "El pool size no se optimizó correctamente " "para el VPS"
         )
-        assert (
-            config.max_overflow <= config.pool_size
-        ), (
-            "max_overflow debe ser menor o igual a "
-            "pool_size"
+        assert config.max_overflow <= config.pool_size, (
+            "max_overflow debe ser menor o igual a " "pool_size"
         )
 
     @pytest.mark.integration
@@ -525,23 +513,15 @@ class TestVPSDatabaseConfig:
         ) as mock_mem:
             mock_mem.return_value.total = 2 * 1024 * 1024 * 1024  # 2GB RAM
 
-            config = VPSDatabaseConfig(
-                database_url="postgresql://user:pass@vps/db"
-            )
+            config = VPSDatabaseConfig(database_url="postgresql://user:pass@vps/db")
 
             # Pool size debe ser el mínimo entre los defaults y lo calculado
-            assert (
-                config.pool_size <= 4
-            ), (
-                "El pool size no se optimizó correctamente "
-                "para el VPS"
+            assert config.pool_size <= 4, (
+                "El pool size no se optimizó correctamente " "para el VPS"
             )
 
-        assert (
-            config.max_overflow <= config.pool_size
-        ), (
-            "max_overflow debe ser menor o igual a "
-            "pool_size"
+        assert config.max_overflow <= config.pool_size, (
+            "max_overflow debe ser menor o igual a " "pool_size"
         )
 
 
@@ -586,8 +566,7 @@ class TestDatabaseManagerVPS:
         # Configurar un timeout muy bajo para forzar fallos
         vps_config = VPSDatabaseConfig(
             database_url=(
-                "postgresql+asyncpg://invalid:invalid@"
-                "nonexistent:5432/invalid"
+                "postgresql+asyncpg://invalid:invalid@" "nonexistent:5432/invalid"
             ),
         )
 
@@ -649,8 +628,7 @@ class TestDatabaseIntegrationVPS:
         """Test: inicialización de base de datos VPS"""
         vps_config = VPSDatabaseConfig(
             database_url=(
-                "postgresql+asyncpg://postgres:postgres@localhost:5432/"
-                "vps_test_db"
+                "postgresql+asyncpg://postgres:postgres@localhost:5432/" "vps_test_db"
             ),
             pool_size=5,
             max_overflow=10,

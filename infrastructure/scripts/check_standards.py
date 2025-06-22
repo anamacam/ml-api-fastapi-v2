@@ -73,8 +73,8 @@ class StandardsChecker:
         markdown_weight = 0.4  # Markdown importante pero menos crítico
 
         overall_score = (
-            docstring_report.compliance_score * docstring_weight +
-            markdown_report.compliance_score * markdown_weight
+            docstring_report.compliance_score * docstring_weight
+            + markdown_report.compliance_score * markdown_weight
         )
 
         # Consolidar issues por categoría
@@ -101,8 +101,10 @@ class StandardsChecker:
             "markdown_files_with_issues": getattr(
                 markdown_report, "files_with_issues", 0
             ),
-            "critical_issues": (issues_by_category["docstring_errors"] +
-                                issues_by_category["markdown_errors"]),
+            "critical_issues": (
+                issues_by_category["docstring_errors"]
+                + issues_by_category["markdown_errors"]
+            ),
             "recommendations": self._generate_recommendations(
                 docstring_report, markdown_report
             ),

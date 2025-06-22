@@ -116,8 +116,7 @@ class GitBestPracticesAnalyzer:
             # Verificar longitud
             if len(commit_msg) > 50:
                 problems.append(
-                    f"Mensaje muy largo ({len(commit_msg)} chars): '{
-                                         commit_msg[:40]}...'"
+                    f"Mensaje muy largo ({len(commit_msg)} chars): '{commit_msg[:40]}...'"
                 )
 
         return len(commits), conventional_count, problems[:10]  # Limitar problemas
@@ -401,9 +400,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Analizador de Buenas Prácticas de Git."
     )
-    parser.add_argument(
-        "--repo-path", default=".", help="Ruta al repositorio Git."
-    )
+    parser.add_argument("--repo-path", default=".", help="Ruta al repositorio Git.")
     parser.add_argument(
         "--output-format",
         choices=["text", "json"],
@@ -452,8 +449,7 @@ def format_text_output(results: Dict) -> str:
     output.append("📈 ESTADÍSTICAS:")
     output.append(f"  • Total commits analizados: {git_data.get('total_commits', 0)}")
     output.append(
-        f"  • Conventional commits: {git_data.get('conventional_commits', 0)} ({
-                                                  git_data.get('conventional_ratio', 0)}%)"
+        f"  • Conventional commits: {git_data.get('conventional_commits', 0)} ({git_data.get('conventional_ratio', 0)}%)"
     )
     output.append(
         f"  • Promedio archivos/commit: {git_data.get('avg_files_per_commit', 0)}"

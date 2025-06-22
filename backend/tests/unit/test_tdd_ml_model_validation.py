@@ -22,6 +22,7 @@ def test_validate_ml_model_validates_required_methods():
 
     RED PHASE: Este test debe FALLAR porque la función no existe.
     """
+
     # Modelo sin método predict
     class InvalidModel:
         def fit(self, X, y):
@@ -248,6 +249,7 @@ def test_validate_ml_model_with_custom_required_methods():
     """
     Test para métodos requeridos personalizados (MEJORA CRÍTICA).
     """
+
     # Modelo que tiene predict_proba pero no decision_function
     class ClassifierModel:
         def predict(self, X):

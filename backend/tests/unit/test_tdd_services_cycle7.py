@@ -338,9 +338,7 @@ class TestPredictionServiceTDDCycle7:
                 assert hasattr(result, "prediction"), "Resultado debe tener prediction"
             except Exception as e:
                 # Es aceptable que falle si el modelo no existe
-                assert (
-                    "modelo" in str(e).lower() or "model" in str(e).lower()
-                )
+                assert "modelo" in str(e).lower() or "model" in str(e).lower()
 
         except ImportError:
             pytest.skip("PredictionService components no disponibles")
@@ -374,9 +372,7 @@ class TestPredictionServiceFailureCases:
 
             error_message = str(exc_info.value)
             assert error_message and "no encontrado" in error_message.lower()
-            assert (
-                "fallback" in str(exc_info.value).lower()
-            )
+            assert "fallback" in str(exc_info.value).lower()
 
         except ImportError:
             pytest.skip("PredictionService components no disponibles")
@@ -399,9 +395,9 @@ class TestPredictionServiceFailureCases:
             with pytest.raises(DataValidationError) as exc_info:
                 await service.predict(invalid_data)
 
-            assert "invalid" in str(
-                exc_info.value
-            ).lower(), "El error debe indicar datos inválidos"
+            assert (
+                "invalid" in str(exc_info.value).lower()
+            ), "El error debe indicar datos inválidos"
         except ImportError:
             pytest.skip("PredictionService o DataValidationError no disponibles")
 

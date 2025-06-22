@@ -2,14 +2,12 @@
 import argparse
 import ast
 import json
-import os
 import re
-import subprocess
 import sys
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 
 @dataclass
@@ -86,8 +84,7 @@ class TechnicalDebtAnalyzer:
         self._calculate_final_score()
 
         print(
-            f"✅ Análisis completado. Score: {
-                self.debt_report.total_score:.1f}/{self.debt_report.max_score:.1f}"
+            f"✅ Análisis completado. Score: {self.debt_report.total_score:.1f}/{self.debt_report.max_score:.1f}"
         )
         return self.debt_report
 
@@ -138,8 +135,7 @@ class TechnicalDebtAnalyzer:
             name="complejidad_ciclomatica",
             value=avg_complexity,
             max_value=20.0,
-            description=f"Complejidad promedio: {
-                avg_complexity:.1f}. Archivos complejos: {len(complex_files)}",
+            description=f"Complejidad promedio: {avg_complexity:.1f}. Archivos complejos: {len(complex_files)}",
             severity=severity,
             files_affected=complex_files,
             recommendations=recommendations,
@@ -200,14 +196,12 @@ class TechnicalDebtAnalyzer:
                             node.name
                         ) and not node.name.startswith("_"):
                             naming_issues.append(
-                                f"{py_file.relative_to(self.project_root)}:{
-                                                       node.lineno} - función '{node.name}'"
+                                f"{py_file.relative_to(self.project_root)}:{node.lineno} - función '{node.name}'"
                             )
                     elif isinstance(node, ast.ClassDef):
                         if not self._is_pascal_case(node.name):
                             naming_issues.append(
-                                f"{py_file.relative_to(self.project_root)}:{
-                                                       node.lineno} - clase '{node.name}'"
+                                f"{py_file.relative_to(self.project_root)}:{node.lineno} - clase '{node.name}'"
                             )
             except Exception:
                 continue
@@ -266,8 +260,7 @@ class TechnicalDebtAnalyzer:
                     for pattern in patterns:
                         if re.search(pattern, line, re.IGNORECASE):
                             debt_comments.append(
-                                f"{py_file.relative_to(self.project_root)}:{
-                                                       i} - {line.strip()}"
+                                f"{py_file.relative_to(self.project_root)}:{i} - {line.strip()}"
                             )
             except Exception:
                 continue
@@ -282,8 +275,7 @@ class TechnicalDebtAnalyzer:
                     for pattern in patterns:
                         if re.search(pattern, line, re.IGNORECASE):
                             debt_comments.append(
-                                f"{js_file.relative_to(self.project_root)}:{
-                                                       i} - {line.strip()}"
+                                f"{js_file.relative_to(self.project_root)}:{i} - {line.strip()}"
                             )
             except Exception:
                 continue
@@ -352,8 +344,7 @@ class TechnicalDebtAnalyzer:
             name="metricas_archivos",
             value=len(large_files),
             max_value=10.0,
-            description=f"Archivos grandes: {len(large_files)}. Promedio: {
-                                                 avg_lines:.0f} líneas",
+            description=f"Archivos grandes: {len(large_files)}. Promedio: {avg_lines:.0f} líneas",
             severity=severity,
             files_affected=[f.split(" (")[0] for f in large_files],
             recommendations=(
@@ -372,7 +363,7 @@ class TechnicalDebtAnalyzer:
     def _analyze_docstrings_quality(self):  # noqa: C901
         """
         Analiza la calidad de los docstrings.
-        
+
         TODO (refactor): Dividir en métodos más pequeños
         - _check_docstring_completeness()
         - _check_docstring_format()
@@ -408,20 +399,17 @@ class TechnicalDebtAnalyzer:
 
                         if not docstring:
                             missing_docstrings.append(
-                                f"{relative_path}:{
-                                    node.lineno} - {type(node).__name__} '{node.name}'"
+                                f"{relative_path}:{node.lineno} - {type(node).__name__} '{node.name}'"
                             )
                         else:
                             # Verificar calidad básica del docstring
                             if len(docstring.strip()) < 10:
                                 incomplete_docstrings.append(
-                                    f"{relative_path}:{
-                                        node.lineno} - {type(node).__name__} '{node.name}' (muy corto)"
+                                    f"{relative_path}:{node.lineno} - {type(node).__name__} '{node.name}' (muy corto)"
                                 )
                             elif not docstring.strip().endswith("."):
                                 incomplete_docstrings.append(
-                                    f"{relative_path}:{
-                                        node.lineno} - {type(node).__name__} '{node.name}' (sin punto final)"
+                                    f"{relative_path}:{node.lineno} - {type(node).__name__} '{node.name}' (sin punto final)"
                                 )
                             elif (
                                 isinstance(node, ast.FunctionDef)
@@ -431,8 +419,7 @@ class TechnicalDebtAnalyzer:
                             ):
                                 if len(node.args.args) > 1:  # Más de solo 'self'
                                     incomplete_docstrings.append(
-                                        f"{relative_path}:{
-                                            node.lineno} - función '{node.name}' (sin documentar parámetros)"
+                                        f"{relative_path}:{node.lineno} - función '{node.name}' (sin documentar parámetros)"
                                     )
 
             except Exception as e:
@@ -488,8 +475,7 @@ class TechnicalDebtAnalyzer:
             name="calidad_docstrings",
             value=completion_rate,
             max_value=100.0,
-            description=f"Completitud: {completion_rate:.1f}% ({total_objects - missing_count}/{
-                                                               total_objects} objetos con docstring). Incompletos: {incomplete_count}",
+            description=f"Completitud: {completion_rate:.1f}% ({total_objects - missing_count}/{total_objects} objetos con docstring). Incompletos: {incomplete_count}",
             severity=severity,
             files_affected=affected_files,
             recommendations=recommendations,
@@ -524,8 +510,7 @@ class TechnicalDebtAnalyzer:
             name="cobertura_tests",
             value=test_ratio * 100,
             max_value=100.0,
-            description=f"Ratio tests/código: {test_ratio:.2f} ({len(test_files)} tests, {
-                                                                len(source_files)} archivos)",
+            description=f"Ratio tests/código: {test_ratio:.2f} ({len(test_files)} tests, {len(source_files)} archivos)",
             severity=severity,
             files_affected=[],
             recommendations=(
@@ -544,7 +529,7 @@ class TechnicalDebtAnalyzer:
     def _analyze_tdd_practices(self):  # noqa: C901
         """
         Analiza el cumplimiento de prácticas TDD básicas.
-        
+
         TODO (refactor): Extraer lógica en métodos especializados
         - _analyze_test_structure()
         - _analyze_test_naming()
@@ -716,8 +701,7 @@ class TechnicalDebtAnalyzer:
             name="practicas_tdd",
             value=tdd_score,
             max_value=100.0,
-            description=f"Score TDD: {tdd_score:.1f}% ({len(test_files)} archivos test). Indicadores: {
-                                                       achieved_indicators}/{total_indicators}",
+            description=f"Score TDD: {tdd_score:.1f}% ({len(test_files)} archivos test). Indicadores: {achieved_indicators}/{total_indicators}",
             severity=severity,
             files_affected=affected_files,
             recommendations=recommendations,
@@ -728,7 +712,7 @@ class TechnicalDebtAnalyzer:
     def _analyze_dependencies(self):  # noqa: C901
         """
         Analiza las dependencias del proyecto.
-        
+
         TODO (refactor): Simplificar lógica de análisis
         - _check_outdated_deps()
         - _check_security_vulnerabilities()
@@ -848,8 +832,7 @@ class TechnicalDebtAnalyzer:
             name="duplicacion_codigo",
             value=len(duplicated_patterns),
             max_value=15.0,
-            description=f"Patrones potenciales de duplicación: {
-                len(duplicated_patterns)}",
+            description=f"Patrones potenciales de duplicación: {len(duplicated_patterns)}",
             severity=severity,
             files_affected=[
                 pattern.split(" en ")[1].split(" y ")[0]

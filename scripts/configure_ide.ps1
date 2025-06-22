@@ -81,4 +81,4 @@ Write-Host "   4. El IDE debería reconocer automáticamente la configuración" 
 Write-Host ""
 Write-Host "🔧 Comandos útiles:" -ForegroundColor Cyan
 Write-Host "   - Ctrl+Shift+P -> 'Tasks: Run Task' -> 'Run MyPy on Database Module'" -ForegroundColor White
-Write-Host "   - Ctrl+Shift+P -> 'Tasks: Run Task' -> 'Full Code Quality Check'" -ForegroundColor White 
+Write-Host "   - Ctrl+Shift+P -> 'Tasks: Run Task' -> 'Full Code Quality Check'" -ForegroundColor White

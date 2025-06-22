@@ -227,9 +227,9 @@ class User(Base):
         """
         from datetime import timedelta
 
-        self.locked_until = (
-            datetime.utcnow() + timedelta(minutes=duration_minutes)  # type: ignore
-        )
+        self.locked_until = datetime.utcnow() + timedelta(
+            minutes=duration_minutes
+        )  # type: ignore
 
     def unlock_account(self) -> None:  # type: ignore
         """Desbloquear la cuenta."""
@@ -280,9 +280,7 @@ class UserSession(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    session_token = Column(
-        String(255), unique=True, nullable=False, index=True
-    )
+    session_token = Column(String(255), unique=True, nullable=False, index=True)
     ip_address = Column(String(45), nullable=True)  # IPv6 compatible
     user_agent = Column(Text, nullable=True)
     device_info = Column(Text, nullable=True)  # JSON string
@@ -355,9 +353,7 @@ class ApiKey(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     name = Column(String(100), nullable=False)  # Nombre descriptivo
-    key_hash = Column(
-        String(255), unique=True, nullable=False, index=True
-    )
+    key_hash = Column(String(255), unique=True, nullable=False, index=True)
     prefix = Column(String(10), nullable=False)  # Prefijo visible de la clave
 
     # Permisos y restricciones

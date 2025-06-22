@@ -107,7 +107,9 @@ class DocstringChecker:
             tree = ast.parse(content)
 
             for node in ast.walk(tree):
-                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                if isinstance(
+                    node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+                ):
                     self._check_node_docstring(node, file_path)
 
         except SyntaxError as e:
@@ -292,7 +294,9 @@ class DocstringChecker:
                     for param in params:
                         suggestion += f"    {param} (type): Description of {param}.\\n"
                 if has_return:
-                    suggestion += "\\nReturns:\\n    type: Description of return value.\\n"
+                    suggestion += (
+                        "\\nReturns:\\n    type: Description of return value.\\n"
+                    )
                 suggestion += '"""'
                 return suggestion
         # class
@@ -325,9 +329,7 @@ class DocstringChecker:
     def generate_console_report(self, report: DocstringReport) -> str:
         """Genera un reporte legible para la consola."""
         report_lines = []
-        report_lines.append(
-            f"📄 Reporte de Calidad de Docstrings ({report.timestamp})"
-        )
+        report_lines.append(f"📄 Reporte de Calidad de Docstrings ({report.timestamp})")
         report_lines.append("=" * 60)
         report_lines.append(
             f"📊 Resumen: {report.total_objects} objetos analizados, "

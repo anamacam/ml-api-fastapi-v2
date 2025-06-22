@@ -36,6 +36,7 @@ class TestHealthCheck:
         # Act - Verificar que se puede parsear
         try:
             from datetime import datetime
+
             parsed = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
             is_valid = True
         except ValueError:

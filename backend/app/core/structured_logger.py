@@ -160,7 +160,7 @@ class StructuredLogger:
         level: LogLevel,
         message: str,
         context: Optional[LogContext] = None,
-        **kwargs
+        **kwargs,
     ):
         """
         Método plantilla para logging - Template Method Pattern

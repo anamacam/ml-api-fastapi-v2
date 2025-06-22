@@ -264,10 +264,7 @@ class QuickQualityChecker:
         quality_score = max(0, 100 - error_penalty - warning_penalty)
         quality_level, recommendation = self._get_quality_level(quality_score)
 
-        print(
-            f"📈 Score de calidad: {quality_score:.1f}/100 "
-            f"({quality_level})"
-        )
+        print(f"📈 Score de calidad: {quality_score:.1f}/100 " f"({quality_level})")
         print(f"🎯 Recomendación: {recommendation}")
 
     def _get_quality_level(self, score: float) -> tuple:

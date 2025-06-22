@@ -326,9 +326,7 @@ class MarkdownChecker:
                 )
             )
 
-    def _check_whitespace_around_lists(
-        self, lines: List[str], file_path: pathlib.Path
-    ):
+    def _check_whitespace_around_lists(self, lines: List[str], file_path: pathlib.Path):
         """Verifica que las listas estén rodeadas por líneas en blanco."""
         in_list = False
         try:
@@ -374,7 +372,9 @@ class MarkdownChecker:
         for i, line in enumerate(lines):
             for match in link_regex.finditer(line):
                 link_target = match.group(2).split("#")[0]
-                target_path = (current_file.parent / pathlib.Path(link_target)).resolve()
+                target_path = (
+                    current_file.parent / pathlib.Path(link_target)
+                ).resolve()
 
                 if not target_path.exists():
                     self.issues.append(
@@ -397,9 +397,7 @@ class MarkdownChecker:
         return MarkdownReport(
             timestamp=datetime.utcnow().isoformat(),
             total_files=self.total_files,
-            files_with_issues=len(
-                {issue.file_path for issue in self.issues}
-            ),
+            files_with_issues=len({issue.file_path for issue in self.issues}),
             total_issues=len(self.issues),
             issues_by_severity=dict(sorted(issues_by_severity.items())),
             issues_by_rule=dict(sorted(issues_by_rule.items())),
@@ -415,7 +413,9 @@ class MarkdownChecker:
         total_penalty = error_penalty + warning_penalty
 
         # Normalizar basado en el número de archivos
-        max_penalty = self.total_files * 10  # Max 10 'puntos de penalización' por archivo
+        max_penalty = (
+            self.total_files * 10
+        )  # Max 10 'puntos de penalización' por archivo
         if max_penalty == 0:
             return 100.0
 
@@ -431,7 +431,9 @@ class MarkdownChecker:
             f"📊 Resumen: {report.total_files} archivos analizados, "
             f"{report.files_with_issues} con issues."
         )
-        report_lines.append(f"🎯 Puntaje de Cumplimiento: {report.compliance_score:.2f}%")
+        report_lines.append(
+            f"🎯 Puntaje de Cumplimiento: {report.compliance_score:.2f}%"
+        )
         report_lines.append(f"🚨 Total de Issues: {report.total_issues}")
         for severity, count in report.issues_by_severity.items():
             report_lines.append(f"  - {severity.capitalize()}: {count}")

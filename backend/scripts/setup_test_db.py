@@ -43,8 +43,7 @@ async def setup_test_database():
         # Configurar la nueva base de datos de prueba
         test_config = DatabaseConfig(
             database_url=(
-                "postgresql+asyncpg://postgres:postgres@localhost:5432/"
-                "ml_api_test"
+                "postgresql+asyncpg://postgres:postgres@localhost:5432/" "ml_api_test"
             ),
             echo=True,
         )

@@ -102,11 +102,8 @@ class TestAuthenticationBasic:
             is_too_long = len(username) > 50
             has_invalid_char = "@" in username
 
-            assert (
-                is_too_short or is_too_long or has_invalid_char
-            ), (
-                f"Username '{username}' should be "
-                "invalid"
+            assert is_too_short or is_too_long or has_invalid_char, (
+                f"Username '{username}' should be " "invalid"
             )
 
 
@@ -283,7 +280,8 @@ class TestAuthenticationIntegration:
         step3_user_active = sample_user_data["is_active"]
 
         login_successful = (
-            step1_user_exists and step2_password_valid
+            step1_user_exists
+            and step2_password_valid
             and step3_user_active  # noqa: W503
         )
 
@@ -311,9 +309,7 @@ class TestAuthenticationIntegration:
         # Assert
         assert session_active is False
         assert token_valid is False
-        assert (
-            result["status"] == "logged_out"
-        )
+        assert result["status"] == "logged_out"
 
     def test_logout_invalid_token(self):
         """Test de validación de token inválido."""
@@ -333,6 +329,4 @@ class TestAuthenticationIntegration:
         # Assert
         assert session_active is False
         assert token_valid is False
-        assert (
-            result["status"] == "logged_out"
-        )
+        assert result["status"] == "logged_out"

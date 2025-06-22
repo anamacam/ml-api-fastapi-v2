@@ -96,9 +96,7 @@ def generate_progress_report(base_path: Path) -> Dict[str, Any]:
     lint_stats = analyze_linting(lint_report_path)
     test_stats = analyze_tests(test_report_path)
     coverage_percent = analyze_coverage(coverage_report_path)
-    doc_quality_score = analyze_doc_quality(
-        docstring_report_path, markdown_report_path
-    )
+    doc_quality_score = analyze_doc_quality(docstring_report_path, markdown_report_path)
 
     # Métricas clave
     code_to_test_ratio = (

@@ -38,7 +38,7 @@ extend-ignore = E203, W503, E501
 ```
 
 **E203 (whitespace before ':')**: Conflicto con `black` formatter
-**W503 (line break before binary operator)**: Conflicto con `black` formatter  
+**W503 (line break before binary operator)**: Conflicto con `black` formatter
 **E501 (line too long)**: Ignorado temporalmente para enfocarse en errores críticos
 
 ### Complejidad Ciclomática
@@ -71,7 +71,7 @@ Las siguientes funciones tienen complejidad ciclomática alta y están marcadas 
 
 1. **`tech_debt_analyzer.py`**:
    - `_analyze_docstrings_quality()` - Complejidad: 18
-   - `_analyze_tdd_practices()` - Complejidad: 25  
+   - `_analyze_tdd_practices()` - Complejidad: 25
    - `_analyze_dependencies()` - Complejidad: 13
 
 2. **`quick_quality_check.py`**:
@@ -119,4 +119,4 @@ flake8 --statistics --count .
 
 - [Flake8 Documentation](https://flake8.pycqa.org/)
 - [PEP 8 Style Guide](https://www.python.org/dev/peps/pep-0008/)
-- [Cyclomatic Complexity](https://en.wikipedia.org/wiki/Cyclomatic_complexity) 
+- [Cyclomatic Complexity](https://en.wikipedia.org/wiki/Cyclomatic_complexity)

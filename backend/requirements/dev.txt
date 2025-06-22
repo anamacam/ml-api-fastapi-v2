@@ -34,6 +34,8 @@ bandit==1.7.5
 black==24.3.0
 isort==5.12.0
 flake8==6.1.0
+autopep8==2.0.4
+pycodestyle==2.11.1
 mypy==1.7.1
 
 # Pre-commit hooks

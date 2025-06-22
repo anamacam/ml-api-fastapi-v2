@@ -8,26 +8,34 @@ AUTOPEP8_SELECT_CODES = "E501,W503,W504"
 
 def run_autopep8():
     """Ejecuta autopep8 en los directorios objetivo."""
-    print("--- 🎨 Aplicando autopep8 a los directorios: "
-          f"{', '.join(TARGET_DIRECTORIES)} ---")
+    print(
+        "--- 🎨 Aplicando autopep8 a los directorios: "
+        f"{', '.join(TARGET_DIRECTORIES)} ---"
+    )
 
     for directory in TARGET_DIRECTORIES:
         try:
             print(f"📁 Procesando: {directory}")
             cmd = [
-                "autopep8", "--in-place", "--recursive",
-                "--select", AUTOPEP8_SELECT_CODES, directory
+                "autopep8",
+                "--in-place",
+                "--recursive",
+                "--select",
+                AUTOPEP8_SELECT_CODES,
+                directory,
             ]
             subprocess.run(
-                cmd, capture_output=True, text=True, check=True, encoding='utf-8'
+                cmd, capture_output=True, text=True, check=True, encoding="utf-8"
             )
             print(f"✅ {directory}: Completado")
 
         except subprocess.CalledProcessError as e:
             print(f"❌ Error en {directory}: {e}")
         except FileNotFoundError:
-            print("🚨 Error: `autopep8` no está instalado. "
-                  "Por favor, instálalo con `pip install autopep8==2.0.4`.")
+            print(
+                "🚨 Error: `autopep8` no está instalado. "
+                "Por favor, instálalo con `pip install autopep8==2.0.4`."
+            )
             break
 
 
