@@ -5,13 +5,12 @@ Script para verificar que todas las importaciones del proyecto funcionen correct
 import importlib
 import sys
 from pathlib import Path
+from typing import List, Tuple
 
 
-def check_imports():
-    """Verificar todas las importaciones críticas del proyecto"""
-
-    # Lista de módulos críticos a verificar
-    critical_modules = [
+def get_critical_modules() -> List[str]:
+    """Retorna la lista de módulos críticos a verificar"""
+    return [
         "numpy",
         "pandas",
         "pydantic",
@@ -34,43 +33,10 @@ def check_imports():
         "toml",
     ]
 
-    print("🔍 Verificando importaciones del proyecto...")
-    print(f"📁 Directorio actual: {Path.cwd()}")
-    print(f"🐍 Python path: {sys.executable}")
-    print(f"📦 Python version: {sys.version}")
-    print()
 
-    failed_imports = []
-    successful_imports = []
-
-    for module in critical_modules:
-        try:
-            importlib.import_module(module)
-            print(f"✅ {module}")
-            successful_imports.append(module)
-        except ImportError as e:
-            print(f"❌ {module}: {e}")
-            failed_imports.append(module)
-
-    print()
-    print("📊 Resumen:")
-    print(f"✅ Importaciones exitosas: {len(successful_imports)}")
-    print(f"❌ Importaciones fallidas: {len(failed_imports)}")
-
-    if failed_imports:
-        print(f"\n❌ Módulos que fallaron: {', '.join(failed_imports)}")
-        return False
-    else:
-        print("\n🎉 ¡Todas las importaciones funcionan correctamente!")
-        return True
-
-
-def check_project_imports():
-    """Verificar importaciones específicas del proyecto"""
-
-    print("\n🔍 Verificando importaciones del proyecto...")
-
-    project_modules = [
+def get_project_modules() -> List[str]:
+    """Retorna la lista de módulos del proyecto a verificar"""
+    return [
         "app.config.settings",
         "app.core.database",
         "app.core.security",
@@ -79,28 +45,77 @@ def check_project_imports():
         "app.utils.data_validators",
     ]
 
-    failed_project_imports = []
 
-    for module in project_modules:
-        try:
-            importlib.import_module(module)
+def print_environment_info():
+    """Imprime información del entorno de ejecución"""
+    print("🔍 Verificando importaciones del proyecto...")
+    print(f"📁 Directorio actual: {Path.cwd()}")
+    print(f"🐍 Python path: {sys.executable}")
+    print(f"📦 Python version: {sys.version}")
+    print()
+
+
+def test_single_import(module: str) -> Tuple[bool, str]:
+    """Prueba la importación de un módulo específico"""
+    try:
+        importlib.import_module(module)
+        return True, ""
+    except ImportError as e:
+        return False, str(e)
+
+
+def check_module_list(modules: List[str], module_type: str) -> Tuple[List[str], List[str]]:
+    """Verifica una lista de módulos y retorna éxitos y fallos"""
+    failed_imports = []
+    successful_imports = []
+
+    for module in modules:
+        success, error = test_single_import(module)
+        if success:
             print(f"✅ {module}")
-        except ImportError as e:
-            print(f"❌ {module}: {e}")
-            failed_project_imports.append(module)
+            successful_imports.append(module)
+        else:
+            print(f"❌ {module}: {error}")
+            failed_imports.append(module)
 
-    if failed_project_imports:
-        print(
-            "\\n❌ Módulos del proyecto que fallaron: "
-            f"{', '.join(failed_project_imports)}"
-        )
+    return successful_imports, failed_imports
+
+
+def print_summary(successful: List[str], failed: List[str], module_type: str):
+    """Imprime el resumen de las verificaciones"""
+    print()
+    print("📊 Resumen:")
+    print(f"✅ Importaciones exitosas: {len(successful)}")
+    print(f"❌ Importaciones fallidas: {len(failed)}")
+
+    if failed:
+        print(f"\n❌ Módulos que fallaron: {', '.join(failed)}")
         return False
     else:
-        print("\n🎉 ¡Todas las importaciones del proyecto funcionan!")
+        print(f"\n🎉 ¡Todas las importaciones {module_type} funcionan correctamente!")
         return True
 
 
-if __name__ == "__main__":
+def check_imports() -> bool:
+    """Verificar todas las importaciones críticas del proyecto"""
+    critical_modules = get_critical_modules()
+    print_environment_info()
+    
+    successful_imports, failed_imports = check_module_list(critical_modules, "críticas")
+    return print_summary(successful_imports, failed_imports, "críticas")
+
+
+def check_project_imports() -> bool:
+    """Verificar importaciones específicas del proyecto"""
+    print("\n🔍 Verificando importaciones del proyecto...")
+    
+    project_modules = get_project_modules()
+    successful_imports, failed_imports = check_module_list(project_modules, "del proyecto")
+    return print_summary(successful_imports, failed_imports, "del proyecto")
+
+
+def main():
+    """Función principal que ejecuta todas las verificaciones"""
     print("🚀 Iniciando verificación de importaciones...")
     print("=" * 50)
 
@@ -117,3 +132,7 @@ if __name__ == "__main__":
     else:
         print("❌ Algunas verificaciones fallaron")
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
