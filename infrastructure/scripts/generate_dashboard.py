@@ -125,7 +125,8 @@ class DashboardGenerator:
         <div class="recommendations-section">
             <h3>💡 Recomendaciones de Mejora</h3>
             <div class="recommendations-list">
-                {self._generate_recommendations_html(progress_data.get('recommendations', []))}
+                {self._generate_recommendations_html(
+                    progress_data.get('recommendations', []))}
             </div>
         </div>
 

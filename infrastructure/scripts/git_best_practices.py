@@ -20,7 +20,7 @@ import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 
 @dataclass
@@ -116,7 +116,8 @@ class GitBestPracticesAnalyzer:
             # Verificar longitud
             if len(commit_msg) > 50:
                 problems.append(
-                    f"Mensaje muy largo ({len(commit_msg)} chars): '{commit_msg[:40]}...'"
+                    f"Mensaje muy largo ({len(commit_msg)} chars): '{
+                                         commit_msg[:40]}...'"
                 )
 
         return len(commits), conventional_count, problems[:10]  # Limitar problemas
@@ -142,16 +143,14 @@ class GitBestPracticesAnalyzer:
 
         # Parsear estadísticas (simplificado)
         lines = stats.split("\n")
-        current_files = 0
 
         for line in lines:
             if "files changed" in line:
                 # Extraer número de archivos
-                match = re.search(r"(\d+) files? changed", line)
+                match = re.search(r"(\\d+) files? changed", line)
                 if match:
                     files_count = int(match.group(1))
                     commit_sizes.append(files_count)
-                    current_files = files_count
 
                     if files_count > 20:  # Threshold para commit grande
                         large_commits += 1
@@ -230,7 +229,7 @@ class GitBestPracticesAnalyzer:
             Tupla (score, grade)
         """
         score = 0.0
-        max_score = 100.0
+        _ = 100.0
 
         # Conventional Commits (30 puntos)
         if stats.total_commits > 0:
@@ -398,42 +397,28 @@ class GitBestPracticesAnalyzer:
 
 
 def main():
-    """Función principal del script."""
+    """Punto de entrada principal para el análisis de Git."""
     parser = argparse.ArgumentParser(
-        description="Analiza buenas prácticas Git del repositorio"
+        description="Analizador de Buenas Prácticas de Git."
     )
     parser.add_argument(
-        "--path",
-        default=".",
-        help="Ruta al repositorio Git (default: directorio actual)",
+        "--repo-path", default=".", help="Ruta al repositorio Git."
     )
     parser.add_argument(
-        "--format",
-        choices=["json", "text"],
+        "--output-format",
+        choices=["text", "json"],
         default="text",
-        help="Formato de salida (default: text)",
+        help="Formato de salida del reporte.",
     )
-    parser.add_argument("--output", help="Archivo de salida (default: stdout)")
-
     args = parser.parse_args()
 
-    # Ejecutar análisis
-    analyzer = GitBestPracticesAnalyzer(args.path)
+    analyzer = GitBestPracticesAnalyzer(args.repo_path)
     results = analyzer.analyze()
 
-    # Formatear salida
-    if args.format == "json":
-        output = json.dumps(results, indent=2, ensure_ascii=False)
+    if args.output_format == "json":
+        print(json.dumps(results, indent=2))
     else:
-        output = format_text_output(results)
-
-    # Escribir salida
-    if args.output:
-        with open(args.output, "w", encoding="utf-8") as f:
-            f.write(output)
-        print(f"✅ Análisis guardado en: {args.output}")
-    else:
-        print(output)
+        print(format_text_output(results))
 
 
 def format_text_output(results: Dict) -> str:
@@ -467,7 +452,8 @@ def format_text_output(results: Dict) -> str:
     output.append("📈 ESTADÍSTICAS:")
     output.append(f"  • Total commits analizados: {git_data.get('total_commits', 0)}")
     output.append(
-        f"  • Conventional commits: {git_data.get('conventional_commits', 0)} ({git_data.get('conventional_ratio', 0)}%)"
+        f"  • Conventional commits: {git_data.get('conventional_commits', 0)} ({
+                                                  git_data.get('conventional_ratio', 0)}%)"
     )
     output.append(
         f"  • Promedio archivos/commit: {git_data.get('avg_files_per_commit', 0)}"

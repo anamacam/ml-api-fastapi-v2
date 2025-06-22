@@ -12,415 +12,131 @@ Trackea el progreso histórico de la calidad del código:
 
 import json
 import subprocess
-from dataclasses import asdict, dataclass
-from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Dict, Any
 
 
-@dataclass
-class ProgressPoint:
-    """Punto de progreso individual."""
-
-    timestamp: str
-    commit_hash: str
-    branch: str
-    total_score: float
-    debt_percentage: float
-    metrics: Dict[str, float]
-    author: str = ""
-
-
-@dataclass
-class ProgressSummary:
-    """Resumen de progreso."""
-
-    current_score: float
-    previous_score: float
-    improvement: str
-    trend: str  # 'improving', 'stable', 'declining'
-    days_tracked: int
-    best_score: float
-    worst_score: float
-    average_score: float
-    velocity: float  # puntos por día
-    milestones_achieved: List[str]
-    next_milestone: str
-    recommendations: List[str]
-
-
-class ProgressTracker:
-    """Tracker de progreso de calidad."""
-
-    def __init__(self, project_root: str = "."):
-        self.project_root = Path(project_root)
-        self.reports_dir = self.project_root / "reports"
-        self.progress_file = self.reports_dir / "quality_history.json"
-        self.reports_dir.mkdir(exist_ok=True)
-
-    def track_current_progress(self) -> ProgressSummary:
-        """Trackear el progreso actual."""
-        print("📈 Trackeando progreso de calidad...")
-
-        # Leer reporte actual
-        current_report = self._load_current_report()
-
-        # Cargar historial
-        history = self._load_history()
-
-        # Crear punto de progreso actual
-        current_point = self._create_progress_point(current_report)
-
-        # Agregar al historial
-        history.append(current_point)
-
-        # Limpiar historial viejo (mantener últimos 30 días)
-        history = self._cleanup_old_history(history)
-
-        # Guardar historial actualizado
-        self._save_history(history)
-
-        # Generar resumen de progreso
-        summary = self._generate_progress_summary(history)
-
-        # Guardar resumen
-        self._save_progress_summary(summary)
-
-        return summary
-
-    def _load_current_report(self) -> Dict[str, Any]:
-        """Cargar el reporte actual de deuda técnica."""
-        current_report_file = self.reports_dir / "current_debt.json"
-
-        if current_report_file.exists():
-            with open(current_report_file, "r", encoding="utf-8") as f:
-                return json.load(f)
-
-        # Si no existe, ejecutar análisis
-        print("📊 Ejecutando análisis de deuda técnica...")
+def get_git_log_stats(repo_path: Path) -> int:
+    """Obtiene el número de commits en el repositorio."""
+    try:
         result = subprocess.run(
-            [
-                "python",
-                "infrastructure/scripts/tech_debt_analyzer.py",
-                "--format",
-                "json",
-            ],
-            capture_output=True,
-            text=True,
-            cwd=self.project_root,
+            ["git", "log", "--all", "--count"], capture_output=True, text=True
         )
+        return int(result.stdout.strip())
+    except Exception:
+        return 0
 
-        if result.returncode == 0:
-            report = json.loads(result.stdout)
-            with open(current_report_file, "w", encoding="utf-8") as f:
-                json.dump(report, f, indent=2)
-            return report
 
-        # Fallback si hay error
-        return {
-            "total_score": 73.8,
-            "debt_percentage": 26.2,
-            "timestamp": datetime.now().isoformat(),
-            "metrics": [],
-        }
+def analyze_linting(lint_path: Path) -> Dict[str, Any]:
+    """Analiza el reporte de linting."""
+    if not lint_path.exists():
+        return {"total_errors": 0, "total_lines": 0, "errors_by_type": {}}
+    with open(lint_path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
-    def _load_history(self) -> List[ProgressPoint]:
-        """Cargar historial de progreso."""
-        if not self.progress_file.exists():
-            return []
 
-        with open(self.progress_file, "r", encoding="utf-8") as f:
+def analyze_tests(test_path: Path) -> Dict[str, Any]:
+    """Analiza el reporte de pruebas."""
+    if not test_path.exists():
+        return {"total_tests": 0, "passed": 0, "failed": 0, "pass_rate": 0.0}
+    with open(test_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    summary = data.get("summary", {})
+    total = summary.get("total", 0)
+    passed = summary.get("passed", 0)
+    return {
+        "total_tests": total,
+        "passed": passed,
+        "failed": total - passed,
+        "pass_rate": (passed / total * 100) if total > 0 else 0.0,
+    }
+
+
+def analyze_coverage(coverage_path: Path) -> float:
+    """Analiza el reporte de cobertura y devuelve el porcentaje total."""
+    if not coverage_path.exists():
+        return 0.0
+
+    with open(coverage_path, "r", encoding="utf-8") as f:
+        coverage_data = json.load(f)
+    return coverage_data.get("totals", {}).get("percent_covered", 0.0)
+
+
+def analyze_doc_quality(
+    doc_checker_report_path: Path, md_checker_report_path: Path
+) -> float:
+    """Calcula un puntaje de calidad de documentación."""
+    doc_score = 0.0
+    md_score = 0.0
+
+    if doc_checker_report_path.exists():
+        with open(doc_checker_report_path, "r", encoding="utf-8") as f:
             data = json.load(f)
+            doc_score = data.get("compliance_score", 0.0)
 
-        return [ProgressPoint(**point) for point in data]
+    if md_checker_report_path.exists():
+        with open(md_checker_report_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            md_score = data.get("compliance_score", 0.0)
 
-    def _create_progress_point(self, report: Dict[str, Any]) -> ProgressPoint:
-        """Crear punto de progreso actual."""
-        commit_hash = self._get_current_commit()
-        branch = self._get_current_branch()
-        author = self._get_commit_author()
+    return (doc_score + md_score) / 2
 
-        # Extraer métricas individuales
-        metrics = {}
-        if "metrics" in report:
-            for metric in report["metrics"]:
-                if isinstance(metric, dict) and "name" in metric:
-                    metrics[metric["name"]] = metric.get("value", 0.0)
 
-        return ProgressPoint(
-            timestamp=datetime.now().isoformat(),
-            commit_hash=commit_hash,
-            branch=branch,
-            total_score=report.get("total_score", 73.8),
-            debt_percentage=report.get("debt_percentage", 26.2),
-            metrics=metrics,
-            author=author,
-        )
+def generate_progress_report(base_path: Path) -> Dict[str, Any]:
+    """Genera un reporte de progreso completo del proyecto."""
+    # Rutas a los artefactos de calidad
+    lint_report_path = base_path / "reports/linting/flake8_stats.json"
+    test_report_path = base_path / "reports/tests/report.json"
+    coverage_report_path = base_path / "reports/coverage/coverage.json"
+    docstring_report_path = base_path / "reports/documentation/docstring_report.json"
+    markdown_report_path = base_path / "reports/documentation/markdown_report.json"
 
-    def _get_current_commit(self) -> str:
-        """Obtener hash del commit actual."""
-        try:
-            result = subprocess.run(
-                ["git", "rev-parse", "HEAD"], capture_output=True, text=True
-            )
-            return result.stdout.strip()[:8] if result.returncode == 0 else "unknown"
-        except Exception:
-            return "unknown"
+    # Análisis
+    commit_count = get_git_log_stats(base_path)
+    lint_stats = analyze_linting(lint_report_path)
+    test_stats = analyze_tests(test_report_path)
+    coverage_percent = analyze_coverage(coverage_report_path)
+    doc_quality_score = analyze_doc_quality(
+        docstring_report_path, markdown_report_path
+    )
 
-    def _get_current_branch(self) -> str:
-        """Obtener rama actual."""
-        try:
-            result = subprocess.run(
-                ["git", "branch", "--show-current"], capture_output=True, text=True
-            )
-            return result.stdout.strip() if result.returncode == 0 else "unknown"
-        except Exception:
-            return "unknown"
+    # Métricas clave
+    code_to_test_ratio = (
+        (lint_stats["total_lines"] / test_stats["total_tests"])
+        if test_stats["total_tests"] > 0
+        else 0
+    )
 
-    def _get_commit_author(self) -> str:
-        """Obtener autor del commit actual."""
-        try:
-            result = subprocess.run(
-                ["git", "log", "-1", "--pretty=format:%an"],
-                capture_output=True,
-                text=True,
-            )
-            return result.stdout.strip() if result.returncode == 0 else "unknown"
-        except Exception:
-            return "unknown"
+    report = {
+        "commits": commit_count,
+        "code_quality": {
+            "lint_errors": lint_stats["total_errors"],
+            "lines_of_code": lint_stats["total_lines"],
+            "error_density": (
+                (lint_stats["total_errors"] / lint_stats["total_lines"]) * 1000
+                if lint_stats["total_lines"] > 0
+                else 0
+            ),
+        },
+        "testing": {
+            "total_tests": test_stats["total_tests"],
+            "passed": test_stats["passed"],
+            "failed": test_stats["failed"],
+            "pass_rate": test_stats["pass_rate"],
+            "coverage": coverage_percent,
+            "code_to_test_ratio": code_to_test_ratio,
+        },
+        "documentation": {"quality_score": doc_quality_score},
+    }
 
-    def _cleanup_old_history(self, history: List[ProgressPoint]) -> List[ProgressPoint]:
-        """Limpiar historial viejo (mantener últimos 30 días)."""
-        cutoff_date = datetime.now() - timedelta(days=30)
-
-        return [
-            point
-            for point in history
-            if datetime.fromisoformat(point.timestamp.replace("Z", "+00:00"))
-            > cutoff_date
-        ]
-
-    def _save_history(self, history: List[ProgressPoint]):
-        """Guardar historial de progreso."""
-        with open(self.progress_file, "w", encoding="utf-8") as f:
-            json.dump([asdict(point) for point in history], f, indent=2)
-
-    def _generate_progress_summary(
-        self, history: List[ProgressPoint]
-    ) -> ProgressSummary:
-        """Generar resumen de progreso."""
-        if not history:
-            return self._create_empty_summary()
-
-        current, previous = self._get_current_and_previous(history)
-        scores = [p.total_score for p in history]
-
-        improvement = self._calculate_improvement(
-            current.total_score, previous.total_score
-        )
-        trend = self._calculate_trend(history)
-        stats = self._calculate_statistics(scores)
-        velocity = self._calculate_velocity(history)
-
-        milestones_achieved = self._check_milestones(history)
-        next_milestone = self._get_next_milestone(current.total_score)
-        recommendations = self._generate_recommendations(current, history)
-
-        return ProgressSummary(
-            current_score=current.total_score,
-            previous_score=previous.total_score,
-            improvement=improvement,
-            trend=trend,
-            days_tracked=len(history),
-            best_score=stats["best"],
-            worst_score=stats["worst"],
-            average_score=stats["average"],
-            velocity=velocity,
-            milestones_achieved=milestones_achieved,
-            next_milestone=next_milestone,
-            recommendations=recommendations,
-        )
-
-    def _create_empty_summary(self) -> ProgressSummary:
-        """Crear summary vacío para historial sin datos."""
-        return ProgressSummary(
-            current_score=73.8,
-            previous_score=73.8,
-            improvement="Sin datos históricos",
-            trend="stable",
-            days_tracked=0,
-            best_score=73.8,
-            worst_score=73.8,
-            average_score=73.8,
-            velocity=0.0,
-            milestones_achieved=[],
-            next_milestone="Alcanzar 75 puntos",
-            recommendations=["Ejecutar análisis por primera vez"],
-        )
-
-    def _get_current_and_previous(self, history: List[ProgressPoint]) -> tuple:
-        """Obtener puntos actual y anterior."""
-        current = history[-1]
-        previous = history[-2] if len(history) > 1 else history[0]
-        return current, previous
-
-    def _calculate_improvement(
-        self, current_score: float, previous_score: float
-    ) -> str:
-        """Calcular string de mejora."""
-        improvement_value = current_score - previous_score
-        if improvement_value > 0:
-            return f"+{improvement_value:.1f} puntos"
-        elif improvement_value < 0:
-            return f"{improvement_value:.1f} puntos"
-        else:
-            return "Sin cambios"
-
-    def _calculate_statistics(self, scores: List[float]) -> dict:
-        """Calcular estadísticas básicas."""
-        return {
-            "best": max(scores),
-            "worst": min(scores),
-            "average": sum(scores) / len(scores),
-        }
-
-    def _calculate_velocity(self, history: List[ProgressPoint]) -> float:
-        """Calcular velocidad de mejora."""
-        if len(history) <= 1:
-            return 0.0
-
-        current = history[-1]
-        first = history[0]
-
-        days_span = (
-            datetime.fromisoformat(current.timestamp)
-            - datetime.fromisoformat(first.timestamp)
-        ).days
-        total_improvement = current.total_score - first.total_score
-
-        return total_improvement / max(days_span, 1)
-
-    def _calculate_trend(self, history: List[ProgressPoint]) -> str:
-        """Calcular tendencia de los últimos puntos."""
-        if len(history) < 3:
-            return "stable"
-
-        # Usar últimos 5 puntos o todos si hay menos
-        recent_points = history[-5:]
-        scores = [p.total_score for p in recent_points]
-
-        # Calcular tendencia lineal simple
-        improvements = 0
-        declines = 0
-
-        for i in range(1, len(scores)):
-            if scores[i] > scores[i - 1]:
-                improvements += 1
-            elif scores[i] < scores[i - 1]:
-                declines += 1
-
-        if improvements > declines:
-            return "improving"
-        elif declines > improvements:
-            return "declining"
-        else:
-            return "stable"
-
-    def _check_milestones(self, history: List[ProgressPoint]) -> List[str]:
-        """Verificar milestones alcanzados."""
-        milestones = []
-        current_score = history[-1].total_score
-
-        milestone_levels = [75, 80, 85, 90, 95]
-
-        for level in milestone_levels:
-            if current_score >= level:
-                # Verificar si es un milestone nuevo
-                previous_scores = [p.total_score for p in history[:-1]]
-                if not previous_scores or max(previous_scores) < level:
-                    milestones.append(f"🎯 Alcanzado {level} puntos")
-
-        return milestones
-
-    def _get_next_milestone(self, current_score: float) -> str:
-        """Obtener próximo milestone."""
-        milestone_levels = [75, 80, 85, 90, 95, 100]
-
-        for level in milestone_levels:
-            if current_score < level:
-                points_needed = level - current_score
-                return f"Alcanzar {level} puntos ({points_needed:.1f} puntos restantes)"
-
-        return "¡Perfección alcanzada! (100 puntos)"
-
-    def _generate_recommendations(
-        self, current: ProgressPoint, history: List[ProgressPoint]
-    ) -> List[str]:
-        """Generar recomendaciones basadas en progreso."""
-        recommendations = []
-        score = current.total_score
-
-        if score < 70:
-            recommendations.append("🚨 Prioridad ALTA: Mejorar calidad del código")
-            recommendations.append("📝 Revisar funciones con alta complejidad")
-            recommendations.append("🧪 Aumentar cobertura de tests")
-        elif score < 80:
-            recommendations.append("📈 Continuar mejorando: Estás en buen camino")
-            recommendations.append("🔍 Revisar deuda técnica pendiente")
-            recommendations.append("📚 Mejorar documentación")
-        elif score < 90:
-            recommendations.append("🎯 Excelente progreso: Pulir detalles")
-            recommendations.append("🏗️ Refactorizar código legacy")
-            recommendations.append("⚡ Optimizar performance")
-        else:
-            recommendations.append("🎉 ¡Fantástico! Mantener estándares altos")
-            recommendations.append("🚀 Considerar métricas avanzadas")
-            recommendations.append("👥 Mentorear al equipo")
-
-        # Recomendaciones basadas en tendencia
-        trend = self._calculate_trend(history)
-        if trend == "declining":
-            recommendations.insert(0, "⚠️ ALERTA: La calidad está disminuyendo")
-        elif trend == "improving":
-            recommendations.append("🚀 ¡Sigue así! La tendencia es positiva")
-
-        return recommendations[:5]  # Limitar a 5 recomendaciones
-
-    def _save_progress_summary(self, summary: ProgressSummary):
-        """Guardar resumen de progreso."""
-        summary_file = self.reports_dir / "progress_summary.json"
-        with open(summary_file, "w", encoding="utf-8") as f:
-            json.dump(asdict(summary), f, indent=2)
-
-        print(
-            f"📊 Progreso guardado: {summary.current_score:.1f} puntos ({summary.improvement})"
-        )
+    return report
 
 
 def main():
-    """Función principal."""
-    tracker = ProgressTracker()
-    summary = tracker.track_current_progress()
-
-    print("\n📈 RESUMEN DE PROGRESO")
-    print("=" * 50)
-    print(f"🎯 Score Actual: {summary.current_score:.1f}/100")
-    print(f"📊 Mejora: {summary.improvement}")
-    print(f"📈 Tendencia: {summary.trend}")
-    print(f"🏆 Mejor Score: {summary.best_score:.1f}")
-    print(f"⚡ Velocidad: {summary.velocity:.2f} puntos/día")
-
-    if summary.milestones_achieved:
-        print(f"\n🎉 Milestones Alcanzados:")
-        for milestone in summary.milestones_achieved:
-            print(f"  {milestone}")
-
-    print(f"\n🎯 Próximo Objetivo: {summary.next_milestone}")
-
-    if summary.recommendations:
-        print(f"\n💡 Recomendaciones:")
-        for i, rec in enumerate(summary.recommendations, 1):
-            print(f"  {i}. {rec}")
+    """Punto de entrada para generar y mostrar el reporte de progreso."""
+    project_root = Path(__file__).parent.parent.parent
+    report = generate_progress_report(project_root)
+    print(json.dumps(report, indent=2))
 
 
 if __name__ == "__main__":

@@ -139,11 +139,13 @@ class QuickQualityChecker:
 
                     if complexity > 15:  # Umbral crítico
                         self.errors.append(
-                            f"❌ {file_path}: Función '{node.name}' muy compleja ({complexity})"
+                            f"❌ {file_path}: Función '{node.name}' "
+                            f"muy compleja ({complexity})"
                         )
                     elif complexity > 10:  # Umbral de advertencia
                         self.warnings.append(
-                            f"⚠️ {file_path}: Función '{node.name}' compleja ({complexity})"
+                            f"⚠️ {file_path}: Función '{node.name}' "
+                            f"compleja ({complexity})"
                         )
         except Exception:
             pass  # Skip si hay errores
@@ -182,11 +184,13 @@ class QuickQualityChecker:
 
                         if func_lines > critical_threshold:
                             self.errors.append(
-                                f"❌ {file_path}: Función '{node.name}' muy larga ({func_lines} líneas)"
+                                f"❌ {file_path}: Función '{node.name}' "
+                                f"muy larga ({func_lines} líneas)"
                             )
                         elif func_lines > warning_threshold:
                             self.warnings.append(
-                                f"⚠️ {file_path}: Función '{node.name}' larga ({func_lines} líneas)"
+                                f"⚠️ {file_path}: Función '{node.name}' "
+                                f"larga ({func_lines} líneas)"
                             )
         except Exception:
             pass  # Skip si hay errores
@@ -253,6 +257,29 @@ class QuickQualityChecker:
                 print(f"  ... y {len(self.warnings) - 5} advertencias más")
 
         print()
+
+        # Calcular puntaje de calidad
+        error_penalty = len(self.errors) * 20
+        warning_penalty = len(self.warnings) * 10
+        quality_score = max(0, 100 - error_penalty - warning_penalty)
+        quality_level, recommendation = self._get_quality_level(quality_score)
+
+        print(
+            f"📈 Score de calidad: {quality_score:.1f}/100 "
+            f"({quality_level})"
+        )
+        print(f"🎯 Recomendación: {recommendation}")
+
+    def _get_quality_level(self, score: float) -> tuple:
+        """Determinar nivel de calidad según el puntaje."""
+        if score >= 90:
+            return ("Excelente", "¡Excelente trabajo!")
+        elif score >= 70:
+            return ("Bueno", "¡Buen trabajo!")
+        elif score >= 50:
+            return ("Regular", "¡Trabajo regular!")
+        else:
+            return ("Malo", "¡Necesitas mejorar!")
 
 
 def main():

@@ -21,40 +21,8 @@ from pathlib import Path
 from typing import Any, Dict
 
 # Importar nuestros verificadores
-try:
-    from check_docstrings import DocstringChecker
-    from check_markdown import MarkdownChecker
-except ImportError:
-    # Si no se pueden importar, definir clases básicas
-    class DocstringChecker:
-        def check_project(self):
-            return type(
-                "Report",
-                (),
-                {
-                    "compliance_score": 100.0,
-                    "total_issues": 0,
-                    "issues_by_severity": {"error": 0, "warning": 0, "info": 0},
-                },
-            )()
-
-        def generate_console_report(self, report):
-            return "📝 Verificador de docstrings no disponible"
-
-    class MarkdownChecker:
-        def check_project(self):
-            return type(
-                "Report",
-                (),
-                {
-                    "compliance_score": 100.0,
-                    "total_issues": 0,
-                    "issues_by_severity": {"error": 0, "warning": 0},
-                },
-            )()
-
-        def generate_console_report(self, report):
-            return "📄 Verificador de Markdown no disponible"
+from infrastructure.scripts.check_docstrings import DocstringChecker
+from infrastructure.scripts.check_markdown import MarkdownChecker
 
 
 @dataclass
@@ -105,8 +73,8 @@ class StandardsChecker:
         markdown_weight = 0.4  # Markdown importante pero menos crítico
 
         overall_score = (
-            docstring_report.compliance_score * docstring_weight
-            + markdown_report.compliance_score * markdown_weight
+            docstring_report.compliance_score * docstring_weight +
+            markdown_report.compliance_score * markdown_weight
         )
 
         # Consolidar issues por categoría
@@ -133,8 +101,8 @@ class StandardsChecker:
             "markdown_files_with_issues": getattr(
                 markdown_report, "files_with_issues", 0
             ),
-            "critical_issues": issues_by_category["docstring_errors"]
-            + issues_by_category["markdown_errors"],
+            "critical_issues": (issues_by_category["docstring_errors"] +
+                                issues_by_category["markdown_errors"]),
             "recommendations": self._generate_recommendations(
                 docstring_report, markdown_report
             ),

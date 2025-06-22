@@ -18,13 +18,14 @@ Características:
 """
 
 import json
-import os
+import pathlib
+import re
 import subprocess
 import sys
-from dataclasses import asdict, dataclass
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from dataclasses import asdict, dataclass
+from typing import Dict, List, Optional
+from collections import Counter
 
 
 @dataclass
@@ -34,8 +35,7 @@ class MarkdownIssue:
     file_path: str
     line_number: int
     rule_id: str
-    rule_name: str
-    severity: str  # 'error', 'warning'
+    severity: str  # 'error', 'warning', 'info'
     description: str
     suggestion: Optional[str] = None
 
@@ -58,7 +58,7 @@ class MarkdownChecker:
     """Verificador principal de estándares Markdown."""
 
     def __init__(self, project_root: str = "."):
-        self.project_root = Path(project_root)
+        self.project_root = pathlib.Path(project_root)
         self.issues = []
         self.total_files = 0
         self.files_with_issues = 0
@@ -141,7 +141,7 @@ class MarkdownChecker:
 
         return self._generate_report()
 
-    def _run_markdownlint(self, md_files: List[Path]):
+    def _run_markdownlint(self, md_files: List[pathlib.Path]):
         """Ejecutar markdownlint en los archivos."""
         try:
             # Preparar comando
@@ -189,21 +189,20 @@ class MarkdownChecker:
 
         for file_result in results:
             file_path = file_result.get("fileName", "")
-            rel_path = str(Path(file_path).relative_to(self.project_root))
+            rel_path = str(pathlib.Path(file_path).relative_to(self.project_root))
 
             for issue in file_result.get("issues", []):
                 files_with_issues.add(rel_path)
 
                 rule_names = issue.get("ruleNames", [])
                 rule_id = rule_names[0] if rule_names else "Unknown"
-                rule_name = rule_names[1] if len(rule_names) > 1 else rule_id
+                _ = rule_names[1] if len(rule_names) > 1 else rule_id
 
                 self.issues.append(
                     MarkdownIssue(
                         file_path=rel_path,
                         line_number=issue.get("lineNumber", 0),
                         rule_id=rule_id,
-                        rule_name=rule_name,
                         severity="error",  # markdownlint solo reporta errores
                         description=issue.get(
                             "ruleDescription",
@@ -241,7 +240,7 @@ class MarkdownChecker:
             description = rule_parts[1] if len(rule_parts) > 1 else rule_desc
 
             try:
-                rel_path = str(Path(file_path).relative_to(self.project_root))
+                rel_path = str(pathlib.Path(file_path).relative_to(self.project_root))
             except ValueError:
                 rel_path = file_path
 
@@ -252,7 +251,6 @@ class MarkdownChecker:
                     file_path=rel_path,
                     line_number=line_number,
                     rule_id=rule_id,
-                    rule_name=rule_id,
                     severity="error",
                     description=description,
                     suggestion=self._get_rule_suggestion(rule_id),
@@ -276,230 +274,239 @@ class MarkdownChecker:
         }
         return suggestions.get(rule_id)
 
-    def _check_file_structure(self, file_path: Path):
+    def _check_file_structure(self, file_path: pathlib.Path):
         """Verificar estructura adicional del archivo."""
         try:
             with open(file_path, "r", encoding="utf-8") as f:
-                content = f.read()
+                lines = f.readlines()
 
-            lines = content.split("\n")
-            rel_path = str(file_path.relative_to(self.project_root))
+            # Verificar título principal
+            if not lines or not lines[0].startswith("# "):
+                self.issues.append(
+                    MarkdownIssue(
+                        file_path=str(file_path.relative_to(self.project_root)),
+                        line_number=1,
+                        rule_id="structure-title",
+                        severity="warning",
+                        description="El archivo no comienza con un título principal (H1)",
+                        suggestion="Añade un título descriptivo como '# Mi Título' al inicio",
+                    )
+                )
 
-            # Verificar que README tenga estructura básica
-            if file_path.name.lower() == "readme.md":
-                self._check_readme_structure(lines, rel_path)
+            # Verificar consistencia en subtítulos (usar ## y no ### para nivel 2)
+            for i, line in enumerate(lines, 1):
+                if line.strip().startswith("### "):
+                    self.issues.append(
+                        MarkdownIssue(
+                            file_path=str(file_path.relative_to(self.project_root)),
+                            line_number=i,
+                            rule_id="structure-subtitle",
+                            severity="info",
+                            description="Se encontró un subtítulo de nivel 3 (###). ¿Debería ser nivel 2 (##)?",
+                            suggestion="Considera usar '##' para subtítulos principales.",
+                        )
+                    )
 
-            # Verificar enlaces internos (básico)
-            self._check_internal_links(lines, rel_path, file_path)
+            # Verificar saltos de línea antes de listas
+            self._check_whitespace_around_lists(lines, file_path)
+
+            # Verificar enlaces internos
+            self._check_internal_links(
+                [line.strip() for line in lines], str(file_path), file_path
+            )
 
         except Exception as e:
-            print(f"    ⚠️  Error verificando {file_path}: {e}")
-
-    def _check_readme_structure(self, lines: List[str], file_path: str):
-        """Verificar estructura básica de README."""
-        has_description = False
-        has_installation = False
-        has_usage = False
-
-        for line in lines:
-            line_lower = line.lower()
-            if any(
-                word in line_lower for word in ["descripción", "description", "about"]
-            ):
-                has_description = True
-            elif any(
-                word in line_lower
-                for word in ["instalación", "installation", "setup", "inicio"]
-            ):
-                has_installation = True
-            elif any(
-                word in line_lower for word in ["uso", "usage", "getting started"]
-            ):
-                has_usage = True
-
-        if not has_description:
             self.issues.append(
                 MarkdownIssue(
-                    file_path=file_path,
+                    file_path=str(file_path.relative_to(self.project_root)),
                     line_number=1,
-                    rule_id="CUSTOM001",
-                    rule_name="missing-description",
-                    severity="warning",
-                    description="README debería incluir sección de descripción",
-                    suggestion="Agregar sección que describa el propósito del proyecto",
+                    rule_id="file-read-error",
+                    severity="error",
+                    description=f"Error al procesar estructura: {e}",
                 )
             )
 
-    def _check_internal_links(
-        self, lines: List[str], file_path: str, current_file: Path
+    def _check_whitespace_around_lists(
+        self, lines: List[str], file_path: pathlib.Path
     ):
-        """Verificar enlaces internos básicos."""
-        import re
+        """Verifica que las listas estén rodeadas por líneas en blanco."""
+        in_list = False
+        try:
+            for i, line in enumerate(lines):
+                is_list_item = line.strip().startswith(("- ", "* ", "+ ")) or re.match(
+                    r"^\d+\.\s", line.strip()
+                )
+                if is_list_item and not in_list:
+                    # Comienzo de una lista
+                    if i > 0 and lines[i - 1].strip() != "":
+                        self.issues.append(
+                            MarkdownIssue(
+                                file_path=str(file_path),
+                                line_number=i,
+                                rule_id="CUSTOM-W001",
+                                severity="warning",
+                                description="La lista no está precedida por una línea en blanco.",
+                                suggestion="Añadir línea en blanco antes de la lista.",
+                            )
+                        )
+                elif not is_list_item and in_list:
+                    # Fin de una lista
+                    if lines[i].strip() != "":
+                        self.issues.append(
+                            MarkdownIssue(
+                                file_path=str(file_path),
+                                line_number=i,
+                                rule_id="CUSTOM-W002",
+                                severity="warning",
+                                description="La lista no está seguida de una línea en blanco.",
+                                suggestion="Añadir línea en blanco después de la lista.",
+                            )
+                        )
+                in_list = is_list_item
+        except Exception as e:
+            print(f"  ⚠️  Error en _check_whitespace_around_lists: {e}")
 
-        link_pattern = r"\[([^\]]+)\]\(([^)]+)\)"
+    def _check_internal_links(
+        self, lines: List[str], file_path: str, current_file: pathlib.Path
+    ):
+        """Verifica que los enlaces internos a archivos .md sean válidos."""
+        link_regex = re.compile(r"\[([^\]]+)\]\(([^)]+\.md(?:#[\w-]+)?)\)")
+        for i, line in enumerate(lines):
+            for match in link_regex.finditer(line):
+                link_target = match.group(2).split("#")[0]
+                target_path = (current_file.parent / pathlib.Path(link_target)).resolve()
 
-        for i, line in enumerate(lines, 1):
-            matches = re.findall(link_pattern, line)
-
-            for text, url in matches:
-                # Solo verificar enlaces relativos
-                if url.startswith(("http://", "https://", "mailto:", "#")):
-                    continue
-
-                # Verificar si el archivo existe
-                target_path = current_file.parent / url
                 if not target_path.exists():
                     self.issues.append(
                         MarkdownIssue(
                             file_path=file_path,
-                            line_number=i,
-                            rule_id="CUSTOM002",
-                            rule_name="broken-internal-link",
-                            severity="warning",
-                            description=f"Enlace interno roto: {url}",
-                            suggestion="Verificar que el archivo/ruta existe",
+                            line_number=i + 1,
+                            rule_id="CUSTOM-L001",
+                            severity="error",
+                            description=f"Enlace interno roto a '{link_target}'.",
+                            suggestion=f"Verifica la ruta del enlace en la línea {i + 1}.",
                         )
                     )
 
     def _generate_report(self) -> MarkdownReport:
-        """Generar reporte final."""
-        issues_by_severity = {"error": 0, "warning": 0}
-        issues_by_rule = {}
-
-        for issue in self.issues:
-            issues_by_severity[issue.severity] += 1
-            issues_by_rule[issue.rule_id] = issues_by_rule.get(issue.rule_id, 0) + 1
-
-        # Calcular score de compliance
-        if self.total_files == 0:
-            compliance_score = 100.0
-        else:
-            # Penalizar errores más que warnings
-            error_penalty = issues_by_severity["error"] * 5
-            warning_penalty = issues_by_severity["warning"] * 2
-
-            total_penalty = error_penalty + warning_penalty
-            max_penalty = self.total_files * 20  # Máximo si todo fueran errores
-
-            compliance_score = max(0, 100 - (total_penalty / max(max_penalty, 1) * 100))
+        """Genera el reporte final."""
+        issues_by_rule = Counter(issue.rule_id for issue in self.issues)
+        issues_by_severity = Counter(issue.severity for issue in self.issues)
+        compliance = self.calculate_compliance(issues_by_severity)
 
         return MarkdownReport(
-            timestamp=datetime.now().isoformat(),
+            timestamp=datetime.utcnow().isoformat(),
             total_files=self.total_files,
-            files_with_issues=self.files_with_issues,
+            files_with_issues=len(
+                {issue.file_path for issue in self.issues}
+            ),
             total_issues=len(self.issues),
-            issues_by_severity=issues_by_severity,
-            issues_by_rule=issues_by_rule,
+            issues_by_severity=dict(sorted(issues_by_severity.items())),
+            issues_by_rule=dict(sorted(issues_by_rule.items())),
             issues=self.issues,
-            compliance_score=compliance_score,
+            compliance_score=compliance,
         )
 
+    def calculate_compliance(self, issues_by_severity: Dict[str, int]) -> float:
+        """Calcula el puntaje de cumplimiento."""
+        # Penalizar errores más que warnings
+        error_penalty = issues_by_severity.get("error", 0) * 5
+        warning_penalty = issues_by_severity.get("warning", 0) * 1
+        total_penalty = error_penalty + warning_penalty
+
+        # Normalizar basado en el número de archivos
+        max_penalty = self.total_files * 10  # Max 10 'puntos de penalización' por archivo
+        if max_penalty == 0:
+            return 100.0
+
+        compliance_score = max(0.0, 100.0 - (total_penalty / max_penalty * 100.0))
+        return compliance_score
+
     def generate_console_report(self, report: MarkdownReport) -> str:
-        """Generar reporte para consola."""
-        output = []
-
-        output.append("📄 REPORTE DE MARKDOWN")
-        output.append("=" * 50)
-        output.append(f"📅 Timestamp: {report.timestamp}")
-        output.append(f"📁 Archivos analizados: {report.total_files}")
-        output.append(f"⚠️  Archivos con issues: {report.files_with_issues}")
-        output.append(f"📈 Compliance: {report.compliance_score:.1f}%")
-        output.append("")
-
-        output.append("📋 RESUMEN DE ISSUES")
-        output.append("-" * 30)
-        output.append(f"🔴 Errores: {report.issues_by_severity['error']}")
-        output.append(f"🟡 Warnings: {report.issues_by_severity['warning']}")
-        output.append("")
-
-        if report.issues_by_rule:
-            output.append("📊 TOP REGLAS VIOLADAS")
-            output.append("-" * 30)
-            sorted_rules = sorted(
-                report.issues_by_rule.items(), key=lambda x: x[1], reverse=True
-            )
-            for rule, count in sorted_rules[:5]:
-                output.append(f"  {rule}: {count} issues")
-            output.append("")
+        """Genera un reporte legible para la consola."""
+        report_lines = []
+        report_lines.append(f"📄 Reporte de Calidad de Markdown ({report.timestamp})")
+        report_lines.append("=" * 60)
+        report_lines.append(
+            f"📊 Resumen: {report.total_files} archivos analizados, "
+            f"{report.files_with_issues} con issues."
+        )
+        report_lines.append(f"🎯 Puntaje de Cumplimiento: {report.compliance_score:.2f}%")
+        report_lines.append(f"🚨 Total de Issues: {report.total_issues}")
+        for severity, count in report.issues_by_severity.items():
+            report_lines.append(f"  - {severity.capitalize()}: {count}")
+        report_lines.append("-" * 60)
 
         if report.issues:
-            output.append("🔍 ISSUES DETALLADOS")
-            output.append("-" * 30)
-
-            # Agrupar por archivo
-            issues_by_file = {}
-            for issue in report.issues:
-                if issue.file_path not in issues_by_file:
-                    issues_by_file[issue.file_path] = []
-                issues_by_file[issue.file_path].append(issue)
-
-            for file_path, issues in issues_by_file.items():
-                output.append(f"📁 {file_path}")
-
-                for issue in issues[:5]:  # Limitar a 5 por archivo
-                    severity_icon = {"error": "🔴", "warning": "🟡"}[issue.severity]
-                    output.append(
-                        f"  {severity_icon} L{issue.line_number}: {issue.rule_id} - {issue.description}"
-                    )
-
-                    if issue.suggestion:
-                        output.append(f"      💡 {issue.suggestion}")
-
-                if len(issues) > 5:
-                    output.append(f"    ... y {len(issues) - 5} más")
-                output.append("")
+            report_lines.append("🔍 Detalles de los Issues:")
+            sorted_issues = sorted(report.issues, key=lambda x: x.file_path)
+            for issue in sorted_issues:
+                report_lines.append(
+                    f"  - [{issue.severity.upper()}] {issue.file_path}:"
+                    f"{issue.line_number} ({issue.rule_id}) - {issue.description}"
+                )
         else:
-            output.append("🎉 ¡No se encontraron issues!")
+            report_lines.append("✅ ¡Excelente! No se encontraron issues.")
 
-        return "\n".join(output)
+        return "\n".join(report_lines)
 
     def generate_json_report(self, report: MarkdownReport) -> str:
-        """Generar reporte en formato JSON."""
-        return json.dumps(asdict(report), indent=2, default=str)
+        """Genera un reporte en formato JSON."""
+        # El reporte ya contiene los issues como diccionarios
+        report_dict = {
+            "timestamp": report.timestamp,
+            "summary": {
+                "total_files": report.total_files,
+                "files_with_issues": report.files_with_issues,
+                "total_issues": report.total_issues,
+                "compliance_score": report.compliance_score,
+                "issues_by_severity": report.issues_by_severity,
+                "issues_by_rule": report.issues_by_rule,
+            },
+            "issues": [asdict(issue) for issue in report.issues],
+        }
+        return json.dumps(report_dict, indent=4)
 
 
 def main():
-    """Función principal del verificador de Markdown."""
+    """Punto de entrada principal para ejecutar el verificador."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Verificador de Estándares Markdown")
+    parser = argparse.ArgumentParser(
+        description="Verificador de Estándares de Markdown para el proyecto."
+    )
     parser.add_argument(
         "--format",
         choices=["console", "json"],
         default="console",
-        help="Formato de salida",
+        help="Formato del reporte de salida.",
     )
-    parser.add_argument("--output", "-o", help="Archivo de salida")
-
+    parser.add_argument(
+        "--output-file",
+        type=str,
+        default=None,
+        help="Archivo para guardar el reporte. Si no se especifica, se imprime en consola.",
+    )
     args = parser.parse_args()
 
-    try:
-        checker = MarkdownChecker()
-        report = checker.check_project()
+    checker = MarkdownChecker()
+    report = checker.check_project()
 
-        if args.format == "json":
-            output = checker.generate_json_report(report)
-        else:
-            output = checker.generate_console_report(report)
+    if args.format == "json":
+        output = checker.generate_json_report(report)
+    else:
+        output = checker.generate_console_report(report)
 
-        if args.output:
-            with open(args.output, "w", encoding="utf-8") as f:
-                f.write(output)
-            print(f"📄 Reporte guardado en: {args.output}")
-        else:
-            print(output)
+    if args.output_file:
+        with open(args.output_file, "w", encoding="utf-8") as f:
+            f.write(output)
+        print(f"📄 Reporte guardado en {args.output_file}")
+    else:
+        print(output)
 
-        # Exit code basado en compliance
-        if report.compliance_score >= 90:
-            sys.exit(0)
-        elif report.compliance_score >= 70:
-            sys.exit(1)
-        else:
-            sys.exit(2)
-
-    except Exception as e:
-        print(f"❌ Error durante verificación: {e}")
-        sys.exit(3)
+    # Salir con código de error si hay issues de severidad 'error'
+    if any(issue.severity == "error" for issue in report.issues):
+        sys.exit(1)
 
 
 if __name__ == "__main__":

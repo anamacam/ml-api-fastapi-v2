@@ -18,13 +18,16 @@ Características:
 
 import ast
 import json
-import os
-import re
+import pathlib
 import sys
-from dataclasses import asdict, dataclass
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Union
+from dataclasses import dataclass, asdict
+import re
+import argparse
+
+NodeWithDocstring = Union[ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef]
+FunctionNode = Union[ast.FunctionDef, ast.AsyncFunctionDef]
 
 
 @dataclass
@@ -58,7 +61,7 @@ class DocstringChecker:
     """Verificador principal de docstrings"""
 
     def __init__(self, project_root: str = "."):
-        self.project_root = Path(project_root)
+        self.project_root = pathlib.Path(project_root)
         self.backend_path = self.project_root / "backend"
         self.issues = []
         self.total_objects = 0
@@ -92,7 +95,7 @@ class DocstringChecker:
 
         return self._generate_report()
 
-    def _check_file(self, file_path: Path):
+    def _check_file(self, file_path: pathlib.Path):
         """Verificar docstrings en un archivo específico"""
         try:
             with open(file_path, "r", encoding="utf-8") as f:
@@ -104,9 +107,7 @@ class DocstringChecker:
             tree = ast.parse(content)
 
             for node in ast.walk(tree):
-                if isinstance(
-                    node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
-                ):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                     self._check_node_docstring(node, file_path)
 
         except SyntaxError as e:
@@ -125,7 +126,7 @@ class DocstringChecker:
         except Exception as e:
             print(f"    ⚠️  Error procesando {file_path}: {e}")
 
-    def _check_node_docstring(self, node: ast.AST, file_path: Path):
+    def _check_node_docstring(self, node: NodeWithDocstring, file_path: pathlib.Path):
         """Verificar docstring de un nodo específico (función/clase)"""
         self.total_objects += 1
 
@@ -164,20 +165,19 @@ class DocstringChecker:
             self.objects_with_docstrings += 1
             # Verificar calidad del docstring
             self._check_docstring_quality(
-                docstring, node, file_rel_path, line_number, object_type, object_name
+                docstring, node, file_rel_path, object_type, object_name
             )
 
     def _check_docstring_quality(
         self,
         docstring: str,
-        node: ast.AST,
+        node: NodeWithDocstring,
         file_path: str,
-        line_number: int,
         object_type: str,
         object_name: str,
     ):
         """Verificar calidad y formato del docstring"""
-
+        line_number = node.lineno
         # 1. Verificar línea de resumen
         lines = docstring.strip().split("\n")
         if not lines or not lines[0].strip():
@@ -195,7 +195,7 @@ class DocstringChecker:
             )
 
         # 2. Verificar longitud de línea de resumen
-        elif len(lines[0]) > 80:
+        elif len(lines[0]) > 88:
             self.issues.append(
                 DocstringIssue(
                     file_path=file_path,
@@ -204,27 +204,27 @@ class DocstringChecker:
                     object_name=object_name,
                     issue_type="summary_too_long",
                     severity="warning",
-                    description=f"Línea de resumen muy larga ({len(lines[0])} caracteres)",
-                    suggestion="Mantener la línea de resumen bajo 80 caracteres",
+                    description=f"Línea de resumen excede los 88 caracteres ({len(lines[0])})",
+                    suggestion="Acortar la línea de resumen.",
                 )
             )
 
-        # 3. Verificar que termine con punto
-        if not lines[0].rstrip().endswith("."):
+        # 3. Verificar si hay línea en blanco después del resumen
+        if len(lines) > 1 and lines[1].strip() != "":
             self.issues.append(
                 DocstringIssue(
                     file_path=file_path,
                     line_number=line_number,
                     object_type=object_type,
                     object_name=object_name,
-                    issue_type="summary_no_period",
-                    severity="info",
-                    description="Línea de resumen no termina con punto",
-                    suggestion="Agregar punto al final de la línea de resumen",
+                    issue_type="no_blank_line_after_summary",
+                    severity="warning",
+                    description="Falta una línea en blanco después del resumen del docstring.",
+                    suggestion="Añadir una línea en blanco.",
                 )
             )
 
-        # 4. Para funciones con parámetros, verificar documentación
+        # 4. Verificaciones específicas para funciones
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             self._check_function_docstring(
                 docstring, node, file_path, line_number, object_name
@@ -233,249 +233,169 @@ class DocstringChecker:
     def _check_function_docstring(
         self,
         docstring: str,
-        node: ast.FunctionDef,
+        node: FunctionNode,
         file_path: str,
         line_number: int,
         object_name: str,
     ):
-        """Verificar docstring específico de función"""
+        """Analizar las secciones específicas de un docstring de función."""
+        args_re = re.compile(r"Args:\s*\n")
+        returns_re = re.compile(r"Returns:\s*\n")
 
-        # Obtener parámetros (excluyendo 'self' y 'cls')
-        params = [arg.arg for arg in node.args.args if arg.arg not in ("self", "cls")]
-
-        # Verificar si la función retorna algo
-        has_return = self._has_return_statement(node)
-
-        if params and len(docstring.split("\n")) < 3:
+        # Verificar sección de argumentos
+        if not args_re.search(docstring) and node.args.args:
             self.issues.append(
                 DocstringIssue(
                     file_path=file_path,
                     line_number=line_number,
                     object_type="function",
                     object_name=object_name,
-                    issue_type="missing_parameters_doc",
+                    issue_type="missing_args_section",
                     severity="warning",
-                    description=f"Función con parámetros ({', '.join(params)}) necesita documentación detallada",
-                    suggestion="Agregar secciones Parameters y Returns según Google Style",
+                    description="Falta la sección 'Args' en el docstring.",
+                    suggestion="Añadir sección 'Args:' con descripción de parámetros.",
                 )
             )
 
-        # Verificar secciones estándar para funciones complejas
-        if len(params) > 2 or has_return:
-            docstring_lower = docstring.lower()
-
-            if (
-                "parameters" not in docstring_lower
-                and "args" not in docstring_lower
-                and "param" not in docstring_lower
-            ):
-                self.issues.append(
-                    DocstringIssue(
-                        file_path=file_path,
-                        line_number=line_number,
-                        object_type="function",
-                        object_name=object_name,
-                        issue_type="missing_parameters_section",
-                        severity="info",
-                        description="Función compleja sin sección de parámetros",
-                        suggestion="Agregar sección 'Parameters:' o 'Args:'",
-                    )
+        if not returns_re.search(docstring) and self._has_return_statement(node):
+            self.issues.append(
+                DocstringIssue(
+                    file_path=file_path,
+                    line_number=line_number,
+                    object_type="function",
+                    object_name=object_name,
+                    issue_type="missing_returns_section",
+                    severity="warning",
+                    description="La función tiene 'return' pero falta la sección 'Returns:'.",
+                    suggestion="Añadir sección 'Returns:' con descripción del valor de retorno.",
                 )
+            )
 
-            if has_return and "return" not in docstring_lower:
-                self.issues.append(
-                    DocstringIssue(
-                        file_path=file_path,
-                        line_number=line_number,
-                        object_type="function",
-                        object_name=object_name,
-                        issue_type="missing_returns_section",
-                        severity="info",
-                        description="Función con return sin documentar valor de retorno",
-                        suggestion="Agregar sección 'Returns:'",
-                    )
-                )
+    def _has_return_statement(self, node: FunctionNode) -> bool:
+        """Verifica si un nodo de función tiene una declaración de retorno explícita."""
+        return any(isinstance(child, ast.Return) for child in ast.walk(node))
 
-    def _has_return_statement(self, node: ast.FunctionDef) -> bool:
-        """Verificar si la función tiene statements de return con valor"""
-        for child in ast.walk(node):
-            if isinstance(child, ast.Return) and child.value is not None:
-                return True
-        return False
-
-    def _generate_docstring_suggestion(self, node: ast.AST, object_type: str) -> str:
-        """Generar sugerencia de docstring"""
-        if object_type == "class":
-            return f'''"""
-{node.name.replace('_', ' ').title()}.
-
-Esta clase [descripción de funcionalidad].
-
-Attributes:
-    [atributo]: [descripción]
-
-Example:
-    >>> obj = {node.name}()
-    >>> # uso básico
-"""'''
-        else:  # function
-            params = []
-            if hasattr(node, "args"):
+    def _generate_docstring_suggestion(
+        self, node: NodeWithDocstring, object_type: str
+    ) -> str:
+        """Genera una sugerencia de plantilla de docstring."""
+        if object_type == "function":
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 params = [
                     arg.arg for arg in node.args.args if arg.arg not in ("self", "cls")
                 ]
+                has_return = self._has_return_statement(node)
 
-            params_section = ""
-            if params:
-                params_section = f"""
-Args:
-{chr(10).join(f'    {param}: [descripción]' for param in params)}"""
-
-            return f'''"""
-{node.name.replace('_', ' ').title()}.
-
-[Descripción detallada de la función].{params_section}
-
-Returns:
-    [tipo]: [descripción del valor de retorno]
-
-Example:
-    >>> result = {node.name}({', '.join(['[valor]' for _ in params])})
-    >>> # resultado esperado
-"""'''
+                suggestion = '"""One-line summary of the function.\\n\\n'
+                if params:
+                    suggestion += "Args:\\n"
+                    for param in params:
+                        suggestion += f"    {param} (type): Description of {param}.\\n"
+                if has_return:
+                    suggestion += "\\nReturns:\\n    type: Description of return value.\\n"
+                suggestion += '"""'
+                return suggestion
+        # class
+        return '"""Brief description of the class.\\n\\nAttributes:\\n    attr (type): Description.\\n"""'
 
     def _generate_report(self) -> DocstringReport:
-        """Generar reporte final"""
-        issues_by_severity = {"error": 0, "warning": 0, "info": 0}
+        """Genera el reporte final de la verificación."""
+        issues_by_severity = {}
         for issue in self.issues:
-            issues_by_severity[issue.severity] += 1
+            issues_by_severity[issue.severity] = (
+                issues_by_severity.get(issue.severity, 0) + 1
+            )
 
-        # Calcular score de compliance
-        if self.total_objects == 0:
-            compliance_score = 100.0
+        total_issues = len(self.issues)
+        if self.total_objects > 0:
+            compliance = (self.objects_with_docstrings / self.total_objects) * 100
         else:
-            # Penalizar errores más que warnings
-            error_penalty = issues_by_severity["error"] * 10
-            warning_penalty = issues_by_severity["warning"] * 5
-            info_penalty = issues_by_severity["info"] * 1
-
-            total_penalty = error_penalty + warning_penalty + info_penalty
-            max_penalty = self.total_objects * 10  # Máximo si todo fueran errores
-
-            compliance_score = max(0, 100 - (total_penalty / max(max_penalty, 1) * 100))
+            compliance = 100.0
 
         return DocstringReport(
-            timestamp=datetime.now().isoformat(),
+            timestamp=datetime.utcnow().isoformat(),
             total_objects=self.total_objects,
             objects_with_docstrings=self.objects_with_docstrings,
-            total_issues=len(self.issues),
-            issues_by_severity=issues_by_severity,
+            total_issues=total_issues,
+            issues_by_severity=dict(issues_by_severity),
             issues=self.issues,
-            compliance_score=compliance_score,
+            compliance_score=compliance,
         )
 
     def generate_console_report(self, report: DocstringReport) -> str:
-        """Generar reporte para consola"""
-        output = []
-
-        output.append("📝 REPORTE DE DOCSTRINGS")
-        output.append("=" * 50)
-        output.append(f"📅 Timestamp: {report.timestamp}")
-        output.append(f"📊 Objetos analizados: {report.total_objects}")
-        output.append(f"✅ Con docstrings: {report.objects_with_docstrings}")
-        output.append(f"📈 Compliance: {report.compliance_score:.1f}%")
-        output.append("")
-
-        output.append("📋 RESUMEN DE ISSUES")
-        output.append("-" * 30)
-        output.append(f"🔴 Errores: {report.issues_by_severity['error']}")
-        output.append(f"🟡 Warnings: {report.issues_by_severity['warning']}")
-        output.append(f"🔵 Info: {report.issues_by_severity['info']}")
-        output.append("")
+        """Genera un reporte legible para la consola."""
+        report_lines = []
+        report_lines.append(
+            f"📄 Reporte de Calidad de Docstrings ({report.timestamp})"
+        )
+        report_lines.append("=" * 60)
+        report_lines.append(
+            f"📊 Resumen: {report.total_objects} objetos analizados, "
+            f"{report.objects_with_docstrings} con docstrings."
+        )
+        report_lines.append(
+            f"🎯 Puntaje de Cumplimiento: {report.compliance_score:.2f}%"
+        )
+        report_lines.append(f"🚨 Total de Issues: {report.total_issues}")
+        for severity, count in report.issues_by_severity.items():
+            report_lines.append(f"  - {severity.capitalize()}: {count}")
+        report_lines.append("-" * 60)
 
         if report.issues:
-            output.append("🔍 ISSUES DETALLADOS")
-            output.append("-" * 30)
-
-            # Agrupar por archivo
-            issues_by_file = {}
-            for issue in report.issues:
-                if issue.file_path not in issues_by_file:
-                    issues_by_file[issue.file_path] = []
-                issues_by_file[issue.file_path].append(issue)
-
-            for file_path, issues in issues_by_file.items():
-                output.append(f"📁 {file_path}")
-
-                for issue in issues[:5]:  # Limitar a 5 por archivo
-                    severity_icon = {"error": "🔴", "warning": "🟡", "info": "🔵"}[
-                        issue.severity
-                    ]
-                    output.append(
-                        f"  {severity_icon} L{issue.line_number}: {issue.object_name} - {issue.description}"
-                    )
-
-                    if issue.suggestion and len(output) < 50:  # Limitar sugerencias
-                        suggestion_lines = issue.suggestion.split("\n")[:3]
-                        for line in suggestion_lines:
-                            if line.strip():
-                                output.append(f"      💡 {line.strip()}")
-
-                if len(issues) > 5:
-                    output.append(f"    ... y {len(issues) - 5} más")
-                output.append("")
+            report_lines.append("🔍 Detalles de los Issues:")
+            sorted_issues = sorted(report.issues, key=lambda x: x.file_path)
+            for issue in sorted_issues:
+                report_lines.append(
+                    f"  - [{issue.severity.upper()}] {issue.file_path}:"
+                    f"{issue.line_number} ({issue.object_name}) - {issue.description}"
+                )
         else:
-            output.append("🎉 ¡No se encontraron issues!")
+            report_lines.append("✅ ¡Excelente! No se encontraron issues.")
 
-        return "\n".join(output)
+        return "\\n".join(report_lines)
 
     def generate_json_report(self, report: DocstringReport) -> str:
-        """Generar reporte en formato JSON"""
-        return json.dumps(asdict(report), indent=2, default=str)
+        """Genera un reporte en formato JSON."""
+        return json.dumps(asdict(report), indent=4)
 
 
 def main():
-    """Función principal"""
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Verificador de Docstrings")
+    """Punto de entrada principal para ejecutar el verificador."""
+    parser = argparse.ArgumentParser(
+        description="Verificador de Estándares de Docstrings para el proyecto."
+    )
     parser.add_argument(
         "--format",
         choices=["console", "json"],
         default="console",
-        help="Formato de salida",
+        help="Formato del reporte de salida.",
     )
-    parser.add_argument("--output", "-o", help="Archivo de salida")
-
+    parser.add_argument(
+        "--output-file",
+        type=str,
+        default=None,
+        help="Archivo para guardar el reporte. Si no se especifica, se imprime en consola.",
+    )
     args = parser.parse_args()
 
-    try:
-        checker = DocstringChecker()
-        report = checker.check_project()
+    checker = DocstringChecker()
+    report = checker.check_project()
 
-        if args.format == "json":
-            output = checker.generate_json_report(report)
-        else:
-            output = checker.generate_console_report(report)
+    if args.format == "json":
+        output = checker.generate_json_report(report)
+    else:
+        output = checker.generate_console_report(report)
 
-        if args.output:
-            with open(args.output, "w", encoding="utf-8") as f:
-                f.write(output)
-            print(f"📄 Reporte guardado en: {args.output}")
-        else:
-            print(output)
+    if args.output_file:
+        with open(args.output_file, "w", encoding="utf-8") as f:
+            f.write(output)
+        print(f"📄 Reporte guardado en {args.output_file}")
+    else:
+        print(output)
 
-        # Exit code basado en compliance
-        if report.compliance_score >= 90:
-            sys.exit(0)
-        elif report.compliance_score >= 70:
-            sys.exit(1)
-        else:
-            sys.exit(2)
-
-    except Exception as e:
-        print(f"❌ Error durante verificación: {e}")
-        sys.exit(3)
+    # Salir con código de error si hay issues de severidad 'error'
+    if any(issue.severity == "error" for issue in report.issues):
+        sys.exit(1)
 
 
 if __name__ == "__main__":
