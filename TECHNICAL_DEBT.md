@@ -230,3 +230,56 @@ El proyecto muestra **excelente salud técnica** con:
 
 - **Último análisis**: 2025-06-07
 - **Próxima revisión**: 2025-06-14
+
+# Plan de Corrección Gradual de Deuda Técnica - Linting
+
+## Estado Actual
+- ✅ Error técnico de configuración corregido (W503 FileNotFoundError)
+- ⚠️ Errores de formato pendientes: ~150 errores de flake8
+- 📊 Deuda técnica aceptada temporalmente para no bloquear desarrollo
+
+## Fases de Corrección
+
+### Fase 1: Errores Críticos (Semana 1)
+**Objetivo:** Corregir errores que pueden causar problemas de ejecución
+- [ ] E231: missing whitespace after ':'
+- [ ] E225: missing whitespace around operator
+- [ ] E221: multiple spaces before operator
+
+### Fase 2: Errores de Formato (Semana 2)
+**Objetivo:** Mejorar legibilidad del código
+- [ ] E222: multiple spaces after operator
+- [ ] E241: multiple spaces after ','
+- [ ] E202: whitespace before '}'
+
+### Fase 3: Errores de Estructura (Semana 3)
+**Objetivo:** Mejorar estructura y mantenibilidad
+- [ ] E126: continuation line over-indented
+- [ ] E702: multiple statements on one line
+- [ ] W503: line break before binary operator
+
+### Fase 4: Imports y Dependencias (Semana 4)
+**Objetivo:** Limpiar imports y dependencias
+- [ ] F401: imported but unused
+- [ ] F403: wildcard imports
+
+## Métricas de Seguimiento
+- **Errores iniciales:** ~150
+- **Meta por fase:** Reducir 25-30 errores por semana
+- **Meta final:** <10 errores críticos
+
+## Compromisos del Equipo
+1. **No agregar nuevos errores** en código nuevo
+2. **Corregir errores** cuando se toque un archivo
+3. **Revisar progreso** semanalmente
+4. **Documentar decisiones** de deuda técnica aceptada
+
+## Archivos Prioritarios
+1. `infrastructure/scripts/generate_dashboard.py` (más errores)
+2. `infrastructure/scripts/tech_debt_analyzer.py`
+3. `backend/app/core/retry_handler.py`
+4. `backend/app/main.py`
+
+---
+*Última actualización: $(date)*
+*Responsable: Equipo de Desarrollo*
