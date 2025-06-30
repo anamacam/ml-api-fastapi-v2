@@ -1,12 +1,60 @@
 # -*- coding: utf-8 -*-
 """
-Manejadores de errores para la API FastAPI.
+🛡️ Manejadores de errores centralizados
 
-Este módulo contiene funciones para traducir errores internos del servicio
-a respuestas HTTP apropiadas.
+Utilidades para manejo consistente de errores en toda la aplicación,
+proporcionando respuestas estructuradas y logging apropiado.
 """
 
-from typing import Any, Dict, Optional
+# 🚨 ====== COPILOTO/CURSOR: MANEJO SEGURO DE ERRORES ====== 🚨
+#
+# 🔐 SEGURIDAD CRÍTICA - NO exponer información sensible:
+#    ❌ PROHIBIDO: Stack traces completos al cliente
+#    ❌ PROHIBIDO: Rutas de archivos del servidor
+#    ❌ PROHIBIDO: Detalles de base de datos (esquemas, tablas)
+#    ❌ PROHIBIDO: Configuración interna del sistema
+#    ❌ PROHIBIDO: Credenciales en logs de error
+#
+# ✅ MANEJO SEGURO OBLIGATORIO:
+#    ✅ Logs detallados SOLO en servidor (no al cliente)
+#    ✅ Mensajes genéricos al cliente ("Error interno del servidor")
+#    ✅ Error IDs únicos para correlacionar logs con requests
+#    ✅ Sanitizar inputs antes de logging
+#    ✅ Diferentes niveles de detalle por entorno (dev vs prod)
+#
+# 🏗️ PRINCIPIOS DE ERROR HANDLING:
+#    ✅ DRY: Handlers centralizados, no duplicar lógica
+#    ✅ KISS: Respuestas simples y consistentes
+#    ✅ Single Responsibility: Un handler por tipo de error
+#
+# 🧪 TDD PARA ERROR HANDLERS:
+#    🔴 RED: Tests que verifiquen que NO se expone info sensible
+#    🟢 GREEN: Implementación que pase tests de seguridad
+#    🔵 REFACTOR: Mejorar estructura sin exponer datos
+#
+# 📊 LOGGING LEVELS CORRECTOS:
+#    🔴 ERROR: Errores críticos del sistema
+#    🟡 WARNING: Problemas recuperables
+#    🔵 INFO: Flujo normal de la aplicación
+#    ⚪ DEBUG: Detalles técnicos (SOLO en development)
+#
+# ⚠️ EJEMPLOS INCORRECTOS:
+#    ❌ return {"error": f"Database error: {str(db_exception)}"}
+#    ❌ logging.error(f"User password: {password}")
+#    ❌ {"detail": f"File not found: /etc/secrets/api_keys.txt"}
+#
+# ✅ EJEMPLOS CORRECTOS:
+#    ✅ return {"error": "Error interno del servidor", "error_id": "ERR-123"}
+#    ✅ logging.error(f"Database connection failed", extra={"error_id": error_id})
+#    ✅ {"detail": "Recurso no encontrado", "error_code": "RESOURCE_NOT_FOUND"}
+#
+# 📚 REFERENCIA: /RULES.md sección "🔐 REGLAS DE SEGURIDAD"
+# 
+# =============================================================
+
+from typing import Any, Dict, List, Optional, Union
+import logging
+import uuid
 
 from fastapi import HTTPException
 

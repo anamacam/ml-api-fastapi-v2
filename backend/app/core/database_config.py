@@ -1,17 +1,56 @@
+# -*- coding: utf-8 -*-
 """
-Configuración de base de datos - Extraído de database.py
+🔧 Configuración enterprise de base de datos - REFACTORED
 
-REFACTORED: Separando configuraciones en módulo independiente
-- DatabaseConfig base
-- VPSDatabaseConfig optimizada
-- Validaciones y normalización
+REFACTORED: Separado de database.py principal para reducir complejidad
+- Configuración por entornos con validación
+- Optimizaciones específicas para VPS
+- Pool de conexiones configurables
+- Validación robusta de parámetros
 """
+
+# 🚨 ======== COPILOTO/CURSOR: CONFIGURACIÓN SEGURA DE BD ======== 🚨
+#
+# 🔐 CRÍTICO - NO hardcodear credenciales de base de datos:
+#    ❌ PROHIBIDO ABSOLUTO: Passwords, usernames, hosts de producción
+#    ❌ PROHIBIDO: database_url con credenciales reales
+#    ❌ PROHIBIDO: IPs de servidores de producción
+#    ❌ PROHIBIDO: Nombres de bases de datos sensibles
+#
+# ✅ CONFIGURACIÓN SEGURA OBLIGATORIA:
+#    ✅ from_env(): SIEMPRE usar variables de entorno para credenciales
+#    ✅ Default: SOLO valores seguros para desarrollo/testing
+#    ✅ Validation: Verificar configuración antes de usar
+#    ✅ Secrets: Separar de configuración pública
+#
+# 🔒 VARIABLES DE ENTORNO OBLIGATORIAS para producción:
+#    DATABASE_URL, DB_PASSWORD, DB_USER, DB_HOST
+#    DB_POOL_SIZE, DB_MAX_OVERFLOW, DB_CONNECTION_RETRIES
+#
+# 🧪 TDD PARA BD:
+#    🔴 RED: Tests con configuración aislada/temporal
+#    🟢 GREEN: Mínima implementación que pase tests
+#    🔵 REFACTOR: Optimizar sin romper tests
+#
+# ⚠️ EJEMPLOS INCORRECTOS:
+#    ❌ database_url = "postgresql://admin:secret123@prod.server.com/maindb"
+#    ❌ host = "192.168.1.100"  # IP de producción
+#    ❌ password = "MyP@ssw0rd123"
+#
+# ✅ EJEMPLOS CORRECTOS:
+#    ✅ database_url = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+#    ✅ from_env() method con validación
+#    ✅ Defaults seguros solo para development
+#
+# 📚 REFERENCIA: /RULES.md sección "🔐 REGLA #2: NO HARDCODEAR"
+# 
+# ================================================================
 
 import logging
 import os
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import psutil
 

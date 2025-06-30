@@ -17,6 +17,33 @@ Patrones aplicados:
 - Decorator Pattern: Para funcionalidades adicionales
 """
 
+# 🚨 ============ COPILOTO/CURSOR: REGLAS PARA SERVICIOS ============ 🚨
+#
+# 🏗️ PRINCIPIOS SOLID OBLIGATORIOS en servicios:
+#    ✅ Single Responsibility: Un servicio = Una responsabilidad
+#    ✅ Open/Closed: Extensible sin modificar código existente  
+#    ✅ Liskov: Servicios intercambiables respetando contratos
+#    ✅ Interface Segregation: Interfaces específicas, no genéricas
+#    ✅ Dependency Inversion: Depender de abstracciones
+#
+# 🧪 TDD OBLIGATORIO para servicios:
+#    🔴 RED: Test que falle por lógica de negocio
+#    🟢 GREEN: Implementación mínima para pasar test
+#    🔵 REFACTOR: Mejorar aplicando SOLID/DRY/KISS
+#
+# 📏 MÉTRICAS OBLIGATORIAS:
+#    ✅ Funciones <= 20 líneas | Complejidad <= 10
+#    ✅ Coverage >= 80% | No duplicación de código
+#
+# 🔐 SEGURIDAD en servicios:
+#    ❌ NO logging de información sensible
+#    ✅ Validar TODOS los inputs
+#    ✅ Manejar errores sin exponer datos internos
+#
+# 📚 REFERENCIA: /RULES.md sección "🧠 REGLAS PARA COPILOTO/CURSOR"
+# 
+# ===============================================================
+
 import logging
 import traceback
 import uuid

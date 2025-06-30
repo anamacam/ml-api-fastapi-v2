@@ -6,10 +6,35 @@ Define la aplicación FastAPI, gestiona el ciclo de vida, configura middlewares,
 y registra los endpoints de la API.
 """
 
+# 🚨 ================ COPILOTO/CURSOR: REGLAS OBLIGATORIAS ================ 🚨
+# 
+# 🔒 REGLA #1: NO usar bypass de validaciones
+#    ❌ PROHIBIDO: git commit --no-verify, saltarse smart commit
+#    ✅ OBLIGATORIO: Usar .\scripts\smart_commit_clean.ps1 SIEMPRE
+#
+# 🔐 REGLA #2: NO hardcodear información sensible  
+#    ❌ PROHIBIDO: API keys, passwords, URLs de producción en código
+#    ✅ OBLIGATORIO: Usar variables de entorno, archivos .env
+#
+# 📝 REGLA #3: Comentarios reales y útiles
+#    ❌ PROHIBIDO: Comentarios mentirosos, obvios o desactualizados
+#    ✅ OBLIGATORIO: Explicar el "por qué", no el "qué"
+#
+# 🏗️ REGLA #4: Principios SOLID, DRY, KISS
+#    ✅ Single Responsibility, Open/Closed, Liskov, Interface Segregation, Dependency Inversion
+#    ✅ Don't Repeat Yourself - Abstraer código duplicado
+#    ✅ Keep It Simple - Código simple y legible
+#
+# 📚 VER REGLAS COMPLETAS: /RULES.md
+# 🎯 Quality Score mínimo: 70/100 | Coverage mínimo: 80%
+# 
+# ============================================================================
+
 import logging
 from contextlib import asynccontextmanager
 from typing import Any, Dict, Optional
 
+# ⚠️ COPILOTO: NO hardcodear configuración - usar variables de entorno
 # Configuración y Modelos
 from app.config.settings import get_settings
 from app.models.api_models import (
@@ -34,6 +59,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # 1. --- Configuración e Inicialización ---
 
+# ⚠️ COPILOTO: Esta configuración viene de variables de entorno - NO hardcodear
 settings = get_settings()
 
 # Configurar el logger principal

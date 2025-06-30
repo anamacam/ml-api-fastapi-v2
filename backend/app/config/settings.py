@@ -8,6 +8,41 @@ REFACTORED: Aplicando modularización y reduciendo complejidad ciclomática
 - Mantenida funcionalidad completa
 """
 
+# 🚨 ========= COPILOTO/CURSOR: REGLAS DE CONFIGURACIÓN SEGURA ========= 🚨
+#
+# 🔐 REGLA #2: NO hardcodear información sensible - CRÍTICO AQUÍ
+#    ❌ PROHIBIDO: API keys, passwords, tokens, URLs de producción en código
+#    ❌ PROHIBIDO: Secrets en defaults, comentarios o ejemplos
+#    ❌ PROHIBIDO: Configuración de producción hardcodeada
+#    ✅ OBLIGATORIO: SIEMPRE usar variables de entorno para datos sensibles
+#    ✅ OBLIGATORIO: Defaults seguros para development/testing únicamente
+#
+# 🔒 CONFIGURACIÓN SEGURA:
+#    ✅ Environment validation: Verificar variables críticas en producción
+#    ✅ Debug mode: SOLO en development, NUNCA en producción
+#    ✅ Secret rotation: No usar secrets de development en producción
+#    ✅ Input validation: Validar TODAS las configuraciones
+#    ✅ Error messages: No exponer información sensible en logs
+#
+# 🧪 TDD PARA CONFIGURACIÓN:
+#    🔴 RED: Tests que fallen si faltan variables críticas en producción
+#    🟢 GREEN: Validación mínima que pase tests
+#    🔵 REFACTOR: Mejorar validación sin romper tests
+#
+# ⚠️ EJEMPLOS DE LO QUE NO HACER:
+#    ❌ secret_key: str = "my-super-secret-key-123"
+#    ❌ database_url: str = "postgresql://user:pass@prod-server/db"
+#    ❌ api_key: str = "sk-1234567890abcdef"
+#
+# ✅ EJEMPLOS CORRECTOS:
+#    ✅ secret_key: str = Field(..., description="Secret key from environment")
+#    ✅ database_url: Optional[str] = Field(default=None, description="DB URL from env")
+#    ✅ api_key: Optional[str] = Field(default=None, description="API key from env")
+#
+# 📚 REFERENCIA: /RULES.md sección "🚨 REGLAS DE SEGURIDAD"
+# 
+# ======================================================================
+
 import logging
 import os
 from pathlib import Path
@@ -29,6 +64,9 @@ class Settings(BaseSettings):
     """
     Configuración de la aplicación basada en variables de entorno
     REFACTORED: Simplificado usando módulos especializados
+    
+    ⚠️ COPILOTO: TODOS los valores sensibles deben venir de variables de entorno
+    NO hardcodear secrets, URLs de producción, o configuración sensible aquí.
     """
 
     # 🌍 Entorno

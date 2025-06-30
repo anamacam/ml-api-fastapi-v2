@@ -1,9 +1,66 @@
-"""Tests para módulos core - Aumentar cobertura del sistema."""
+# -*- coding: utf-8 -*-
+"""
+Tests unitarios para módulos core
+
+Tests para validar funcionalidad básica de módulos core
+sin dependencias externas complejas.
+"""
+
+# 🚨 ========= COPILOTO/CURSOR: REGLAS TDD OBLIGATORIAS ========= 🚨
+#
+# 🧪 CICLO TDD OBLIGATORIO:
+#    🔴 RED: Escribir test que falle POR LÓGICA DE NEGOCIO, no sintaxis
+#    🟢 GREEN: Implementación MÍNIMA para pasar el test específico
+#    🔵 REFACTOR: Mejorar código aplicando SOLID/DRY/KISS SIN romper tests
+#
+# 📋 ESTRUCTURA OBLIGATORIA DE TESTS (AAA Pattern):
+#    ✅ ARRANGE: Configurar datos de entrada y estado inicial
+#    ✅ ACT: Ejecutar la funcionalidad bajo test
+#    ✅ ASSERT: Verificar resultado específico y esperado
+#
+# 🎯 REGLAS DE CALIDAD:
+#    ✅ Tests independientes: No depender de orden de ejecución
+#    ✅ Tests deterministas: Mismo input = mismo output siempre
+#    ✅ Tests focalizados: Un concepto por test
+#    ✅ Tests rápidos: < 100ms por test unitario
+#    ✅ Tests legibles: Nombres descriptivos que expliquen el escenario
+#
+# 🚫 ANTI-PATRONES PROHIBIDOS:
+#    ❌ Tests que siempre pasen (assert True)
+#    ❌ Tests sin asserts o con asserts inútiles
+#    ❌ Tests que dependan de datos externos variables
+#    ❌ Tests que prueben múltiples conceptos a la vez
+#    ❌ Mock/stub por todo - solo donde sea necesario
+#
+# 📊 MÉTRICAS OBLIGATORIAS:
+#    ✅ Coverage >= 80% (no solo líneas, también branches)
+#    ✅ Tests específicos para happy path Y edge cases
+#    ✅ Tests de error handling con excepciones esperadas
+#
+# 🔒 SEGURIDAD EN TESTS:
+#    ❌ NO usar datos de producción en tests
+#    ❌ NO hardcodear credenciales en tests
+#    ✅ Usar fixtures/factories para datos de test
+#    ✅ Limpiar estado después de cada test
+#
+# 💡 CONVENCIONES DE NAMING:
+#    ✅ test_[method]_[scenario]_[expected_result]
+#    ✅ Ejemplo: test_user_login_with_invalid_password_raises_auth_error
+#
+# 📚 REFERENCIA: /RULES.md sección "🧪 REGLAS TDD COMPLETAS"
+# 
+# ==================================================================
 
 import os
-from unittest.mock import MagicMock, patch
+import sys
+from pathlib import Path
+from unittest.mock import Mock, patch
 
 import pytest
+
+# Agregar path del proyecto para importar módulos
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
 
 
 @pytest.fixture(autouse=True)
@@ -199,7 +256,7 @@ def test_health_utils_functionality():
         result = check_ml_model_loaded(None)
         assert result is False
 
-        mock_model = MagicMock()
+        mock_model = Mock()
         result = check_ml_model_loaded(mock_model)
         assert result is True
 
@@ -207,7 +264,7 @@ def test_health_utils_functionality():
         result = check_database_connection(None)
         assert result is False
 
-        mock_connection = MagicMock()
+        mock_connection = Mock()
         result = check_database_connection(mock_connection)
         assert result is True
 
