@@ -1,0 +1,141 @@
+# 🚨 ========= COPILOTO/CURSOR: CONFIGURACIÓN RUFF ========= 🚨
+#
+# ⚡ RUFF: Linter súper rápido que reemplaza a:
+#    - flake8, isort, pycodestyle, pydocstyle, pyflakes, etc.
+#    - 10-100x más rápido que herramientas tradicionales
+#    - Configuración compatible con herramientas existentes
+#
+# 🔧 USO:
+#    ruff check .          # Verificar errores
+#    ruff check --fix .    # Corregir automáticamente
+#    ruff format .         # Formatear código (como black)
+#
+# 📚 REFERENCIA: /RULES.md sección "🧠 REGLAS PARA COPILOTO/CURSOR"
+# 
+# ================================================================
+
+# 📏 Configuración básica
+line-length = 88
+target-version = "py312"
+
+# 📁 Archivos a incluir/excluir
+include = ["*.py", "*.pyi", "**/pyproject.toml"]
+exclude = [
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "htmlcov",
+    "reports",
+    "build",
+    "dist",
+    "node_modules",
+    "migrations",
+    "alembic/versions",
+]
+
+# 🔍 Reglas de linting a aplicar
+select = [
+    # Pyflakes
+    "F",
+    # pycodestyle
+    "E", "W",
+    # isort
+    "I",
+    # pydocstyle
+    "D",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-annotations
+    "ANN",
+    # flake8-async
+    "ASYNC",
+    # flake8-comprehensions
+    "C4",
+    # flake8-debugger
+    "T10",
+    # flake8-print
+    "T20",
+    # flake8-return
+    "RET",
+    # flake8-simplify
+    "SIM",
+    # flake8-unused-arguments
+    "ARG",
+    # flake8-use-pathlib
+    "PTH",
+    # Ruff-specific rules
+    "RUF",
+]
+
+# ❌ Reglas a ignorar (con justificación)
+ignore = [
+    # Conflicto con Black
+    "E203",    # whitespace before ':'
+    "W503",    # line break before binary operator
+    
+    # Demasiado estricto para el proyecto actual
+    "D100",    # Missing docstring in public module
+    "D101",    # Missing docstring in public class
+    "D102",    # Missing docstring in public method
+    "D103",    # Missing docstring in public function
+    "D104",    # Missing docstring in public package
+    "D105",    # Missing docstring in magic method
+    
+    # Anotaciones - gradualmente implementar
+    "ANN001",  # Missing type annotation for function argument
+    "ANN002",  # Missing type annotation for *args
+    "ANN003",  # Missing type annotation for **kwargs
+    "ANN101",  # Missing type annotation for self
+    "ANN102",  # Missing type annotation for cls
+    "ANN201",  # Missing return type annotation
+    
+    # Prints permitidos en desarrollo
+    "T201",    # print() found
+    
+    # Simplificaciones que pueden reducir legibilidad
+    "SIM108",  # Use ternary operator instead of if-else
+    "SIM300",  # Yoda conditions
+]
+
+# 🔧 Configuración por tipo de archivo
+[per-file-ignores]
+# Tests pueden tener docstrings más relajados
+"tests/**/*.py" = ["D100", "D101", "D102", "D103", "D104", "ANN001", "ANN201"]
+# __init__.py pueden tener imports no utilizados
+"__init__.py" = ["F401"]
+# Scripts pueden usar prints
+"scripts/**/*.py" = ["T201"]
+# Configuración puede tener valores no utilizados
+"*/settings.py" = ["F401"]
+
+# 📋 Configuración de isort (compatible con Black)
+[isort]
+profile = "black"
+known-first-party = ["app", "tests"]
+known-third-party = [
+    "fastapi", "pydantic", "sqlalchemy", "pytest",
+    "uvicorn", "alembic", "sklearn", "pandas", "numpy"
+]
+
+# 📖 Configuración de pydocstyle
+[pydocstyle]
+convention = "google"  # Google, numpy, or pep257
+
+# 🎯 Configuración de complejidad
+[mccabe]
+max-complexity = 18  # Alineado con .flake8
+
+# 🧪 Configuración específica para diferentes entornos
+[flake8-annotations]
+allow-star-arg-any = true
+ignore-fully-untyped = true
+
+[flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path"] 

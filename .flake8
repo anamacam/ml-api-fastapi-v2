@@ -1,0 +1,110 @@
+# 🚨 ========= COPILOTO/CURSOR: CONFIGURACIÓN FLAKE8 ========= 🚨
+#
+# 🔍 FLAKE8: Linting tradicional y robusto
+#    ✅ Verificación de estilo PEP8
+#    ✅ Detección de errores de sintaxis
+#    ✅ Complejidad ciclomática
+#    ✅ Imports no utilizados
+#
+# ⚡ ALTERNATIVA: Ver ruff.toml para linting súper rápido
+# 🔧 INTEGRACIÓN: Alineado con pyproject.toml y pre-commit
+#
+# 📚 REFERENCIA: /RULES.md sección "🧠 REGLAS PARA COPILOTO/CURSOR"
+# 
+# ================================================================
+
+[flake8]
+# 📏 Configuración básica alineada con Black
+max-line-length = 88
+
+# ❌ Errores a ignorar (con justificación)
+extend-ignore = 
+    # Conflictos con Black
+    E203,      # whitespace before ':'
+    W503,      # line break before binary operator
+    E501,      # line too long (manejado por Black)
+    
+    # Docstrings - implementar gradualmente
+    D100,      # Missing docstring in public module
+    D101,      # Missing docstring in public class  
+    D102,      # Missing docstring in public method
+    D103,      # Missing docstring in public function
+    D104,      # Missing docstring in public package
+    D105,      # Missing docstring in magic method
+    D107,      # Missing docstring in __init__
+    
+    # Warnings menos críticos
+    W291,      # trailing whitespace (manejado por Black)
+    W292,      # no newline at end of file (manejado por Black)
+    W293,      # blank line contains whitespace (manejado por Black)
+
+# 📁 Directorios y archivos a excluir
+exclude =
+    .git,
+    __pycache__,
+    .pytest_cache,
+    .mypy_cache,
+    .ruff_cache,
+    .tox,
+    .venv,
+    venv,
+    backend/venv,
+    htmlcov,
+    reports,
+    build,
+    dist,
+    *.egg-info,
+    migrations,
+    alembic/versions,
+    frontend/web-app/node_modules,
+    frontend/admin-panel/node_modules,
+    docs/_build,
+    scripts/external
+
+# 🔧 Configuración por archivo
+per-file-ignores =
+    # __init__.py pueden tener imports no utilizados
+    __init__.py:F401,F403
+    
+    # Tests tienen reglas más relajadas
+    tests/*:D100,D101,D102,D103,D104,D105,D107,E501,F401,F403
+    
+    # Scripts pueden usar prints y tener imports no utilizados
+    scripts/*:T201,F401,F403,E501
+    
+    # Configuración puede tener imports no utilizados
+    */settings.py:F401,F403
+    */config.py:F401,F403
+    
+    # Archivos de migración tienen su propia estructura
+    migrations/*:E501,F401,F403
+    alembic/versions/*:E501,F401,F403
+
+# 🎯 Configuración de complejidad
+max-complexity = 18
+
+# 📊 Configuración de reportes
+statistics = True
+count = True
+show-source = True
+
+# 🔍 Configuración adicional de análisis
+application-import-names = app,tests
+import-order-style = google
+docstring-convention = google
+
+# 📋 Configuración específica para diferentes tipos de archivos
+# Archivos de configuración pueden ser más largos
+filename = *.py,*.pyi
+
+# 🧪 Configuración de formato de salida
+format = %(path)s:%(row)d:%(col)d: %(code)s %(text)s
+
+# 📚 Configuración de plugins (si están instalados)
+# flake8-docstrings, flake8-import-order, flake8-bugbear, etc.
+enable-extensions = 
+    # Habilitar solo si los plugins están instalados
+    # G,  # flake8-logging-format
+    # B,  # flake8-bugbear  
+    # I,  # flake8-import-order
+    # D,  # flake8-docstrings 
