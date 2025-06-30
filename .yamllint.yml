@@ -1,0 +1,72 @@
+# 🚨 ========= COPILOTO/CURSOR: CONFIGURACIÓN YAMLLINT ========= 🚨
+#
+# 🔍 VALIDACIÓN YAML PARA VPS:
+#    ✅ Docker Compose, Nginx, configuraciones de servidor
+#    ✅ GitHub Actions, CI/CD pipelines
+#    ✅ Configuraciones de aplicación
+#    ✅ Pre-commit hooks
+#
+# 📚 REFERENCIA: /RULES.md sección "🧠 REGLAS PARA COPILOTO/CURSOR"
+# 
+# ================================================================
+
+extends: default
+
+# 📁 Archivos a ignorar
+ignore: |
+  backend/venv/
+  htmlcov/
+  reports/
+  .git/
+  node_modules/
+  *.log
+
+rules:
+  # 📏 Longitud de línea - permitir líneas más largas para URLs y comandos
+  line-length:
+    max: 120
+    level: warning
+
+  # 🔤 Indentación - consistente con configuraciones de servidor
+  indentation:
+    spaces: 2
+    indent-sequences: true
+    check-multi-line-strings: false
+
+  # 📋 Llaves - flexibilidad para configuraciones complejas
+  braces:
+    max-spaces-inside: 1
+    max-spaces-inside-empty: 0
+
+  # 📊 Brackets - para listas de configuración
+  brackets:
+    max-spaces-inside: 1
+    max-spaces-inside-empty: 0
+
+  # ✅ Valores booleanos - consistencia
+  truthy:
+    allowed-values: ['true', 'false', 'yes', 'no', 'on', 'off']
+    check-keys: true
+
+  # 🔑 Claves duplicadas - crítico para configuraciones
+  key-duplicates: enable
+
+  # 📝 Comentarios - permitir comentarios de configuración
+  comments:
+    min-spaces-from-content: 1
+
+  # 🏷️ Tags - permitir tags de Docker y configuración
+  document-start: disable
+  document-end: disable
+
+  # 🧹 Espacios en blanco
+  trailing-spaces: enable
+  empty-lines:
+    max: 2
+    max-start: 0
+    max-end: 1
+
+  # 🔧 Configuraciones específicas para VPS
+  octal-values:
+    forbid-implicit-octal: true  # Evitar permisos octales ambiguos
+    forbid-explicit-octal: false # Permitir permisos explícitos de archivos 

@@ -1,0 +1,471 @@
+# 🚨 ========= COPILOTO/CURSOR: PIPELINE DEPLOY VPS ========= 🚨
+#
+# 🚀 PIPELINE DEDICADO DE DEPLOY VPS:
+#    ✅ Deploy automático con validaciones
+#    ✅ Rollback automático en caso de falla
+#    ✅ Health checks post-deploy
+#    ✅ Backup automático pre-deploy
+#    ✅ Notificaciones de deploy
+#
+# 🚀 TRIGGERS:
+#    ✅ Push a main: Deploy automático
+#    ✅ Tags: Deploy de releases
+#    ✅ Manual: Deploy controlado
+#
+# 📚 REFERENCIA: /RULES.md sección "🧠 REGLAS PARA COPILOTO/CURSOR"
+# 
+# ================================================================
+
+name: 🚀 Pipeline de Deploy VPS
+
+on:
+  # 🚀 Deploy automático en push a main y tags
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*'
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'infrastructure/**'
+      - 'config/**'
+  
+  # 🔧 Deploy manual con opciones
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Entorno de deploy'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      force_deploy:
+        description: 'Forzar deploy (skip validations)'
+        required: false
+        default: false
+        type: boolean
+      create_backup:
+        description: 'Crear backup antes del deploy'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+  DEPLOY_TIMEOUT: '300'  # 5 minutes
+
+jobs:
+  
+  # ======================================
+  # 🔍 PRE-DEPLOY VALIDATIONS
+  # ======================================
+  pre_deploy_validation:
+    name: 🔍 Validaciones Pre-Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event.inputs.force_deploy != 'true'
+    
+    outputs:
+      validation_passed: ${{ steps.validate.outputs.result }}
+      
+    steps:
+    - name: 📥 Checkout código
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: 📦 Install Validation Tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install bandit safety detect-secrets yamllint
+        
+        # Install Docker for container validation
+        sudo apt-get update
+        sudo apt-get install -y docker.io
+        sudo systemctl start docker
+        sudo usermod -aG docker $USER
+    
+    # 🔒 Security validation
+    - name: 🔒 Security Validation
+      run: |
+        echo "🔒 Ejecutando validaciones de seguridad..."
+        
+        # Check for secrets
+        detect-secrets scan --all-files --baseline .secrets.baseline
+        
+        # Security analysis
+        bandit -r backend/app/ --severity-level medium --confidence-level medium
+        
+        # Dependency check
+        safety check --file backend/requirements/base.txt
+        
+        echo "✅ Validaciones de seguridad pasadas"
+    
+    # 🧪 Quick test validation
+    - name: 🧪 Quick Test Validation
+      run: |
+        echo "🧪 Ejecutando tests críticos..."
+        
+        cd backend
+        pip install -r requirements/test.txt
+        
+        # Run critical tests only
+        python -m pytest tests/unit/test_health.py -v
+        python -m pytest tests/unit/test_main_app.py -v
+        
+        echo "✅ Tests críticos pasados"
+    
+    # 🏗️ Build validation
+    - name: 🏗️ Build Validation
+      run: |
+        echo "🏗️ Validando build de Docker..."
+        
+        # Build backend container
+        docker build -f infrastructure/docker/Dockerfile.backend -t ml-api-backend:test .
+        
+        # Build frontend container if exists
+        if [ -f "infrastructure/docker/Dockerfile.frontend" ]; then
+          docker build -f infrastructure/docker/Dockerfile.frontend -t ml-api-frontend:test .
+        fi
+        
+        echo "✅ Build validation pasada"
+    
+    - name: ✅ Set Validation Result
+      id: validate
+      run: |
+        echo "result=passed" >> $GITHUB_OUTPUT
+        echo "🎉 Todas las validaciones pre-deploy pasaron"
+
+  # ======================================
+  # 💾 BACKUP PRE-DEPLOY
+  # ======================================
+  backup_production:
+    name: 💾 Backup Producción
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: |
+      (github.event.inputs.create_backup == 'true' || github.event.inputs.create_backup == '') &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
+    
+    outputs:
+      backup_id: ${{ steps.backup.outputs.backup_id }}
+      
+    steps:
+    - name: 🔧 Setup SSH
+      uses: webfactory/ssh-agent@v0.7.0
+      with:
+        ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+    
+    - name: 💾 Create Backup
+      id: backup
+      run: |
+        BACKUP_ID="backup_$(date +%Y%m%d_%H%M%S)_${GITHUB_SHA:0:8}"
+        
+        echo "💾 Creando backup: $BACKUP_ID"
+        
+        # Connect to VPS and create backup
+        ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << EOF
+          # Create backup directory
+          mkdir -p /var/backups/ml-api/
+          
+          # Backup database
+          if command -v pg_dump >/dev/null 2>&1; then
+            pg_dump -h localhost -U \$DB_USER -d \$DB_NAME > /var/backups/ml-api/${BACKUP_ID}_database.sql
+          fi
+          
+          # Backup application files
+          tar -czf /var/backups/ml-api/${BACKUP_ID}_app.tar.gz -C /var/www/ml-api .
+          
+          # Backup configuration
+          tar -czf /var/backups/ml-api/${BACKUP_ID}_config.tar.gz -C /etc/ml-api .
+          
+          echo "✅ Backup creado: $BACKUP_ID"
+        EOF
+        
+        echo "backup_id=$BACKUP_ID" >> $GITHUB_OUTPUT
+        echo "✅ Backup completado: $BACKUP_ID"
+
+  # ======================================
+  # 🚀 DEPLOY TO VPS
+  # ======================================
+  deploy_vps:
+    name: 🚀 Deploy to VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [pre_deploy_validation, backup_production]
+    if: |
+      always() && 
+      (needs.pre_deploy_validation.result == 'success' || 
+       needs.pre_deploy_validation.result == 'skipped' ||
+       github.event.inputs.force_deploy == 'true')
+    
+    environment: ${{ github.event.inputs.environment || 'production' }}
+    
+    outputs:
+      deploy_status: ${{ steps.deploy.outputs.status }}
+      deploy_version: ${{ steps.deploy.outputs.version }}
+      
+    steps:
+    - name: 📥 Checkout código
+      uses: actions/checkout@v4
+    
+    - name: 🔧 Setup SSH
+      uses: webfactory/ssh-agent@v0.7.0
+      with:
+        ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+    
+    - name: 🚀 Deploy Application
+      id: deploy
+      run: |
+        DEPLOY_VERSION="${GITHUB_SHA:0:8}"
+        ENV="${{ github.event.inputs.environment || 'production' }}"
+        
+        echo "🚀 Iniciando deploy a $ENV..."
+        echo "📦 Versión: $DEPLOY_VERSION"
+        
+        # Deploy to VPS
+        ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << EOF
+          set -e
+          
+          echo "📥 Actualizando código..."
+          cd /var/www/ml-api
+          
+          # Pull latest changes
+          git fetch origin
+          git checkout ${{ github.ref_name }}
+          git pull origin ${{ github.ref_name }}
+          
+          echo "🐍 Actualizando entorno Python..."
+          cd backend
+          source venv/bin/activate
+          pip install -r requirements/base.txt
+          
+          echo "📊 Ejecutando migraciones de DB..."
+          python -m alembic upgrade head
+          
+          echo "🔄 Reiniciando servicios..."
+          sudo systemctl restart ml-api-backend
+          sudo systemctl restart nginx
+          
+          echo "⏳ Esperando que los servicios inicien..."
+          sleep 10
+          
+          echo "✅ Deploy completado"
+        EOF
+        
+        echo "status=success" >> $GITHUB_OUTPUT
+        echo "version=$DEPLOY_VERSION" >> $GITHUB_OUTPUT
+        
+        echo "🎉 Deploy exitoso - Versión: $DEPLOY_VERSION"
+    
+    - name: 📊 Post-Deploy Database Check
+      run: |
+        echo "📊 Verificando estado de la base de datos..."
+        
+        ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
+          # Check database connectivity
+          cd /var/www/ml-api/backend
+          source venv/bin/activate
+          python -c "
+          from app.core.database import get_db
+          try:
+              db = next(get_db())
+              print('✅ Database connection OK')
+          except Exception as e:
+              print(f'❌ Database error: {e}')
+              exit(1)
+          "
+        EOF
+
+  # ======================================
+  # 🏥 HEALTH CHECKS POST-DEPLOY
+  # ======================================
+  health_checks:
+    name: 🏥 Health Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: deploy_vps
+    if: needs.deploy_vps.result == 'success'
+    
+    steps:
+    - name: 🏥 Application Health Check
+      run: |
+        echo "🏥 Verificando salud de la aplicación..."
+        
+        # Health check endpoint
+        MAX_RETRIES=10
+        RETRY_COUNT=0
+        
+        until curl -f -s "${{ secrets.VPS_URL }}/health" || [ $RETRY_COUNT -eq $MAX_RETRIES ]; do
+          echo "⏳ Intento $((RETRY_COUNT + 1))/$MAX_RETRIES - Esperando que la app responda..."
+          sleep 30
+          RETRY_COUNT=$((RETRY_COUNT + 1))
+        done
+        
+        if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+          echo "❌ Health check falló después de $MAX_RETRIES intentos"
+          exit 1
+        fi
+        
+        echo "✅ Application health check passed"
+    
+    - name: 🌐 API Endpoints Check
+      run: |
+        echo "🌐 Verificando endpoints de API..."
+        
+        # Check main API endpoints
+        curl -f -s "${{ secrets.VPS_URL }}/api/v1/" || echo "⚠️ API v1 endpoint not available"
+        
+        # Check docs
+        curl -f -s "${{ secrets.VPS_URL }}/docs" || echo "⚠️ Docs endpoint not available"
+        
+        echo "✅ API endpoints check completed"
+    
+    - name: 🔄 Service Status Check
+      run: |
+        echo "🔄 Verificando estado de servicios..."
+        
+        ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
+          # Check service status
+          sudo systemctl is-active ml-api-backend || echo "⚠️ Backend service not active"
+          sudo systemctl is-active nginx || echo "⚠️ Nginx service not active"
+          sudo systemctl is-active postgresql || echo "⚠️ PostgreSQL service not active"
+          
+          echo "✅ Service status check completed"
+        EOF
+
+  # ======================================
+  # 🚨 ROLLBACK EN CASO DE FALLA
+  # ======================================
+  rollback:
+    name: 🚨 Rollback
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [deploy_vps, health_checks, backup_production]
+    if: |
+      always() && 
+      (needs.deploy_vps.result == 'failure' || needs.health_checks.result == 'failure') &&
+      needs.backup_production.outputs.backup_id != ''
+    
+    steps:
+    - name: 🔧 Setup SSH
+      uses: webfactory/ssh-agent@v0.7.0
+      with:
+        ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+    
+    - name: 🚨 Execute Rollback
+      run: |
+        BACKUP_ID="${{ needs.backup_production.outputs.backup_id }}"
+        
+        echo "🚨 EJECUTANDO ROLLBACK..."
+        echo "📦 Usando backup: $BACKUP_ID"
+        
+        ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << EOF
+          set -e
+          
+          echo "🔄 Restaurando aplicación desde backup..."
+          
+          # Stop services
+          sudo systemctl stop ml-api-backend
+          
+          # Restore application files
+          cd /var/www/
+          sudo rm -rf ml-api.old
+          sudo mv ml-api ml-api.old
+          sudo mkdir ml-api
+          sudo tar -xzf /var/backups/ml-api/${BACKUP_ID}_app.tar.gz -C ml-api/
+          
+          # Restore database
+          if [ -f "/var/backups/ml-api/${BACKUP_ID}_database.sql" ]; then
+            psql -h localhost -U \$DB_USER -d \$DB_NAME < /var/backups/ml-api/${BACKUP_ID}_database.sql
+          fi
+          
+          # Restart services
+          sudo systemctl start ml-api-backend
+          sudo systemctl restart nginx
+          
+          echo "✅ Rollback completado"
+        EOF
+        
+        echo "🎉 Rollback exitoso - Sistema restaurado"
+    
+    - name: 🚨 Rollback Health Check
+      run: |
+        echo "🏥 Verificando salud post-rollback..."
+        
+        sleep 30
+        
+        if curl -f -s "${{ secrets.VPS_URL }}/health"; then
+          echo "✅ Rollback exitoso - Aplicación funcionando"
+        else
+          echo "❌ Rollback falló - Intervención manual requerida"
+          exit 1
+        fi
+
+  # ======================================
+  # 📊 DEPLOY REPORT
+  # ======================================
+  deploy_report:
+    name: 📊 Deploy Report
+    runs-on: ubuntu-latest
+    needs: [pre_deploy_validation, deploy_vps, health_checks, rollback]
+    if: always()
+    
+    steps:
+    - name: 📊 Generate Deploy Report
+      run: |
+        cat > deploy_report.md << 'EOF'
+        # 🚀 Deploy Report
+        
+        ## 📊 Resumen
+        - 🕐 **Fecha**: $(date -u +"%Y-%m-%d %H:%M UTC")
+        - 🎯 **Entorno**: ${{ github.event.inputs.environment || 'production' }}
+        - 📦 **Versión**: ${{ needs.deploy_vps.outputs.deploy_version || 'N/A' }}
+        - 🔧 **Trigger**: ${{ github.event_name }}
+        
+        ## 🔍 Validaciones
+        - 🔒 **Seguridad**: ${{ needs.pre_deploy_validation.result == 'success' && '✅ Passed' || '❌ Failed/Skipped' }}
+        - 💾 **Backup**: ${{ needs.backup_production.result == 'success' && '✅ Created' || '❌ Failed/Skipped' }}
+        
+        ## 🚀 Deploy
+        - 📋 **Status**: ${{ needs.deploy_vps.result == 'success' && '✅ Success' || '❌ Failed' }}
+        - 🏥 **Health Checks**: ${{ needs.health_checks.result == 'success' && '✅ Passed' || '❌ Failed' }}
+        - 🚨 **Rollback**: ${{ needs.rollback.result == 'success' && '⚠️ Executed' || needs.rollback.result == 'skipped' && '➖ Not Required' || '❌ Failed' }}
+        
+        ## 🔗 Enlaces
+        - 🌐 **Aplicación**: ${{ secrets.VPS_URL }}
+        - 📚 **Docs**: ${{ secrets.VPS_URL }}/docs
+        - 🏥 **Health**: ${{ secrets.VPS_URL }}/health
+        EOF
+        
+        # Replace date placeholder
+        sed -i "s/\$(date -u +\"%Y-%m-%d %H:%M UTC\")/$(date -u +"%Y-%m-%d %H:%M UTC")/g" deploy_report.md
+        
+        echo "📊 Deploy Report generado"
+        cat deploy_report.md
+    
+    - name: 📤 Upload Deploy Report
+      uses: actions/upload-artifact@v3
+      with:
+        name: deploy-report
+        path: deploy_report.md
+        retention-days: 90
+    
+    - name: 🚨 Deploy Notification
+      if: needs.deploy_vps.result == 'failure' || needs.rollback.result == 'success'
+      run: |
+        if [ "${{ needs.rollback.result }}" == "success" ]; then
+          echo "🚨 ALERTA: Deploy falló y se ejecutó rollback automático"
+          echo "🔍 Revisar logs para identificar el problema"
+        else
+          echo "❌ ALERTA: Deploy falló"
+          echo "🔍 Revisar configuración y logs inmediatamente"
+        fi 

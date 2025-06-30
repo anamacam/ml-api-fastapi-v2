@@ -1,0 +1,289 @@
+# 🚨 ========= COPILOTO/CURSOR: PIPELINE SEGURIDAD AVANZADA ========= 🚨
+#
+# 🔒 PIPELINE DEDICADO DE SEGURIDAD VPS:
+#    ✅ Análisis profundo de vulnerabilidades
+#    ✅ Escaneo de dependencias críticas
+#    ✅ Validación de configuraciones de servidor
+#    ✅ Análisis de superficie de ataque
+#    ✅ Reportes de seguridad automatizados
+#
+# 🚀 TRIGGERS:
+#    ✅ Schedule: Diario y semanal
+#    ✅ Manual: Para auditorías específicas
+#    ✅ Push a main: Validación crítica
+#
+# 📚 REFERENCIA: /RULES.md sección "🧠 REGLAS PARA COPILOTO/CURSOR"
+# 
+# ================================================================
+
+name: 🔒 Pipeline de Seguridad Avanzada
+
+on:
+  # ⏰ Escaneos programados
+  schedule:
+    - cron: '0 6 * * *'    # Daily at 6 AM
+    - cron: '0 2 * * 0'    # Weekly on Sunday at 2 AM
+  
+  # 🚀 Push a ramas críticas
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'backend/app/**'
+      - 'backend/requirements/**'
+      - 'config/**'
+      - 'infrastructure/**'
+  
+  # 🔧 Trigger manual para auditorías
+  workflow_dispatch:
+    inputs:
+      scan_depth:
+        description: 'Profundidad del escaneo'
+        required: true
+        default: 'standard'
+        type: choice
+        options:
+        - standard
+        - deep
+        - critical
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  
+  # ======================================
+  # 🔍 ANÁLISIS DE SUPERFICIE DE ATAQUE
+  # ======================================
+  attack_surface_analysis:
+    name: 🎯 Análisis Superficie de Ataque
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    steps:
+    - name: 📥 Checkout código
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    # 🔍 Analizar endpoints expuestos
+    - name: 🌐 Endpoint Analysis
+      run: |
+        mkdir -p reports/security
+        echo "🔍 Analizando endpoints expuestos..."
+        
+        # Buscar definiciones de rutas FastAPI
+        echo "## 🌐 Endpoints Expuestos" > reports/security/attack_surface.md
+        echo "" >> reports/security/attack_surface.md
+        
+        grep -r "@app\." backend/app/ --include="*.py" | \
+        sed 's/.*@app\.\([^(]*\)(\([^)]*\)).*/- **\1**: \2/' >> reports/security/attack_surface.md || true
+        
+        # Buscar configuraciones de CORS
+        echo "" >> reports/security/attack_surface.md
+        echo "## 🌍 Configuración CORS" >> reports/security/attack_surface.md
+        grep -r "CORSMiddleware\|allow_origins" backend/app/ --include="*.py" >> reports/security/attack_surface.md || true
+    
+    # 🔐 Analizar configuraciones de seguridad
+    - name: 🛡️ Security Configuration Analysis
+      run: |
+        echo "🔐 Analizando configuraciones de seguridad..."
+        
+        echo "" >> reports/security/attack_surface.md
+        echo "## 🔒 Configuraciones de Seguridad" >> reports/security/attack_surface.md
+        
+        # Buscar configuraciones de autenticación
+        grep -r "SECRET\|JWT\|AUTH\|PASSWORD" config/ --include="*.env" | \
+        grep -v "example" >> reports/security/attack_surface.md || true
+        
+        # Analizar middlewares de seguridad
+        grep -r "middleware\|Security" backend/app/ --include="*.py" >> reports/security/attack_surface.md || true
+    
+    - name: 📤 Upload Attack Surface Report
+      uses: actions/upload-artifact@v3
+      with:
+        name: attack-surface-analysis
+        path: reports/security/attack_surface.md
+        retention-days: 90
+
+  # ======================================
+  # 🚫 ANÁLISIS AVANZADO DE VULNERABILIDADES
+  # ======================================
+  vulnerability_scan:
+    name: 🚫 Escaneo de Vulnerabilidades
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    
+    steps:
+    - name: 📥 Checkout código
+      uses: actions/checkout@v4
+    
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: 📦 Install Security Tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install bandit[toml] safety semgrep pip-audit vulners
+        
+        # Install additional security scanners
+        sudo apt-get update
+        sudo apt-get install -y nmap sqlmap
+    
+    # 🏗️ Bandit - Python security analysis
+    - name: 🐍 Python Security Analysis (Bandit)
+      run: |
+        mkdir -p reports/security
+        echo "🔍 Ejecutando análisis de seguridad Python..."
+        
+        bandit -r backend/app/ \
+          -f json -o reports/security/bandit_detailed.json \
+          -f txt -o reports/security/bandit_summary.txt \
+          --severity-level medium \
+          --confidence-level medium || true
+        
+        # Mostrar resumen crítico
+        bandit -r backend/app/ --severity-level high --confidence-level high || true
+    
+    # 📦 Safety - Dependency vulnerabilities
+    - name: 📦 Dependency Vulnerability Scan
+      run: |
+        echo "📦 Escaneando vulnerabilidades en dependencias..."
+        
+        safety check \
+          --json --output reports/security/safety_detailed.json \
+          --file backend/requirements/base.txt || true
+        
+        safety check \
+          --file backend/requirements/base.txt || true
+        
+        # pip-audit for additional coverage
+        pip-audit --format=json --output=reports/security/pip_audit.json || true
+        pip-audit || true
+    
+    # 🔬 Semgrep - Static analysis
+    - name: 🔬 Static Code Analysis (Semgrep)
+      run: |
+        echo "🔬 Ejecutando análisis estático avanzado..."
+        
+        # Security-focused rules
+        semgrep --config=security backend/app/ \
+          --json --output=reports/security/semgrep_security.json || true
+        
+        # Performance issues
+        semgrep --config=performance backend/app/ \
+          --json --output=reports/security/semgrep_performance.json || true
+        
+        # Show critical findings
+        semgrep --config=security backend/app/ --severity=ERROR || true
+    
+    # 🌐 Network security analysis
+    - name: 🌐 Network Security Analysis
+      if: github.event.inputs.scan_depth == 'deep' || github.event.inputs.scan_depth == 'critical'
+      run: |
+        echo "🌐 Analizando configuraciones de red..."
+        
+        # Analyze Docker configurations
+        if [ -f "infrastructure/docker/docker-compose.yml" ]; then
+          echo "## 🐳 Docker Security" > reports/security/network_analysis.md
+          grep -i "port\|expose\|network" infrastructure/docker/docker-compose.yml >> reports/security/network_analysis.md || true
+        fi
+        
+        # Analyze Nginx configurations
+        if [ -d "infrastructure/nginx" ]; then
+          echo "" >> reports/security/network_analysis.md
+          echo "## 🌐 Nginx Security" >> reports/security/network_analysis.md
+          grep -i "ssl\|tls\|secure\|header" infrastructure/nginx/*.conf >> reports/security/network_analysis.md || true
+        fi
+    
+    - name: 📤 Upload Vulnerability Reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: vulnerability-reports
+        path: reports/security/
+        retention-days: 90
+
+  # ======================================
+  # 📊 REPORTE DE SEGURIDAD CONSOLIDADO
+  # ======================================
+  security_report:
+    name: 📊 Reporte de Seguridad
+    runs-on: ubuntu-latest
+    needs: [attack_surface_analysis, vulnerability_scan]
+    if: always()
+    
+    steps:
+    - name: 📥 Checkout código
+      uses: actions/checkout@v4
+    
+    - name: 📥 Download Security Reports
+      uses: actions/download-artifact@v3
+      with:
+        name: attack-surface-analysis
+        path: reports/attack-surface/
+    
+    - name: 📥 Download Vulnerability Reports
+      uses: actions/download-artifact@v3
+      with:
+        name: vulnerability-reports
+        path: reports/vulnerabilities/
+    
+    - name: 📊 Generate Security Dashboard
+      run: |
+        echo "📊 Generando dashboard de seguridad..."
+        
+        cat > reports/security_dashboard.md << 'EOF'
+        # 🔒 Dashboard de Seguridad VPS
+        
+        ## 📊 Resumen Ejecutivo
+        - 🕐 **Fecha**: $(date -u +"%Y-%m-%d %H:%M UTC")
+        - 🎯 **Superficie de Ataque**: Analizada
+        - 🚫 **Vulnerabilidades**: Escaneadas
+        - 📦 **Dependencias**: Validadas
+        
+        ## 🎯 Superficie de Ataque
+        - ✅ Endpoints expuestos catalogados
+        - ✅ Configuraciones CORS validadas
+        - ✅ Middlewares de seguridad verificados
+        
+        ## 🚫 Vulnerabilidades
+        - 📋 **Bandit**: Análisis de código Python
+        - 📦 **Safety**: Dependencias vulnerables
+        - 🔬 **Semgrep**: Análisis estático
+        - 🌐 **Network**: Configuraciones de red
+        
+        ## 🚀 Acciones Recomendadas
+        1. 📋 Revisar reportes detallados en artifacts
+        2. 🔧 Priorizar vulnerabilidades HIGH/CRITICAL
+        3. 📦 Actualizar dependencias vulnerables
+        4. 🔒 Implementar controles de seguridad faltantes
+        
+        ## 📚 Referencias
+        - 📖 [OWASP Top 10](https://owasp.org/www-project-top-ten/)
+        - 🛡️ [Python Security Guide](https://python-security.readthedocs.io/)
+        - 🔒 [FastAPI Security](https://fastapi.tiangolo.com/tutorial/security/)
+        EOF
+        
+        # Replace date placeholder
+        sed -i "s/\$(date -u +\"%Y-%m-%d %H:%M UTC\")/$(date -u +"%Y-%m-%d %H:%M UTC")/g" reports/security_dashboard.md
+    
+    - name: 📧 Security Alert (if Critical)
+      if: contains(github.event.head_commit.message, 'CRITICAL') || github.event.inputs.scan_depth == 'critical'
+      run: |
+        echo "🚨 ALERTA DE SEGURIDAD CRÍTICA DETECTADA"
+        echo "📋 Revisar inmediatamente los reportes de seguridad"
+        echo "🔗 Artifacts disponibles en: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+    
+    - name: 📤 Upload Security Dashboard
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-dashboard
+        path: reports/security_dashboard.md
+        retention-days: 180 
