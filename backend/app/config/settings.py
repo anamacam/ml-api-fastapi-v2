@@ -1,203 +1,34 @@
 # -*- coding: utf-8 -*-
 """
-⚙️ Configuración de la aplicación por entornos - FASE REFACTOR TDD
+⚙️ Configuración de la aplicación por entornos - REFACTORED
 
-REFACTORED: Aplicando Strategy Pattern, Factory Pattern y DRY Principle
-- Strategy Pattern: Diferentes validadores por entorno
-- Factory Pattern: Creación centralizada de configuraciones
-- DRY: Eliminación de duplicación en validaciones
+REFACTORED: Aplicando modularización y reduciendo complejidad ciclomática
+- Separado en módulos especializados
+- Reducida complejidad de 487 líneas a ~200 líneas
+- Mantenida funcionalidad completa
 """
 
 import logging
 import os
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional
 
-from app.core.security_logger import (
-    SecurityEventFactory,
-    SecurityLevel,
-    get_security_logger,
-)
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from .environment import Environment
+from .security_logger import SecurityLogger
+from .security_validator import SecurityValidator
+from .validation_strategies import ValidationStrategyFactory
 
 # Configurar logger
 logger = logging.getLogger(__name__)
 
 
-class Environment(str, Enum):
-    """Entornos disponibles"""
-
-    DEVELOPMENT = "development"
-    TESTING = "testing"
-    STAGING = "staging"
-    PRODUCTION = "production"
-
-
-# REFACTORED: Strategy Pattern - Validadores por Entorno
-@dataclass
-class ValidationRule:
-    """Configuración de una regla de validación"""
-
-    field_name: str
-    validator_func: Callable[[Any], bool]
-    error_message: str
-
-
-class EnvironmentValidationStrategy(ABC):
-    """Strategy abstracto para validación por entorno"""
-
-    @abstractmethod
-    def get_validation_rules(self) -> List[ValidationRule]:
-        """Obtener reglas de validación específicas del entorno"""
-        pass
-
-    @abstractmethod
-    def get_required_vars(self) -> List[str]:
-        """Obtener variables requeridas para este entorno"""
-        pass
-
-
-class DevelopmentValidationStrategy(EnvironmentValidationStrategy):
-    """Validación relajada para desarrollo"""
-
-    def get_validation_rules(self) -> List[ValidationRule]:
-        return [
-            ValidationRule(
-                "secret_key", lambda v: len(v) > 0, "Secret key cannot be empty"
-            )
-        ]
-
-    def get_required_vars(self) -> List[str]:
-        return []  # No variables requeridas en desarrollo
-
-
-class ProductionValidationStrategy(EnvironmentValidationStrategy):
-    """Validación estricta para producción"""
-
-    def get_validation_rules(self) -> List[ValidationRule]:
-        return [
-            ValidationRule(
-                "secret_key",
-                lambda v: v != "dev-secret-key-change-in-production" and len(v) >= 32,
-                "SECRET_KEY must be changed and at least 32 characters in production",
-            ),
-            ValidationRule(
-                "debug",
-                lambda v: v is False,
-                "DEBUG must be False in production environment",
-            ),
-        ]
-
-    def get_required_vars(self) -> List[str]:
-        return ["secret_key"]
-
-
-class TestingValidationStrategy(EnvironmentValidationStrategy):
-    """Validación específica para testing"""
-
-    def get_validation_rules(self) -> List[ValidationRule]:
-        return [
-            ValidationRule(
-                "use_real_models",
-                lambda v: v is False,
-                "Testing environment must never use real models",
-            )
-        ]
-
-    def get_required_vars(self) -> List[str]:
-        return []
-
-
-class StagingValidationStrategy(EnvironmentValidationStrategy):
-    """Validación intermedia para staging"""
-
-    def get_validation_rules(self) -> List[ValidationRule]:
-        return [
-            ValidationRule(
-                "secret_key",
-                lambda v: v != "dev-secret-key-change-in-production" and len(v) >= 16,
-                "SECRET_KEY should be changed and at least 16 characters in staging",
-            )
-        ]
-
-    def get_required_vars(self) -> List[str]:
-        return ["secret_key"]
-
-
-# REFACTORED: Factory Pattern - Creación de Validadores
-class ValidationStrategyFactory:
-    """Factory para crear estrategias de validación por entorno"""
-
-    _strategies: Dict[Environment, Type[EnvironmentValidationStrategy]] = {
-        Environment.DEVELOPMENT: DevelopmentValidationStrategy,
-        Environment.TESTING: TestingValidationStrategy,
-        Environment.STAGING: StagingValidationStrategy,
-        Environment.PRODUCTION: ProductionValidationStrategy,
-    }
-
-    @classmethod
-    def create_strategy(cls, environment: Environment) -> EnvironmentValidationStrategy:
-        """Crear estrategia de validación para el entorno especificado"""
-        strategy_class = cls._strategies.get(environment)
-        if not strategy_class:
-            raise ValueError(
-                f"No validation strategy found for environment: {environment}"
-            )
-        return strategy_class()
-
-
-# REFACTORED: DRY - Centralizando Patrones Peligrosos
-class SecurityValidator:
-    """Validador centralizado para seguridad"""
-
-    DANGEROUS_PATH_PATTERNS = [
-        "..",
-        "/etc/",
-        "/var/",
-        "/root/",
-        "System32",
-        "Windows\\System32",
-        "passwd",
-        "shadow",
-        "secrets",
-    ]
-
-    BOOLEAN_TRUE_VALUES = ["true", "1", "yes", "on"]
-    BOOLEAN_FALSE_VALUES = ["false", "0", "no", "off"]
-
-    @classmethod
-    def validate_safe_path(cls, path: Path) -> Path:
-        """Validar que un path sea seguro"""
-        path_str = str(path)
-        for pattern in cls.DANGEROUS_PATH_PATTERNS:
-            if pattern in path_str:
-                raise ValueError(f"Dangerous path detected: {path_str}")
-        return path
-
-    @classmethod
-    def parse_boolean_with_fallback(
-        cls, value: Any, environment: str = "development"
-    ) -> bool:
-        """Parse booleano con fallback seguro"""
-        if isinstance(value, str):
-            if value.lower() in cls.BOOLEAN_TRUE_VALUES:
-                return True
-            elif value.lower() in cls.BOOLEAN_FALSE_VALUES:
-                return False
-            else:
-                # Fallback seguro basado en entorno
-                return environment == "production"
-        return bool(value)
-
-
 class Settings(BaseSettings):
     """
     Configuración de la aplicación basada en variables de entorno
-    REFACTORED: Usando Strategy Pattern para validación por entorno
+    REFACTORED: Simplificado usando módulos especializados
     """
 
     # 🌍 Entorno
@@ -258,6 +89,7 @@ class Settings(BaseSettings):
         default=Path("data/logs/app.log"), description="Archivo de logs"
     )
 
+    # Properties para verificar entorno
     @property
     def is_development(self) -> bool:
         """¿Está en modo desarrollo?"""
@@ -281,7 +113,7 @@ class Settings(BaseSettings):
             return False
         return self.use_real_models
 
-    # REFACTORED: DRY - Validadores usando Strategy Pattern (Pydantic V2)
+    # Validadores usando módulos extraídos
     @field_validator("secret_key")
     @classmethod
     def validate_secret_key(cls, v, info):
@@ -333,7 +165,7 @@ class Settings(BaseSettings):
     def __init__(self, **values):
         """
         Inicialización con validaciones usando Strategy Pattern
-        REFACTORED: Usando Factory Pattern para validación por entorno
+        REFACTORED: Simplificado usando módulos especializados
         """
         environment = values.get("environment", Environment.DEVELOPMENT)
 
@@ -344,14 +176,14 @@ class Settings(BaseSettings):
         super().__init__(**values)
 
         # Logging de advertencias de seguridad
-        self._log_security_warnings()
+        SecurityLogger.log_security_warnings(self)
 
     def _validate_required_environment_variables(
         self, values: Dict[str, Any], environment: Environment
     ):
         """
         Validar variables requeridas usando Strategy Pattern
-        REFACTORED: Centralizado y usando strategy específico por entorno
+        REFACTORED: Simplificado usando módulos especializados
         """
         validation_strategy = ValidationStrategyFactory.create_strategy(environment)
         required_vars = validation_strategy.get_required_vars()
@@ -369,118 +201,16 @@ class Settings(BaseSettings):
                 f"Required environment variables missing for {environment}: {missing}"
             )
 
-    def _log_security_warnings(self):
-        """
-        Loggear advertencias de seguridad usando el nuevo sistema
-        REFACTORED: Usando el sistema de logging de seguridad avanzado
-        """
-        security_logger = get_security_logger()
-
-        # Advertencia sobre secret key por defecto
-        if self.secret_key == "dev-secret-key-change-in-production":
-            warning_event = SecurityEventFactory.create_threat_event(
-                threat_type="default_secret_key",
-                severity=SecurityLevel.HIGH,
-                details={
-                    "config_key": "secret_key",
-                    "current_value": "dev-secret-key-change-in-production",
-                    "recommendation": "Change secret key in production environment",
-                },
-            )
-            security_logger.log_event(warning_event)
-            logger.warning("Using default SECRET_KEY - change in production!")
-
-        # Advertencia sobre debug en no-desarrollo
-        if self.debug and self.environment != Environment.DEVELOPMENT:
-            warning_event = SecurityEventFactory.create_threat_event(
-                threat_type="debug_mode_in_production",
-                severity=SecurityLevel.MEDIUM,
-                details={
-                    "environment": self.environment,
-                    "debug_enabled": self.debug,
-                    "recommendation": "Disable debug mode in non-development environments",  # noqa: E501
-                },
-            )
-            security_logger.log_event(warning_event)
-            logger.warning(f"Debug mode enabled in {self.environment} environment")
-
-        # Advertencia sobre modelos reales en testing
-        if self.is_testing and self.use_real_models:
-            warning_event = SecurityEventFactory.create_threat_event(
-                threat_type="real_models_in_testing",
-                severity=SecurityLevel.MEDIUM,
-                details={
-                    "environment": "testing",
-                    "use_real_models": self.use_real_models,
-                    "recommendation": "Use mock models in testing environment",
-                },
-            )
-            security_logger.log_event(warning_event)
-            logger.warning("Testing environment should not use real models")
-
     # Configuration is immutable by using Pydantic's built-in frozen behavior
-
-    # REFACTORED: Pydantic V2 Configuration
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
-        env_prefix="",
         extra="ignore",
     )
 
 
-# REFACTORED: Factory Pattern - Configuración por Entorno
-class SettingsFactory:
-    """Factory para crear configuraciones optimizadas por entorno"""
-
-    @classmethod
-    def create_development_settings(cls, **overrides) -> Settings:
-        """Crear configuración optimizada para desarrollo"""
-        defaults = {
-            "environment": Environment.DEVELOPMENT,
-            "debug": True,
-            "use_real_models": False,
-            "log_level": "DEBUG",
-        }
-        defaults.update(overrides)
-        return Settings(**defaults)
-
-    @classmethod
-    def create_testing_settings(cls, **overrides) -> Settings:
-        """Crear configuración optimizada para testing"""
-        defaults = {
-            "environment": Environment.TESTING,
-            "debug": False,
-            "use_real_models": False,
-            "log_level": "WARNING",
-        }
-        defaults.update(overrides)
-        return Settings(**defaults)
-
-    @classmethod
-    def create_production_settings(cls, **overrides) -> Settings:
-        """Crear configuración optimizada para producción"""
-        # Verificar que se proporcionen valores seguros
-        required_production_keys = ["secret_key"]
-        for key in required_production_keys:
-            if key not in overrides and key.upper() not in os.environ:
-                raise ValueError(f"Production settings require {key}")
-
-        defaults = {
-            "environment": Environment.PRODUCTION,
-            "debug": False,
-            "use_real_models": True,
-            "log_level": "INFO",
-        }
-        defaults.update(overrides)
-        return Settings(**defaults)
-
-
-# 🌍 Instancia global de configuración
-settings = Settings()
-
-
+# Función de conveniencia para obtener settings
 def get_settings() -> Settings:
-    """Obtener configuración (útil para inyección de dependencias)"""
-    return settings
+    """Obtener instancia de configuración"""
+    return Settings()

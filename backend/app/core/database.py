@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-🗄️ DATABASE MODULE - TDD CICLO 6 [REFACTORED]
-Fase: REFACTOR - Código optimizado y mejorado
+��️ DATABASE MODULE - REFACTORED
+Fase: REFACTOR - Código modularizado y optimizado
 
 Módulo enterprise de base de datos con:
 - Configuración flexible y validada por entorno
@@ -12,46 +12,30 @@ Módulo enterprise de base de datos con:
 - Logging y monitoreo integrado
 - Manejo de errores avanzado
 - Optimizaciones específicas para VPS
+
+REFACTORED: Separado en módulos especializados para reducir complejidad
 """
 
 import asyncio
 import logging
-import os
-import time
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
-from datetime import datetime
-from enum import Enum
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
 
-import psutil
-from sqlalchemy import func, select, text
-from sqlalchemy.exc import DisconnectionError, SQLAlchemyError
-from sqlalchemy.ext.asyncio import (
-    AsyncEngine,
-    AsyncSession,
-    async_sessionmaker,
-    create_async_engine,
-)
-from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy.pool import QueuePool, StaticPool
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from .database_config import DatabaseConfig, VPSDatabaseConfig
+from .database_manager import DatabaseManager
+from .database_repository import Base, BaseRepository
+from .database_health import DatabaseHealthChecker, HealthStatus
 
 # Configurar logger específico para el módulo de base de datos
 logger = logging.getLogger(__name__)
-
-
-# Base para modelos SQLAlchemy
-class Base(DeclarativeBase):
-    pass
-
 
 # Type hints para Generic Repository
 ModelType = TypeVar("ModelType", bound=Base)
 
 # Variable global para el gestor de base de datos
-_database_manager: Optional["DatabaseManager"] = None
-
-
+_database_manager: Optional[DatabaseManager] = None
 class DatabaseDriver(str, Enum):
     """Drivers de base de datos soportados"""
 
@@ -828,81 +812,66 @@ class DatabaseHealthChecker:
 
 # Funciones de utilidad global mejoradas
 async def init_database(config: DatabaseConfig) -> None:
-    """Inicializa el gestor de base de datos global"""
+    """Inicializar base de datos globalmente"""
     global _database_manager
-    if not _database_manager:
-        _database_manager = DatabaseManager(config)
+    _database_manager = DatabaseManager(config)
     await _database_manager.initialize()
 
 
 async def close_database() -> None:
-    """Cierra la conexión del gestor de base de datos global"""
-    if _database_manager and _database_manager.is_initialized:
+    """Cerrar base de datos globalmente"""
+    global _database_manager
+    if _database_manager:
         await _database_manager.close()
+        _database_manager = None
 
 
 def get_database_manager() -> Optional[DatabaseManager]:
-    """
-    Obtiene la instancia global del gestor de base de datos.
-
-    Returns:
-        Optional[DatabaseManager]: Gestor de base de datos o None
-        si no está inicializado.
-    """
+    """Obtener gestor de base de datos global"""
     return _database_manager
 
 
 @asynccontextmanager
 async def get_async_session():
     """
-    Dependencia de FastAPI para obtener una sesión de base de datos
+    Context manager para obtener sesión de base de datos
 
-    Maneja el ciclo de vida de la sesión (abrir, commit, rollback, cerrar).
+    Yields:
+        AsyncSession: Sesión de base de datos
+
+    Raises:
+        RuntimeError: Si el gestor no está inicializado
     """
-    manager = get_database_manager()
-    if not manager or not manager.session_factory:
-        raise RuntimeError(
-            "DatabaseManager no está inicializado. Llama a init_database() al inicio."
-        )
+    if not _database_manager:
+        raise RuntimeError("Database manager no inicializado")
 
-    async with manager.session_factory() as session:
-        try:
-            yield session
-            await session.commit()
-        except SQLAlchemyError as e:
-            logger.error(f"Error en la sesión de base de datos: {e}", exc_info=True)
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
+    async with _database_manager.get_session() as session:
+        yield session
 
 
-# Alias para compatibilidad y conveniencia
-get_db = get_async_session
-
-
-# Funciones de conveniencia para FastAPI
 async def get_db_health() -> Dict[str, Any]:
-    """Obtener el estado de salud de la base de datos"""
-    manager = get_database_manager()
-    if not manager:
-        return {"status": "error", "details": "DatabaseManager no está inicializado"}
+    """Obtener estado de salud de la base de datos"""
+    if not _database_manager:
+        return {
+            "status": HealthStatus.UNHEALTHY,
+            "error": "Database manager no inicializado",
+        }
 
-    checker = DatabaseHealthChecker(manager)
-    return await checker.check_detailed_health()
+    health_checker = DatabaseHealthChecker(_database_manager)
+    return await health_checker.check_detailed_health()
 
 
 def create_repository(
     model: Type[ModelType], session: AsyncSession
 ) -> BaseRepository[ModelType]:
     """
-    Factory function para crear repositorios type-safe
+    Crear repository para un modelo específico
 
     Args:
         model: Clase del modelo SQLAlchemy
         session: Sesión de base de datos
 
     Returns:
-        BaseRepository configurado para el modelo
+        BaseRepository[ModelType]: Repository configurado
     """
     return BaseRepository(model, session)

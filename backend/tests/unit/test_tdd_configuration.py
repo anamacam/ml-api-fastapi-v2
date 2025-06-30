@@ -149,7 +149,7 @@ def test_configuration_logs_security_warnings():
     from app.config.settings import Settings
 
     # 1. En development, no debe haber warnings de secret_key por defecto
-    with patch("app.config.settings.get_security_logger") as mock_get_logger_dev:
+    with patch("app.config.security_logger.get_security_logger") as mock_get_logger_dev:
         Settings(environment="development")
         mock_get_logger_dev.return_value.log_event.assert_not_called()
 

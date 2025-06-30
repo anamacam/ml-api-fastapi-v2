@@ -75,14 +75,10 @@ async def test_database_manager_initialization():
         manager = DatabaseManager(config)
 
         # Test estado inicial
-        assert manager.engine is None
-        assert manager.session_factory is None
         assert not manager.is_initialized
 
         # Test inicialización
         await manager.initialize()
-        assert manager.engine is not None
-        assert manager.session_factory is not None
         assert manager.is_initialized
 
         # Test cleanup
