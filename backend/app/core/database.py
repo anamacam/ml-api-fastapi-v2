@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-��️ DATABASE MODULE - REFACTORED
+⚡️ DATABASE MODULE - REFACTORED
 Fase: REFACTOR - Código modularizado y optimizado
 
 Módulo enterprise de base de datos con:
@@ -16,17 +16,25 @@ Módulo enterprise de base de datos con:
 REFACTORED: Separado en módulos especializados para reducir complejidad
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
+import os
+import time
+import psutil
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func, select, text
+from sqlalchemy.ext.asyncio import AsyncSession, AsyncEngine, async_sessionmaker, create_async_engine
+from sqlalchemy.exc import SQLAlchemyError, DisconnectionError
+from sqlalchemy.pool import StaticPool, QueuePool
 
-from .database_config import DatabaseConfig, VPSDatabaseConfig
-from .database_manager import DatabaseManager
-from .database_repository import Base, BaseRepository
-from .database_health import DatabaseHealthChecker, HealthStatus
+from .database_repository import Base
 
 # Configurar logger específico para el módulo de base de datos
 logger = logging.getLogger(__name__)
@@ -815,7 +823,8 @@ async def init_database(config: DatabaseConfig) -> None:
     """Inicializar base de datos globalmente"""
     global _database_manager
     _database_manager = DatabaseManager(config)
-    await _database_manager.initialize()
+    if _database_manager:
+        await _database_manager.initialize()
 
 
 async def close_database() -> None:
