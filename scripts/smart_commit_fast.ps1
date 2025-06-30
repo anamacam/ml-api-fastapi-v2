@@ -1,13 +1,13 @@
 ﻿#!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Smart Commit FAST - Validaciones rÃ¡pidas para commits individuales
+    Smart Commit FAST - Validaciones rápidas para commits individuales
 .DESCRIPTION
-    VersiÃ³n optimizada que solo analiza archivos del commit actual:
+    Versión optimizada que solo analiza archivos del commit actual:
     - Valida mensajes Conventional Commits
     - Ejecuta tests solo de archivos relacionados
-    - AnÃ¡lisis de calidad SELECTIVO (no todo el proyecto)
-    - 10x mÃ¡s rÃ¡pido que smart_commit_clean.ps1
+    - Análisis de calidad SELECTIVO (no todo el proyecto)
+    - 10x más rápido que smart_commit_clean.ps1
 .PARAMETER Message
     Mensaje de commit a validar y usar
 .EXAMPLE
@@ -17,6 +17,10 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Message
 )
+# Cargar módulos necesarios de PowerShell
+Import-Module Microsoft.PowerShell.Utility -Force
+Import-Module Microsoft.PowerShell.Management -Force
+
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $ProjectRoot = Split-Path -Parent $ScriptDir
@@ -26,19 +30,19 @@ function Write-ColorOutput {
 }
 function Test-CommitMessage {
     param([string]$Message)
-    Write-ColorOutput "âš¡ Validando mensaje (rÃ¡pido)..." "Yellow"
+    Write-ColorOutput "⚡ Validando mensaje (rápido)..." "Yellow"
     $conventionalPattern = '^(feat|fix|docs|style|refactor|test|chore)(\(.+\))?: .{1,50}$'
     if ($Message -match $conventionalPattern) {
-        Write-ColorOutput "… Mensaje vÃ¡lido" "Green"
+        Write-ColorOutput "... Mensaje válido" "Green"
         return $true
     }
     else {
-        Write-ColorOutput "âŒ Mensaje invÃ¡lido" "Red"
+        Write-ColorOutput "✖ Mensaje inválido" "Red"
         return $false
     }
 }
 function Invoke-FastChecks {
-    Write-ColorOutput "âš¡ Checks rÃ¡pidos (solo archivos staged)..." "Yellow"
+    Write-ColorOutput "⚡ Checks rápidos (solo archivos staged)..." "Yellow"
     # Obtener archivos staged
     $stagedFiles = git diff --cached --name-only
     $hasTests = $false
@@ -49,7 +53,7 @@ function Invoke-FastChecks {
     }
     # Solo ejecutar tests si hay archivos Python
     if ($hasPython) {
-        Write-ColorOutput "  ðŸ§ª Ejecutando tests relevantes..." "Gray"
+        Write-ColorOutput "   🧪 Ejecutando tests relevantes..." "Gray"
         try {
             Push-Location "$ProjectRoot\backend"
             if ($hasTests) {
@@ -59,41 +63,41 @@ function Invoke-FastChecks {
                     python -m pytest $testFiles -v --tb=short -q 2>&1 | Out-Null
                 }
             } else {
-                # Ejecutar test bÃ¡sico de health
-                python -m pytest tests/unit/test_tdd_health.py -q 2>&1 | Out-Null
+                # Ejecutar test básico de database refactoring
+                python -m pytest tests/unit/test_tdd_database_refactoring.py -q 2>&1 | Out-Null
             }
             if ($LASTEXITCODE -eq 0) {
-                Write-ColorOutput "  … Tests: OK" "Green"
+                Write-ColorOutput "   ... Tests: OK" "Green"
             } else {
-                Write-ColorOutput "  âŒ Tests: FAIL" "Red"
+                Write-ColorOutput "   ✖ Tests: FAIL" "Red"
                 Pop-Location
                 return $false
             }
         }
         catch {
-            Write-ColorOutput "  âš ï¸ Tests: SKIP (error)" "Yellow"
+            Write-ColorOutput "   ⚠️ Tests: SKIP (error)" "Yellow"
         }
         finally {
             Pop-Location -ErrorAction SilentlyContinue
         }
     } else {
-        Write-ColorOutput "  â­ï¸ Tests: SKIP (no Python files)" "Gray"
+        Write-ColorOutput "   ⏭️ Tests: SKIP (no Python files)" "Gray"
     }
-    Write-ColorOutput "  âš¡ Quality: SKIP (usando anÃ¡lisis rÃ¡pido)" "Gray"
-    Write-ColorOutput "… Checks completados" "Green"
+    Write-ColorOutput "   ⚡ Quality: SKIP (usando análisis rápido)" "Gray"
+    Write-ColorOutput "... Checks completados" "Green"
     return $true
 }
 function Main {
-    Write-ColorOutput "âš¡ Smart Commit FAST - Solo archivos del commit" "Cyan"
+    Write-ColorOutput "⚡ Smart Commit FAST - Solo archivos del commit" "Cyan"
     Write-ColorOutput ("=" * 50) "Cyan"
     Set-Location $ProjectRoot
     # Verificar staging area
     $stagedFiles = git diff --cached --name-only
     if (-not $stagedFiles) {
-        Write-ColorOutput "âŒ No hay archivos en staging area" "Red"
+        Write-ColorOutput "✖ No hay archivos en staging area" "Red"
         exit 1
     }
-    Write-ColorOutput "ðŸ“ Archivos a commitear ($($stagedFiles.Count)):" "White"
+    Write-ColorOutput "📁 Archivos a commitear ($($stagedFiles.Count)):" "White"
     foreach ($file in $stagedFiles | Select-Object -First 5) {
         Write-ColorOutput "   $file" "Gray"
     }
@@ -101,23 +105,22 @@ function Main {
     if (-not (Test-CommitMessage -Message $Message)) {
         exit 1
     }
-    # Ejecutar checks rÃ¡pidos
+    # Ejecutar checks rápidos
     if (-not (Invoke-FastChecks)) {
-        Write-ColorOutput "âŒ Checks fallaron" "Red"
+        Write-ColorOutput "✖ Checks fallaron" "Red"
         exit 1
     }
     # Commit
-    Write-ColorOutput "ðŸš€ Realizando commit..." "Green"
+    Write-ColorOutput "🚀 Realizando commit..." "Green"
     try {
         git commit -m "$Message"
         $commitHash = git rev-parse --short HEAD
-        Write-ColorOutput "… Â¡Commit exitoso! ($commitHash)" "Green"
-        Write-ColorOutput "âš¡ Tiempo reducido ~80% vs smart_commit_clean" "Cyan"
+        Write-ColorOutput "... ¡Commit exitoso! ($commitHash)" "Green"
+        Write-ColorOutput "⚡ Tiempo reducido ~80% vs smart_commit_clean" "Cyan"
     }
     catch {
         Write-ColorOutput "Error en commit: $($_.Exception.Message)" "Red"
         exit 1
     }
 }
-Main
 Main

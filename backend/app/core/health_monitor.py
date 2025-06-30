@@ -241,50 +241,66 @@ class HealthMonitor:
         metrics = self.get_current_metrics()
 
         # Verificar latencia de predicción
-        if (
-            metrics.avg_prediction_latency
-            > self.thresholds["prediction_latency"]["critical"]  # noqa: W503
-        ):
+        latency_anomalies = self._check_prediction_latency_anomalies(metrics)
+        anomalies.extend(latency_anomalies)
+
+        # Verificar tasa de error
+        error_anomalies = self._check_error_rate_anomalies(metrics)
+        anomalies.extend(error_anomalies)
+
+        return anomalies
+
+    def _check_prediction_latency_anomalies(self, metrics: SystemMetrics) -> List[Anomaly]:
+        """Verificar anomalías en latencia de predicción"""
+        anomalies = []
+        critical_threshold = self.thresholds["prediction_latency"]["critical"]
+        warning_threshold = self.thresholds["prediction_latency"]["warning"]
+
+        if metrics.avg_prediction_latency > critical_threshold:
             anomalies.append(
                 Anomaly(
                     metric_name="prediction_latency",
                     value=metrics.avg_prediction_latency,
-                    threshold=self.thresholds["prediction_latency"]["critical"],
+                    threshold=critical_threshold,
                     threshold_exceeded=True,
                     severity="critical",
                 )
             )
-        elif (
-            metrics.avg_prediction_latency
-            > self.thresholds["prediction_latency"]["warning"]  # noqa: W503
-        ):
+        elif metrics.avg_prediction_latency > warning_threshold:
             anomalies.append(
                 Anomaly(
                     metric_name="prediction_latency",
                     value=metrics.avg_prediction_latency,
-                    threshold=self.thresholds["prediction_latency"]["warning"],
+                    threshold=warning_threshold,
                     threshold_exceeded=True,
                     severity="warning",
                 )
             )
 
-        # Verificar tasa de error
-        if metrics.error_rate > self.thresholds["error_rate"]["critical"]:
+        return anomalies
+
+    def _check_error_rate_anomalies(self, metrics: SystemMetrics) -> List[Anomaly]:
+        """Verificar anomalías en tasa de error"""
+        anomalies = []
+        critical_threshold = self.thresholds["error_rate"]["critical"]
+        warning_threshold = self.thresholds["error_rate"]["warning"]
+
+        if metrics.error_rate > critical_threshold:
             anomalies.append(
                 Anomaly(
                     metric_name="error_rate",
                     value=metrics.error_rate,
-                    threshold=self.thresholds["error_rate"]["critical"],
+                    threshold=critical_threshold,
                     threshold_exceeded=True,
                     severity="critical",
                 )
             )
-        elif metrics.error_rate > self.thresholds["error_rate"]["warning"]:
+        elif metrics.error_rate > warning_threshold:
             anomalies.append(
                 Anomaly(
                     metric_name="error_rate",
                     value=metrics.error_rate,
-                    threshold=self.thresholds["error_rate"]["warning"],
+                    threshold=warning_threshold,
                     threshold_exceeded=True,
                     severity="warning",
                 )
@@ -303,7 +319,39 @@ class HealthMonitor:
         overall_status = HealthStatus.HEALTHY
 
         # Evaluar modelos
+        models_status, model_issues, model_status = self._evaluate_models()
+        issues.extend(model_issues)
+        overall_status = self._update_overall_status(overall_status, model_status)
+
+        # Evaluar base de datos
+        database_info, db_issues, db_status = self._evaluate_database()
+        issues.extend(db_issues)
+        overall_status = self._update_overall_status(overall_status, db_status)
+
+        # Evaluar servicios externos
+        external_services_info, service_issues, service_status = self._evaluate_external_services()
+        issues.extend(service_issues)
+        overall_status = self._update_overall_status(overall_status, service_status)
+
+        # Verificar anomalías
+        anomaly_issues, anomaly_status = self._evaluate_anomalies()
+        issues.extend(anomaly_issues)
+        overall_status = self._update_overall_status(overall_status, anomaly_status)
+
+        return DetailedHealth(
+            overall_status=overall_status,
+            models=models_status,
+            database=database_info,
+            external_services=external_services_info,
+            issues=issues,
+        )
+
+    def _evaluate_models(self) -> tuple[Dict[str, Dict[str, Any]], List[str], HealthStatus]:
+        """Evaluar estado de los modelos"""
         models_status = {}
+        issues = []
+        overall_status = HealthStatus.HEALTHY
+
         for model_id, status in self.model_statuses.items():
             models_status[model_id] = {
                 "status": status.value,
@@ -316,18 +364,27 @@ class HealthMonitor:
                 if status in [HealthStatus.UNHEALTHY, HealthStatus.CRITICAL]:
                     overall_status = HealthStatus.DEGRADED
 
-        # Evaluar base de datos
+        return models_status, issues, overall_status
+
+    def _evaluate_database(self) -> tuple[Dict[str, Any], List[str], HealthStatus]:
+        """Evaluar estado de la base de datos"""
         database_info = {
             "status": self.database_status.value,
             "last_check": datetime.now().isoformat(),
         }
 
+        issues = []
         if self.database_status != HealthStatus.HEALTHY:
             issues.append(f"Database is {self.database_status.value}")
-            overall_status = HealthStatus.DEGRADED
 
-        # Evaluar servicios externos
+        return database_info, issues, self.database_status
+
+    def _evaluate_external_services(self) -> tuple[Dict[str, Dict[str, Any]], List[str], HealthStatus]:
+        """Evaluar estado de servicios externos"""
         external_services_info = {}
+        issues = []
+        overall_status = HealthStatus.HEALTHY
+
         for service, status in self.external_services.items():
             external_services_info[service] = {
                 "status": status.value,
@@ -339,20 +396,26 @@ class HealthMonitor:
                 if status in [HealthStatus.UNHEALTHY, HealthStatus.CRITICAL]:
                     overall_status = HealthStatus.DEGRADED
 
-        # Verificar anomalías
+        return external_services_info, issues, overall_status
+
+    def _evaluate_anomalies(self) -> tuple[List[str], HealthStatus]:
+        """Evaluar anomalías detectadas"""
+        issues = []
+        overall_status = HealthStatus.HEALTHY
+
         anomalies = self.detect_anomalies()
         for anomaly in anomalies:
             if anomaly.severity in ["high", "critical"]:
                 issues.append(f"High {anomaly.metric_name}: {anomaly.value}")
                 overall_status = HealthStatus.DEGRADED
 
-        return DetailedHealth(
-            overall_status=overall_status,
-            models=models_status,
-            database=database_info,
-            external_services=external_services_info,
-            issues=issues,
-        )
+        return issues, overall_status
+
+    def _update_overall_status(self, current_status: HealthStatus, new_status: HealthStatus) -> HealthStatus:
+        """Actualizar estado general basado en nuevo estado"""
+        if current_status == HealthStatus.HEALTHY and new_status != HealthStatus.HEALTHY:
+            return new_status
+        return current_status
 
     def reset_metrics(self):
         """Resetear todas las métricas"""

@@ -308,52 +308,37 @@ class DatabaseManager:
         return self._is_initialized
 
     async def initialize(self) -> None:
-        """Inicializa el engine y la sesión de la base de datos"""
+        """Inicializa el engine y la sesión de la base de datos con reintentos"""
         if self.is_initialized:
             logger.warning("El gestor de base de datos ya está inicializado.")
             return
 
-        await self._create_engine_and_session()
-        self._is_initialized = True
-        logger.info("El gestor de base de datos se ha inicializado correctamente.")
+        last_exception = None
+        for attempt in range(self.config.connection_retries + 1):
+            try:
+                await self._create_engine_and_session()
+                self._is_initialized = True
+                logger.info("El gestor de base de datos se ha inicializado correctamente.")
+                return
+            except Exception as e:
+                last_exception = e
+                if attempt < self.config.connection_retries:
+                    await self._handle_connection_retry(attempt, e)
+                else:
+                    self._handle_connection_failure(last_exception)
 
     async def _create_engine_and_session(self) -> None:
         """Crear el engine y el sessionmaker con reintentos"""
-
-        engine_args: Dict[str, Any] = {"echo": self.config.echo}
-
-        if self.config.driver_type == DatabaseDriver.SQLITE:
-            engine_args["poolclass"] = StaticPool
-            engine_args["connect_args"] = {"check_same_thread": False}
-        else:
-            engine_args.update(
-                {
-                    "poolclass": QueuePool,
-                    "pool_size": self.config.pool_size,
-                    "max_overflow": self.config.max_overflow,
-                    "pool_timeout": self.config.pool_timeout,
-                    "pool_recycle": self.config.pool_recycle,
-                    "pool_pre_ping": self.config.pool_pre_ping,
-                }
-            )
-            if isinstance(self.config, VPSDatabaseConfig):
-                engine_args["connect_args"] = self.config.get_connection_args()
-            elif self.config.connect_args:
-                engine_args["connect_args"] = self.config.connect_args
-
         last_exception: Optional[Exception] = None
+        
         for attempt in range(self.config.connection_retries + 1):
             try:
+                engine_args = self._build_engine_args()
                 self.engine = create_async_engine(
                     self.config.database_url, **engine_args
                 )
                 await self._test_connection()
-                self.session_factory = async_sessionmaker(
-                    bind=self.engine,
-                    class_=AsyncSession,
-                    expire_on_commit=False,
-                    autoflush=False,
-                )
+                self._create_session_factory()
                 logger.info(
                     "Motor de base de datos y fábrica de sesiones creados exitosamente."
                 )
@@ -362,15 +347,67 @@ class DatabaseManager:
                 logger.error(f"Error creando engine: {e}", exc_info=True)
                 last_exception = e
                 if attempt < self.config.connection_retries:
-                    wait_time = 2 ** (attempt + 1)
-                    logger.warning(
-                        "Intento %s fallido: %s. Reintentando en %ss...",
-                        attempt + 1,
-                        e,
-                        wait_time,
-                    )
-                    await asyncio.sleep(wait_time)
+                    await self._handle_connection_retry(attempt, e)
 
+        self._handle_connection_failure(last_exception)
+
+    def _build_engine_args(self) -> Dict[str, Any]:
+        """Construir argumentos del engine según el tipo de driver"""
+        engine_args: Dict[str, Any] = {"echo": self.config.echo}
+
+        if self.config.driver_type == DatabaseDriver.SQLITE:
+            self._configure_sqlite_args(engine_args)
+        else:
+            self._configure_pool_args(engine_args)
+            self._configure_connection_args(engine_args)
+
+        return engine_args
+
+    def _configure_sqlite_args(self, engine_args: Dict[str, Any]) -> None:
+        """Configurar argumentos específicos para SQLite"""
+        engine_args["poolclass"] = StaticPool
+        engine_args["connect_args"] = {"check_same_thread": False}
+
+    def _configure_pool_args(self, engine_args: Dict[str, Any]) -> None:
+        """Configurar argumentos del pool de conexiones"""
+        engine_args.update({
+            "poolclass": QueuePool,
+            "pool_size": self.config.pool_size,
+            "max_overflow": self.config.max_overflow,
+            "pool_timeout": self.config.pool_timeout,
+            "pool_recycle": self.config.pool_recycle,
+            "pool_pre_ping": self.config.pool_pre_ping,
+        })
+
+    def _configure_connection_args(self, engine_args: Dict[str, Any]) -> None:
+        """Configurar argumentos de conexión específicos del driver"""
+        if isinstance(self.config, VPSDatabaseConfig):
+            engine_args["connect_args"] = self.config.get_connection_args()
+        elif self.config.connect_args:
+            engine_args["connect_args"] = self.config.connect_args
+
+    def _create_session_factory(self) -> None:
+        """Crear la fábrica de sesiones"""
+        self.session_factory = async_sessionmaker(
+            bind=self.engine,
+            class_=AsyncSession,
+            expire_on_commit=False,
+            autoflush=False,
+        )
+
+    async def _handle_connection_retry(self, attempt: int, error: Exception) -> None:
+        """Manejar reintento de conexión con backoff exponencial"""
+        wait_time = 2 ** (attempt + 1)
+        logger.warning(
+            "Intento %s fallido: %s. Reintentando en %ss...",
+            attempt + 1,
+            error,
+            wait_time,
+        )
+        await asyncio.sleep(wait_time)
+
+    def _handle_connection_failure(self, last_exception: Optional[Exception]) -> None:
+        """Manejar fallo final de conexión"""
         logger.error(
             f"Todos los intentos de conexión fallaron: {last_exception}", exc_info=True
         )
@@ -604,7 +641,9 @@ class BaseRepository(Generic[ModelType]):
 
     def _validate_create_data(self, data: Dict[str, Any]) -> None:
         """Hook de validación antes de crear"""
-        if not data:
+        if data is None:
+            raise TypeError("Los datos para crear no pueden ser None")
+        if not isinstance(data, dict) or not data:
             raise ValueError("Los datos para crear no pueden estar vacíos")
 
     def _validate_update_data(self, data: Dict[str, Any]) -> None:
@@ -637,56 +676,91 @@ class DatabaseHealthChecker:
             Dict[str, Any]: Estado detallado de salud con métricas
         """
         if not self.db_manager:
-            return {
-                "status": "unhealthy",
-                "error": "DatabaseManager no está inicializado",
-            }
+            return self._create_unhealthy_response("DatabaseManager no está inicializado")
 
         try:
             start_time = time.time()
-            async with self.db_manager.get_session() as session:
-                # Verificar conexión básica
-                await session.execute(text("SELECT 1"))
-                query_time = time.time() - start_time
-
-                # Obtener métricas del pool con manejo seguro
-                pool_metrics = {}
-                if self.db_manager.engine and hasattr(self.db_manager.engine, "pool"):
-                    pool = self.db_manager.engine.pool
-                    pool_metrics = {
-                        "size": getattr(pool, "size", lambda: 0)(),
-                        "checkedin": getattr(pool, "checkedin", lambda: 0)(),
-                        "checkedout": getattr(pool, "checkedout", lambda: 0)(),
-                        "overflow": getattr(pool, "overflow", lambda: 0)(),
-                    }
-                else:
-                    pool_metrics = {
-                        "size": 0,
-                        "checkedin": 0,
-                        "checkedout": 0,
-                        "overflow": 0,
-                    }
-
-                return {
-                    "status": "healthy",
-                    "details": {
-                        "connection": "ok",
-                        "query": "ok",
-                        "pool": pool_metrics,
-                    },
-                    "metrics": {
-                        "response_time": (time.time() - start_time) * 1000,
-                        "query_time": query_time * 1000,
-                    },
-                    "timestamp": datetime.now().isoformat(),
-                }
+            query_time = await self._test_basic_connection()
+            pool_metrics = self._get_pool_metrics()
+            
+            return self._create_healthy_response(start_time, query_time, pool_metrics)
 
         except Exception as e:
-            return {
-                "status": "unhealthy",
-                "error": str(e),
-                "timestamp": datetime.now().isoformat(),
-            }
+            return self._create_unhealthy_response(str(e))
+
+    async def _test_basic_connection(self) -> float:
+        """Probar conexión básica y retornar tiempo de respuesta"""
+        async with self.db_manager.get_session() as session:
+            start_time = time.time()
+            await session.execute(text("SELECT 1"))
+            return time.time() - start_time
+
+    def _get_pool_metrics(self) -> Dict[str, Any]:
+        """Obtener métricas del pool de conexiones"""
+        if not self._is_pool_available():
+            return self._get_default_pool_metrics()
+        
+        return self._extract_pool_metrics()
+
+    def _is_pool_available(self) -> bool:
+        """Verificar si el pool de conexiones está disponible"""
+        return (
+            self.db_manager.engine is not None 
+            and hasattr(self.db_manager.engine, "pool")
+        )
+
+    def _extract_pool_metrics(self) -> Dict[str, Any]:
+        """Extraer métricas específicas del pool de conexiones"""
+        if self.db_manager.engine is None:
+            return self._get_default_pool_metrics()
+            
+        pool = self.db_manager.engine.pool
+        return {
+            "size": self._get_pool_attribute(pool, "size", 0),
+            "checkedin": self._get_pool_attribute(pool, "checkedin", 0),
+            "checkedout": self._get_pool_attribute(pool, "checkedout", 0),
+            "overflow": self._get_pool_attribute(pool, "overflow", 0),
+        }
+
+    def _get_pool_attribute(self, pool, attribute: str, default: int) -> int:
+        """Obtener atributo del pool de forma segura"""
+        try:
+            return getattr(pool, attribute, lambda: default)()
+        except Exception:
+            return default
+
+    def _get_default_pool_metrics(self) -> Dict[str, Any]:
+        """Obtener métricas por defecto cuando el pool no está disponible"""
+        return {
+            "size": 0,
+            "checkedin": 0,
+            "checkedout": 0,
+            "overflow": 0,
+        }
+
+    def _create_healthy_response(self, start_time: float, query_time: float, pool_metrics: Dict[str, Any]) -> Dict[str, Any]:
+        """Crear respuesta de salud exitosa"""
+        return {
+            "status": "healthy",
+            "details": {
+                "connection": "ok",
+                "query": "ok",
+                "pool": pool_metrics,
+            },
+            "metrics": {
+                "response_time": (time.time() - start_time) * 1000,
+                "query_time": query_time * 1000,
+            },
+            "timestamp": datetime.now().isoformat(),
+        }
+
+    def _create_unhealthy_response(self, error_message: str) -> Dict[str, Any]:
+        """Crear respuesta de salud fallida"""
+        return {
+            "status": "unhealthy",
+            "error": error_message,
+            "timestamp": datetime.now().isoformat(),
+        }
 
     async def run_performance_test(self, num_queries: int = 10) -> Dict[str, Any]:
         """
@@ -700,19 +774,39 @@ class DatabaseHealthChecker:
         """
         self.logger.info(f"Iniciando test de rendimiento con {num_queries} queries")
 
+        times, errors = await self._execute_performance_queries(num_queries)
+        results = self._calculate_performance_metrics(times, errors, num_queries)
+
+        self.logger.info(f"Test de rendimiento completado: {results}")
+        return results
+
+    async def _execute_performance_queries(self, num_queries: int) -> tuple[list[float], int]:
+        """Ejecutar queries de rendimiento y retornar tiempos y errores"""
         times = []
         errors = 0
 
         for i in range(num_queries):
-            start = time.time()
-            try:
-                async with self.db_manager.get_session() as session:
-                    await session.execute(text("SELECT 1"))
-                times.append((time.time() - start) * 1000)
-            except Exception as e:
+            query_time, success = await self._execute_single_query(i)
+            if success:
+                times.append(query_time)
+            else:
                 errors += 1
-                self.logger.warning(f"Error en query {i}: {e}")
 
+        return times, errors
+
+    async def _execute_single_query(self, query_index: int) -> tuple[float, bool]:
+        """Ejecutar una sola query de rendimiento"""
+        start = time.time()
+        try:
+            async with self.db_manager.get_session() as session:
+                await session.execute(text("SELECT 1"))
+            return (time.time() - start) * 1000, True
+        except Exception as e:
+            self.logger.warning(f"Error en query {query_index}: {e}")
+            return 0.0, False
+
+    def _calculate_performance_metrics(self, times: list[float], errors: int, num_queries: int) -> Dict[str, Any]:
+        """Calcular métricas de rendimiento basadas en los tiempos"""
         if times:
             avg_time = sum(times) / len(times)
             min_time = min(times)
@@ -720,7 +814,7 @@ class DatabaseHealthChecker:
         else:
             avg_time = min_time = max_time = 0
 
-        results = {
+        return {
             "queries_executed": len(times),
             "queries_failed": errors,
             "avg_response_time_ms": round(avg_time, 2),
@@ -730,9 +824,6 @@ class DatabaseHealthChecker:
                 round((len(times) / num_queries) * 100, 2) if num_queries > 0 else 0
             ),
         }
-
-        self.logger.info(f"Test de rendimiento completado: {results}")
-        return results
 
 
 # Funciones de utilidad global mejoradas
