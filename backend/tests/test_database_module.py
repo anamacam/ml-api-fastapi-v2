@@ -504,6 +504,7 @@ class TestVPSDatabaseConfig:
             "max_overflow debe ser menor o igual a " "pool_size"
         )
 
+    @pytest.mark.asyncio
     @pytest.mark.integration
     async def test_vps_config_optimizes_pool_size(self):
         """Test que VPSDatabaseConfig optimiza el pool size correctamente"""
